@@ -1,99 +1,27 @@
-'use client'
-
-import { useState, useEffect } from 'react';
-import { addDoc, collection, updateDoc, doc, increment, onSnapshot, query, where } from "firebase/firestore";
-import { db, auth } from '../lib/firebase';
-
-interface Task {
-  id: string;
-  title: string;
-}
+import React, { useState, useCallback } from 'react';
+import { useTasks } from '../hooks/useTasks';
+import { usePomodoro } from '../hooks/usePomodoro';
 
 export default function PomodoroTimer() {
-  const [minutes, setMinutes] = useState(25);
-  const [seconds, setSeconds] = useState(0);
-  const [isActive, setIsActive] = useState(false);
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState('');
-
-  useEffect(() => {
-    const user = auth.currentUser;
-    if (user) {
-      const unsubscribe = onSnapshot(
-        query(collection(db, "tasks"), where("userId", "==", user.uid), where("completed", "==", false)),
-        (querySnapshot) => {
-          const taskList: Task[] = [];
-          querySnapshot.forEach((doc) => {
-            taskList.push({ id: doc.id, ...doc.data() } as Task);
-          });
-          setTasks(taskList);
-        }
-      );
-      return () => unsubscribe();
+  const { tasks, loading, error, incrementPomodoroSession } = useTasks();
+  
+  const handlePomodoroComplete = useCallback(() => {
+    if (selectedTaskId) {
+      incrementPomodoroSession(selectedTaskId, 25);
     }
-  }, []);
+  }, [selectedTaskId, incrementPomodoroSession]);
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    if (isActive) {
-      interval = setInterval(() => {
-        if (seconds > 0) {
-          setSeconds(seconds - 1);
-        }
-        if (seconds === 0) {
-          if (minutes === 0) {
-            clearInterval(interval!);
-            setIsActive(false);
-            onPomodoroComplete();
-          } else {
-            setMinutes(minutes - 1);
-            setSeconds(59);
-          }
-        }
-      }, 1000);
-    } else if (!isActive && seconds !== 0) {
-      clearInterval(interval!);
-    }
-    return () => clearInterval(interval!);
-  }, [isActive, minutes, seconds]);
+  const { 
+    minutes, 
+    seconds, 
+    isActive, 
+    toggleTimer, 
+    resetTimer 
+  } = usePomodoro(25, handlePomodoroComplete);
 
-  const toggleTimer = () => {
-    if (!isActive && selectedTaskId) {
-      setIsActive(true);
-    } else {
-      setIsActive(false);
-    }
-  };
-
-  const resetTimer = () => {
-    setIsActive(false);
-    setMinutes(25);
-    setSeconds(0);
-  };
-
-  const onPomodoroComplete = async () => {
-    const user = auth.currentUser;
-    if (user && selectedTaskId) {
-      try {
-        // Add pomodoro session
-        await addDoc(collection(db, "pomodoroSessions"), {
-          userId: user.uid,
-          taskId: selectedTaskId,
-          duration: 25,
-          startTime: new Date(Date.now() - 25 * 60 * 1000),
-          endTime: new Date(),
-        });
-
-        // Update task
-        await updateDoc(doc(db, "tasks", selectedTaskId), {
-          totalPomodoroSessions: increment(1),
-          totalTimeSpent: increment(25),
-        });
-      } catch (error) {
-        console.error("Error saving pomodoro session", error);
-      }
-    }
-  };
+  if (loading) return <div>Loading tasks...</div>;
+  if (error) return <div>Error: {error.message}</div>;
 
   return (
     <div className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
