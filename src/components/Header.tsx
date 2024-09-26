@@ -2,8 +2,8 @@
 
 import React from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
-import { auth } from '../lib/firebase';
-import { signOut } from 'firebase/auth';
+import { auth, googleProvider } from '../lib/firebase';
+import { signOut, signInWithPopup } from 'firebase/auth';
 
 export default function Header() {
   const { user } = useAuth();
@@ -16,16 +16,31 @@ export default function Header() {
     }
   };
 
+  const handleSignIn = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      console.error("Error signing in with Google", error);
+    }
+  };
+
   return (
-    <header className="bg-blue-500 text-white p-4">
+    <header className="bg-[#333333] text-white p-4">
       <div className="container mx-auto flex justify-between items-center">
         <h1 className="text-2xl font-bold">Pomodoro App</h1>
-        {user && (
+        {user ? (
           <button
             onClick={handleSignOut}
-            className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+            className="bg-[#666666] hover:bg-[#1A1A1A] text-white font-bold py-2 px-4 rounded"
           >
             Sign Out
+          </button>
+        ) : (
+          <button
+            onClick={handleSignIn}
+            className="bg-[#666666] hover:bg-[#1A1A1A] text-white font-bold py-2 px-4 rounded"
+          >
+            Sign In with Google
           </button>
         )}
       </div>

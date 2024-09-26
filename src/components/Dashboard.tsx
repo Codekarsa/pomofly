@@ -6,7 +6,6 @@ import Header from './Header';
 import PomodoroTimer from './PomodoroTimer';
 import TaskList from './TaskList';
 import ProjectList from './ProjectList';
-import Login from './Login';
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
@@ -14,7 +13,7 @@ export default function Dashboard() {
   if (loading) return <div>Loading...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-[#CCCCCC]">
       <Header />
       <main className="container mx-auto px-4 py-8">
         {user ? (
@@ -31,8 +30,7 @@ export default function Dashboard() {
           <div>
             <PomodoroTimer />
             <div className="mt-8">
-              <p className="mb-4">Sign in to access task management features:</p>
-              <Login />
+              <p className="mb-4">Sign in to access task management features.</p>
             </div>
           </div>
         )}
