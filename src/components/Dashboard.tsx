@@ -50,7 +50,7 @@ export default function Dashboard() {
             </div>
           </div>
         ) : (
-          <div>
+          <div className='flex flex-col items-center justify-center'>
             <PomodoroTimer settings={settings} />
             <div className="mt-8">
               <p className="mb-4">Sign in to access task management features.</p>

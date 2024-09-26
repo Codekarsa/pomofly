@@ -27,7 +27,7 @@ export default function Header({ onSettingsClick }: { onSettingsClick: () => voi
   return (
     <header className="bg-[#333333] text-white p-4">
       <div className="container mx-auto flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Pomodoro App</h1>
+        <h1 className="text-2xl font-bold">Pomofly</h1>
         <div>
           <button
             onClick={onSettingsClick}
