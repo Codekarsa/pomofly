@@ -47,8 +47,8 @@ export default function ProjectList() {
   if (error) return <div>Error: {error.message}</div>;
 
   return (
-    <div className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-      <h2 className="text-2xl font-bold mb-4">Your Projects</h2>
+    <div className="bg-[#f2f2f2] shadow-md rounded px-8 pt-6 pb-8 mb-4">
+      <h2 className="text-2xl font-bold mb-4 text-[#1A1A1A]">Your Projects</h2>
       
       <form onSubmit={handleAddProject} className="mb-4">
         <input
@@ -56,9 +56,9 @@ export default function ProjectList() {
           value={newProjectName}
           onChange={(e) => setNewProjectName(e.target.value)}
           placeholder="New project name"
-          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+          className="shadow appearance-none border rounded w-full py-2 px-3 text-[#1A1A1A] leading-tight focus:outline-none focus:shadow-outline mb-2"
         />
-        <button type="submit" className="mt-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+        <button type="submit" className="bg-[#333333] hover:bg-[#1A1A1A] text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
           Add Project
         </button>
       </form>
@@ -72,23 +72,29 @@ export default function ProjectList() {
                   type="text"
                   value={editingProject.name}
                   onChange={(e) => setEditingProject({ ...editingProject, name: e.target.value })}
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-[#1A1A1A] leading-tight focus:outline-none focus:shadow-outline"
                 />
-                <button type="submit" className="mt-2 bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-xs">
+                <button type="submit" className="mt-2 bg-[#333333] hover:bg-[#1A1A1A] text-white font-bold py-1 px-2 rounded text-xs mr-2">
                   Save
                 </button>
-                <button type="button" onClick={() => setEditingProject(null)} className="mt-2 ml-2 bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-2 rounded text-xs">
+                <button type="button" onClick={() => setEditingProject(null)} className="mt-2 bg-[#666666] hover:bg-[#333333] text-white font-bold py-1 px-2 rounded text-xs">
                   Cancel
                 </button>
               </form>
             ) : (
               <>
-                <span>{project.name}</span>
+                <span className="text-[#1A1A1A]">{project.name}</span>
                 <div>
-                  <button onClick={() => setEditingProject({ id: project.id, name: project.name })} className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-2 rounded text-xs mr-2">
+                  <button 
+                    onClick={() => setEditingProject({ id: project.id, name: project.name })} 
+                    className="bg-[#666666] hover:bg-[#333333] text-white font-bold py-1 px-2 rounded text-xs mr-2"
+                  >
                     Edit
                   </button>
-                  <button onClick={() => handleDeleteProject(project.id)} className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-xs">
+                  <button 
+                    onClick={() => handleDeleteProject(project.id)} 
+                    className="bg-[#333333] hover:bg-[#1A1A1A] text-white font-bold py-1 px-2 rounded text-xs"
+                  >
                     Delete
                   </button>
                 </div>
