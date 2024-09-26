@@ -1,85 +1,56 @@
-'use client'
-
-import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, addDoc, updateDoc, doc } from "firebase/firestore";
-import { db, auth } from '../lib/firebase';
-
-interface Task {
-  id: string;
-  title: string;
-  projectId: string;
-  completed: boolean;
-  totalPomodoroSessions: number;
-  totalTimeSpent: number;
-}
-
-interface Project {
-  id: string;
-  name: string;
-}
+import React, { useState } from 'react';
+import { useTasks } from '../hooks/useTasks';
+import { useProjects } from '../hooks/useProjects';
 
 export default function TaskList() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [editingTask, setEditingTask] = useState<{ id: string, title: string } | null>(null);
+  
+  const { projects } = useProjects();
+  const { 
+    tasks, 
+    loading: tasksLoading, 
+    error: tasksError, 
+    addTask, 
+    updateTask,
+    toggleTaskCompletion, 
+    deleteTask 
+  } = useTasks(selectedProjectId);
 
-  useEffect(() => {
-    const user = auth.currentUser;
-    if (user) {
-      // Fetch tasks
-      const tasksQuery = query(collection(db, "tasks"), where("userId", "==", user.uid));
-      const unsubscribeTasks = onSnapshot(tasksQuery, (querySnapshot) => {
-        const taskList: Task[] = [];
-        querySnapshot.forEach((doc) => {
-          taskList.push({ id: doc.id, ...doc.data() } as Task);
-        });
-        setTasks(taskList);
-      });
-
-      // Fetch projects
-      const projectsQuery = query(collection(db, "projects"), where("userId", "==", user.uid));
-      const unsubscribeProjects = onSnapshot(projectsQuery, (querySnapshot) => {
-        const projectList: Project[] = [];
-        querySnapshot.forEach((doc) => {
-          projectList.push({ id: doc.id, ...doc.data() } as Project);
-        });
-        setProjects(projectList);
-      });
-
-      return () => {
-        unsubscribeTasks();
-        unsubscribeProjects();
-      };
-    }
-  }, []);
-
-  const addTask = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newTaskTitle.trim() && selectedProjectId && auth.currentUser) {
-      await addDoc(collection(db, "tasks"), {
-        title: newTaskTitle,
-        projectId: selectedProjectId,
-        completed: false,
-        userId: auth.currentUser.uid,
-        totalPomodoroSessions: 0,
-        totalTimeSpent: 0,
-        createdAt: new Date(),
-      });
-      setNewTaskTitle('');
+    if (newTaskTitle.trim() && selectedProjectId) {
+      try {
+        await addTask(newTaskTitle, selectedProjectId);
+        setNewTaskTitle('');
+      } catch (error) {
+        console.error("Failed to add task:", error);
+        // You might want to show an error message to the user here
+      }
     }
   };
 
-  const toggleTask = async (taskId: string, completed: boolean) => {
-    await updateDoc(doc(db, "tasks", taskId), {
-      completed: !completed,
-    });
+  const handleUpdateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingTask && editingTask.title.trim()) {
+      try {
+        await updateTask(editingTask.id, { title: editingTask.title });
+        setEditingTask(null);
+      } catch (error) {
+        console.error("Failed to update task:", error);
+        // You might want to show an error message to the user here
+      }
+    }
   };
+
+  if (tasksLoading) return <div>Loading tasks...</div>;
+  if (tasksError) return <div>Error loading tasks: {tasksError.message}</div>;
 
   return (
     <div className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
       <h2 className="text-2xl font-bold mb-4">Your Tasks</h2>
-      <form onSubmit={addTask} className="mb-4">
+      <form onSubmit={handleSubmit} className="mb-4">
         <input
           type="text"
           value={newTaskTitle}
@@ -103,17 +74,52 @@ export default function TaskList() {
       </form>
       <ul>
         {tasks.map((task) => (
-          <li key={task.id} className="mb-2 flex items-center">
-            <input
-              type="checkbox"
-              checked={task.completed}
-              onChange={() => toggleTask(task.id, task.completed)}
-              className="mr-2"
-            />
-            <span className={task.completed ? 'line-through' : ''}>{task.title}</span>
-            <span className="ml-2 text-sm text-gray-500">
-              ({task.totalPomodoroSessions} sessions, {task.totalTimeSpent} minutes)
-            </span>
+          <li key={task.id} className="mb-2 flex items-center justify-between">
+            {editingTask && editingTask.id === task.id ? (
+              <form onSubmit={handleUpdateTask} className="flex-grow mr-2">
+                <input
+                  type="text"
+                  value={editingTask.title}
+                  onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                />
+                <button type="submit" className="mt-2 bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-xs mr-2">
+                  Save
+                </button>
+                <button type="button" onClick={() => setEditingTask(null)} className="mt-2 bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-2 rounded text-xs">
+                  Cancel
+                </button>
+              </form>
+            ) : (
+              <>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={task.completed}
+                    onChange={() => toggleTaskCompletion(task.id, task.completed)}
+                    className="mr-2"
+                  />
+                  <span className={task.completed ? 'line-through' : ''}>{task.title}</span>
+                </div>
+                <div>
+                  <span className="mr-2 text-sm text-gray-500">
+                    ({task.totalPomodoroSessions} sessions, {task.totalTimeSpent} minutes)
+                  </span>
+                  <button 
+                    onClick={() => setEditingTask({ id: task.id, title: task.title })}
+                    className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-2 rounded text-xs mr-2"
+                  >
+                    Edit
+                  </button>
+                  <button 
+                    onClick={() => deleteTask(task.id)}
+                    className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-xs"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </>
+            )}
           </li>
         ))}
       </ul>
