@@ -5,8 +5,8 @@ import { AuthProvider } from './contexts/AuthContext'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'Pomodoro App',
-  description: 'A Pomodoro timer with optional task management',
+  title: 'Pomofly',
+  description: 'A Minimal Pomodoro timer with task and project management',
 }
 
 export default function RootLayout({
