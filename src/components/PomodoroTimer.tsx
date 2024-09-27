@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 'use client'
 
 import React, { useState, useCallback } from 'react';
@@ -9,7 +10,7 @@ interface PomodoroSettings {
   pomodoro: number;
   shortBreak: number;
   longBreak: number;
-  longBreakInterval: number; // Add this line
+  longBreakInterval: number;
 }
 
 interface PomodoroTimerProps {
@@ -21,9 +22,12 @@ export default function PomodoroTimer({ settings }: PomodoroTimerProps) {
   const [selectedTaskId, setSelectedTaskId] = useState('');
   const { tasks, loading, error, incrementPomodoroSession } = useTasks();
   
+  const [completedSessions, setCompletedSessions] = useState<{ date: string }[]>([]); // State to track completed sessions
+
   const handlePomodoroComplete = useCallback(() => {
     if (user && selectedTaskId) {
       incrementPomodoroSession(selectedTaskId, settings.pomodoro);
+      setCompletedSessions(prev => [...prev, { date: new Date().toISOString() }]); // Increment completed sessions
     }
     console.log('Pomodoro phase completed!');
   }, [user, selectedTaskId, incrementPomodoroSession, settings.pomodoro]);
@@ -41,12 +45,32 @@ export default function PomodoroTimer({ settings }: PomodoroTimerProps) {
   // Use a key that changes when settings change
   const timerKey = `${settings.pomodoro}-${settings.shortBreak}-${settings.longBreak}-${settings.longBreakInterval}`;
 
-  // Filter out completed tasks for the dropdown
-  const availableTasks = tasks.filter(task => !task.completed);
+  // Function to count today's completed sessions
+  const countTodaysSessions = () => {
+    const today = new Date();
+    return completedSessions.filter(session => {
+      const sessionDate = new Date(session.date);
+      return sessionDate.toLocaleDateString() === today.toLocaleDateString();
+    }).length;
+  };
+
+  // Function to handle the Done/Next button click
+  const handleDoneNext = () => {
+    if (user && selectedTaskId) {
+      incrementPomodoroSession(selectedTaskId, settings.pomodoro);
+      setCompletedSessions(prev => [...prev, { date: new Date().toISOString() }]); // Increment completed sessions
+    }
+    switchPhase(phase === 'pomodoro' ? 'shortBreak' : 'pomodoro'); // Switch to the next phase
+    resetTimer(); // Reset the timer for the next phase
+  };
 
   return (
     <div key={timerKey} className="bg-[#f2f2f2] shadow-md rounded px-8 pt-6 pb-8 mb-4">
       <h2 className="text-2xl font-bold mb-4 text-[#1A1A1A]">Pomodoro Timer</h2>
+      <div className="mb-4 text-lg text-[#1A1A1A]">
+        <span className="font-semibold">Today's Pomodoro Sessions: </span>
+        <span className="text-[#333333]">{countTodaysSessions()}</span>
+      </div>
       <div className="mb-4 flex justify-center">
         <button 
           onClick={() => switchPhase('pomodoro')} 
@@ -76,7 +100,7 @@ export default function PomodoroTimer({ settings }: PomodoroTimerProps) {
             className="shadow-sm bg-white border-gray-300 rounded-md w-full py-2 px-3 text-[#1A1A1A] leading-tight focus:outline-none focus:ring-2 focus:ring-[#333333] focus:border-[#333333] bg-[#f2f2f2] transition duration-150 ease-in-out"
           >
             <option value="">Select a task (optional)</option>
-            {availableTasks.map((task) => (
+            {tasks.filter(task => !task.completed).map((task) => (
               <option key={task.id} value={task.id}>{task.title}</option>
             ))}
           </select>
@@ -100,6 +124,14 @@ export default function PomodoroTimer({ settings }: PomodoroTimerProps) {
         >
           Reset
         </button>
+        {isActive && ( // Show Done/Next button only if the timer is active
+          <button
+            onClick={handleDoneNext}
+            className="bg-[#333333] hover:bg-[#1A1A1A] text-white font-bold py-2 px-4 rounded ml-2"
+          >
+            Done/Next
+          </button>
+        )}
       </div>
     </div>
   );
