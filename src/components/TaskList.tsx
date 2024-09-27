@@ -6,7 +6,8 @@ export default function TaskList() {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [editingTask, setEditingTask] = useState<{ id: string, title: string } | null>(null);
-  
+  const [showCompleted, setShowCompleted] = useState(false); // State for showing completed tasks
+
   const { projects } = useProjects();
   const { 
     tasks, 
@@ -26,7 +27,6 @@ export default function TaskList() {
         setNewTaskTitle('');
       } catch (error) {
         console.error("Failed to add task:", error);
-        // You might want to show an error message to the user here
       }
     }
   };
@@ -39,13 +39,14 @@ export default function TaskList() {
         setEditingTask(null);
       } catch (error) {
         console.error("Failed to update task:", error);
-        // You might want to show an error message to the user here
       }
     }
   };
 
   if (tasksLoading) return <div>Loading tasks...</div>;
   if (tasksError) return <div>Error loading tasks: {tasksError.message}</div>;
+
+  const filteredTasks = tasks.filter(task => showCompleted || !task.completed); // Filter based on showCompleted
 
   return (
     <div className="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8 mb-4 transition-all duration-300 hover:shadow-xl">
@@ -74,9 +75,29 @@ export default function TaskList() {
           </button>
         </div>
       </form>
+      <div className="flex items-center mb-4">
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            checked={showCompleted}
+            onChange={() => setShowCompleted(!showCompleted)} // Toggle completed tasks visibility
+            className="hidden" // Hide the default checkbox
+            id="showCompleted"
+          />
+          <label 
+            htmlFor="showCompleted" 
+            className="flex items-center cursor-pointer text-[#1A1A1A] transition duration-200 ease-in-out"
+          >
+            <span className={`w-5 h-5 flex items-center justify-center border-2 rounded-md ${showCompleted ? 'bg-[#333333] text-white' : 'bg-white'} transition duration-200 ease-in-out`}>
+              {showCompleted && <span className="text-xs">✔️</span>} {/* Checkmark for checked state */}
+            </span>
+            <span className="ml-2">Show completed tasks</span>
+          </label>
+        </div>
+      </div>
       <ul className="space-y-3">
-        {tasks.map((task) => (
-          <li key={task.id} className="bg-[#f2f2f2] rounded-md p-4 shadow-sm transition-all duration-200 hover:shadow-md">
+        {filteredTasks.map((task) => (
+          <li key={task.id} className={`rounded-md p-4 shadow-sm transition-all duration-200 hover:shadow-md ${task.completed ? 'bg-[#e0f7fa]' : 'bg-[#f2f2f2]'}`}>
             {editingTask && editingTask.id === task.id ? (
               <form onSubmit={handleUpdateTask} className="flex items-center space-x-2">
                 <input
@@ -101,7 +122,10 @@ export default function TaskList() {
                     onChange={() => toggleTaskCompletion(task.id, task.completed)}
                     className="h-5 w-5 text-[#333333] focus:ring-[#333333] border-gray-300 rounded"
                   />
-                  <span className={`${task.completed ? 'line-through text-[#666666]' : 'text-[#1A1A1A]'} text-lg`}>{task.title}</span>
+                  <span className={`${task.completed ? 'line-through text-[#666666]' : 'text-[#1A1A1A]'} text-lg`}>
+                    {task.title}
+                    {task.completed && <span className="ml-2 text-green-500">✔️</span>} {/* Checkmark for completed tasks */}
+                  </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-[#666666]">
