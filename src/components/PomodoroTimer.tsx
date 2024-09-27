@@ -44,7 +44,7 @@ export default function PomodoroTimer({ settings }: PomodoroTimerProps) {
   return (
     <div key={timerKey} className="bg-[#f2f2f2] shadow-md rounded px-8 pt-6 pb-8 mb-4">
       <h2 className="text-2xl font-bold mb-4 text-[#1A1A1A]">Pomodoro Timer</h2>
-      <div className="mb-4">
+      <div className="mb-4 flex justify-center">
         <button 
           onClick={() => switchPhase('pomodoro')} 
           className={`mr-2 ${phase === 'pomodoro' ? 'bg-[#333333] text-white' : 'bg-[#CCCCCC]'} px-4 py-2 rounded`}
@@ -67,9 +67,10 @@ export default function PomodoroTimer({ settings }: PomodoroTimerProps) {
       {user && !loading && !error && (
         <div className="mb-4">
           <select
+            id="taskSelect"
             value={selectedTaskId}
             onChange={(e) => setSelectedTaskId(e.target.value)}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-[#1A1A1A] leading-tight focus:outline-none focus:shadow-outline"
+            className="shadow-sm bg-white border-gray-300 rounded-md w-full py-2 px-3 text-[#1A1A1A] leading-tight focus:outline-none focus:ring-2 focus:ring-[#333333] focus:border-[#333333] bg-[#f2f2f2] transition duration-150 ease-in-out"
           >
             <option value="">Select a task (optional)</option>
             {tasks.map((task) => (
