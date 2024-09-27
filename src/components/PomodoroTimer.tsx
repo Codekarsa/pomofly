@@ -41,6 +41,9 @@ export default function PomodoroTimer({ settings }: PomodoroTimerProps) {
   // Use a key that changes when settings change
   const timerKey = `${settings.pomodoro}-${settings.shortBreak}-${settings.longBreak}-${settings.longBreakInterval}`;
 
+  // Filter out completed tasks for the dropdown
+  const availableTasks = tasks.filter(task => !task.completed);
+
   return (
     <div key={timerKey} className="bg-[#f2f2f2] shadow-md rounded px-8 pt-6 pb-8 mb-4">
       <h2 className="text-2xl font-bold mb-4 text-[#1A1A1A]">Pomodoro Timer</h2>
@@ -73,7 +76,7 @@ export default function PomodoroTimer({ settings }: PomodoroTimerProps) {
             className="shadow-sm bg-white border-gray-300 rounded-md w-full py-2 px-3 text-[#1A1A1A] leading-tight focus:outline-none focus:ring-2 focus:ring-[#333333] focus:border-[#333333] bg-[#f2f2f2] transition duration-150 ease-in-out"
           >
             <option value="">Select a task (optional)</option>
-            {tasks.map((task) => (
+            {availableTasks.map((task) => (
               <option key={task.id} value={task.id}>{task.title}</option>
             ))}
           </select>
