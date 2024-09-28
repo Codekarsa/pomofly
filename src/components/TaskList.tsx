@@ -9,6 +9,8 @@ export default function TaskList() {
   const [editingTask, setEditingTask] = useState<{ id: string, title: string, estimatedPomodoros?: number } | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
   const [visibleOptions, setVisibleOptions] = useState<{ [key: string]: boolean }>({}); // State to manage visibility of pop-up menu
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isDropdownActive, setIsDropdownActive] = useState(false); // State to manage dropdown visibility
 
   const { projects } = useProjects();
   const { 
@@ -20,6 +22,12 @@ export default function TaskList() {
     toggleTaskCompletion, 
     deleteTask 
   } = useTasks(selectedProjectId);
+
+  const filteredProjects = searchTerm
+    ? projects.filter(project =>
+        project.name.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : projects; // Show all options if no text
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,7 +68,8 @@ export default function TaskList() {
     <div className="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8 mb-4 transition-all duration-300 hover:shadow-xl">
       <h2 className="text-2xl font-bold mb-6 text-[#1A1A1A] border-b pb-2">Your Tasks</h2>
       <form onSubmit={handleSubmit} className="mb-6">
-        <div className="flex items-center space-x-2">
+        {/* First Row: New Task Title */}
+        <div className="flex items-center mb-2"> {/* Margin bottom for spacing */}
           <input
             type="text"
             value={newTaskTitle}
@@ -68,28 +77,64 @@ export default function TaskList() {
             placeholder="New task title"
             className="flex-grow shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
           />
+        </div>
+        {/* Second Row: Estimated Pomodoros and Project Selection */}
+        <div className="flex items-center justify-between w-full"> {/* Full width div for the inputs */}
           <input
             type="number"
             value={estimatedPomodoros}
             onChange={(e) => setEstimatedPomodoros(e.target.value ? parseInt(e.target.value) : undefined)}
             placeholder="Estimated Pomodoros"
-            className="shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
+            className="shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333] w-1/3" // Adjust width as needed
           />
-        </div>
-        <div className="flex items-center space-x-2 mt-2"> {/* New div for the button */}
-          <select
-            value={selectedProjectId}
-            onChange={(e) => setSelectedProjectId(e.target.value)}
-            className="flex-grow shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
-          >
-            <option value="">Select a project</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>{project.name}</option>
-            ))}
-          </select>
-          <button type="submit" className="bg-[#333333] hover:bg-[#1A1A1A] text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out transform hover:scale-105">
-            Add Task
-          </button>
+          <div className="relative w-2/5"> {/* Wrap in a relative div for positioning */}
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Select a project"
+              className="shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333] w-full pr-10" // Increased width and padding right for the icon
+              onFocus={() => setIsDropdownActive(true)} // Show dropdown on focus
+              onBlur={() => setIsDropdownActive(false)} // Hide dropdown on blur
+            />
+            <span className="absolute right-3 top-2.5 text-[#1A1A1A]"> {/* Position the icon */}
+              {/* Down Arrow Icon (SVG) */}
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </span>
+            {isDropdownActive && filteredProjects.length > 0 && (
+              <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 max-h-60 overflow-y-auto">
+                {filteredProjects.map((project) => (
+                  <li
+                    key={project.id}
+                    onClick={() => {
+                      setSelectedProjectId(project.id);
+                      setSearchTerm('');
+                      setIsDropdownActive(false); // Hide dropdown after selection
+                    }}
+                    className="cursor-pointer hover:bg-gray-100 px-3 py-2 text-[#1A1A1A]"
+                  >
+                    {project.name}
+                  </li>
+                ))}
+                <li
+                  onClick={() => {
+                    // Handle adding a new project
+                    console.log("Add Project clicked");
+                  }}
+                  className="cursor-pointer hover:bg-gray-100 px-3 py-2 text-[#1A1A1A]"
+                >
+                  Add Project
+                </li>
+              </ul>
+            )}
+          </div>
+          <div className="flex justify-end"> {/* Align Add Task button to the right */}
+            <button className="bg-[#333333] hover:bg-[#1A1A1A] text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out">
+              Add Task
+            </button>
+          </div>
         </div>
       </form>
       <div className="flex items-center mb-4">
