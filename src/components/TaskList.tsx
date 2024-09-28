@@ -4,9 +4,11 @@ import { useProjects } from '../hooks/useProjects';
 
 export default function TaskList() {
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [estimatedPomodoros, setEstimatedPomodoros] = useState<number | undefined>(undefined);
   const [selectedProjectId, setSelectedProjectId] = useState('');
-  const [editingTask, setEditingTask] = useState<{ id: string, title: string } | null>(null);
-  const [showCompleted, setShowCompleted] = useState(false); // State for showing completed tasks
+  const [editingTask, setEditingTask] = useState<{ id: string, title: string, estimatedPomodoros?: number } | null>(null);
+  const [showCompleted, setShowCompleted] = useState(false);
+  const [visibleOptions, setVisibleOptions] = useState<{ [key: string]: boolean }>({}); // State to manage visibility of pop-up menu
 
   const { projects } = useProjects();
   const { 
@@ -14,7 +16,7 @@ export default function TaskList() {
     loading: tasksLoading, 
     error: tasksError, 
     addTask, 
-    updateTask,
+    updateTask, 
     toggleTaskCompletion, 
     deleteTask 
   } = useTasks(selectedProjectId);
@@ -23,8 +25,9 @@ export default function TaskList() {
     e.preventDefault();
     if (newTaskTitle.trim() && selectedProjectId) {
       try {
-        await addTask(newTaskTitle, selectedProjectId);
+        await addTask(newTaskTitle, selectedProjectId, estimatedPomodoros);
         setNewTaskTitle('');
+        setEstimatedPomodoros(undefined);
       } catch (error) {
         console.error("Failed to add task:", error);
       }
@@ -35,18 +38,23 @@ export default function TaskList() {
     e.preventDefault();
     if (editingTask && editingTask.title.trim()) {
       try {
-        await updateTask(editingTask.id, { title: editingTask.title });
+        await updateTask(editingTask.id, { title: editingTask.title, estimatedPomodoros: editingTask.estimatedPomodoros });
         setEditingTask(null);
+        setEstimatedPomodoros(undefined);
       } catch (error) {
         console.error("Failed to update task:", error);
       }
     }
   };
 
+  const toggleOptionsVisibility = (taskId: string) => {
+    setVisibleOptions(prev => ({ ...prev, [taskId]: !prev[taskId] }));
+  };
+
   if (tasksLoading) return <div>Loading tasks...</div>;
   if (tasksError) return <div>Error loading tasks: {tasksError.message}</div>;
 
-  const filteredTasks = tasks.filter(task => showCompleted || !task.completed); // Filter based on showCompleted
+  const filteredTasks = tasks.filter(task => showCompleted || !task.completed);
 
   return (
     <div className="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8 mb-4 transition-all duration-300 hover:shadow-xl">
@@ -60,10 +68,19 @@ export default function TaskList() {
             placeholder="New task title"
             className="flex-grow shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
           />
+          <input
+            type="number"
+            value={estimatedPomodoros}
+            onChange={(e) => setEstimatedPomodoros(e.target.value ? parseInt(e.target.value) : undefined)}
+            placeholder="Estimated Pomodoros"
+            className="shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
+          />
+        </div>
+        <div className="flex items-center space-x-2 mt-2"> {/* New div for the button */}
           <select
             value={selectedProjectId}
             onChange={(e) => setSelectedProjectId(e.target.value)}
-            className="shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
+            className="flex-grow shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
           >
             <option value="">Select a project</option>
             {projects.map((project) => (
@@ -80,8 +97,8 @@ export default function TaskList() {
           <input
             type="checkbox"
             checked={showCompleted}
-            onChange={() => setShowCompleted(!showCompleted)} // Toggle completed tasks visibility
-            className="hidden" // Hide the default checkbox
+            onChange={() => setShowCompleted(!showCompleted)}
+            className="hidden"
             id="showCompleted"
           />
           <label 
@@ -89,7 +106,7 @@ export default function TaskList() {
             className="flex items-center cursor-pointer text-[#1A1A1A] transition duration-200 ease-in-out"
           >
             <span className={`w-5 h-5 flex items-center justify-center border-2 rounded-md ${showCompleted ? 'bg-[#333333] text-white' : 'bg-white'} transition duration-200 ease-in-out`}>
-              {showCompleted && <span className="text-xs">✔️</span>} {/* Checkmark for checked state */}
+              {showCompleted && <span className="text-xs">✔️</span>}
             </span>
             <span className="ml-2">Show completed tasks</span>
           </label>
@@ -98,21 +115,32 @@ export default function TaskList() {
       <ul className="space-y-3">
         {filteredTasks.map((task) => (
           <li key={task.id} className={`rounded-md p-4 shadow-sm transition-all duration-200 hover:shadow-md ${task.completed ? 'bg-[#e0f7fa]' : 'bg-[#f2f2f2]'}`}>
+            {/* Check if the task is being edited */}
             {editingTask && editingTask.id === task.id ? (
-              <form onSubmit={handleUpdateTask} className="flex items-center space-x-2">
-                <input
-                  type="text"
-                  value={editingTask.title}
-                  onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
-                  className="flex-grow shadow-sm border-gray-300 rounded-md py-1 px-2 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
-                />
-                <button type="submit" className="bg-[#333333] hover:bg-[#1A1A1A] text-white font-bold py-1 px-2 rounded-md text-sm transition duration-150 ease-in-out">
-                  Save
-                </button>
-                <button type="button" onClick={() => setEditingTask(null)} className="bg-[#666666] hover:bg-[#333333] text-white font-bold py-1 px-2 rounded-md text-sm transition duration-150 ease-in-out">
-                  Cancel
-                </button>
-              </form>
+              <div className="flex flex-col space-y-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={editingTask.title}
+                    onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
+                    className="flex-grow shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
+                  />
+                  <input
+                    type="number"
+                    value={editingTask.estimatedPomodoros}
+                    onChange={(e) => setEditingTask({ ...editingTask, estimatedPomodoros: e.target.value ? parseInt(e.target.value) : undefined })}
+                    className="shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
+                  />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button type="submit" onClick={handleUpdateTask} className="bg-[#333333] hover:bg-[#1A1A1A] text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out">
+                    Save
+                  </button>
+                  <button type="button" onClick={() => setEditingTask(null)} className="bg-[#666666] hover:bg-[#333333] text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out">
+                    Cancel
+                  </button>
+                </div>
+              </div>
             ) : (
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -124,25 +152,43 @@ export default function TaskList() {
                   />
                   <span className={`${task.completed ? 'line-through text-[#666666]' : 'text-[#1A1A1A]'} text-lg`}>
                     {task.title}
-                    {task.completed && <span className="ml-2 text-green-500">✔️</span>} {/* Checkmark for completed tasks */}
+                    {task.completed && <span className="ml-2 text-green-500">✔️</span>}
+                  </span>
+                  <span className="text-sm text-[#666666]">
+                    {task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0} sessions
                   </span>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-[#666666]">
-                    {task.totalPomodoroSessions} sessions, {task.totalTimeSpent} minutes
-                  </span>
+                <div className="relative">
                   <button 
-                    onClick={() => setEditingTask({ id: task.id, title: task.title })}
+                    onClick={() => toggleOptionsVisibility(task.id)} 
                     className="text-[#333333] hover:text-[#1A1A1A] font-medium text-sm"
                   >
-                    Edit
+                    &#x2026; {/* Three dots icon */}
                   </button>
-                  <button 
-                    onClick={() => deleteTask(task.id)}
-                    className="text-[#333333] hover:text-[#1A1A1A] font-medium text-sm"
-                  >
-                    Delete
-                  </button>
+                  {visibleOptions[task.id] && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-300 rounded-md shadow-lg z-10">
+                      <div className="py-1">
+                        <button 
+                          onClick={() => {
+                            setEditingTask({ id: task.id, title: task.title, estimatedPomodoros: task.estimatedPomodoros });
+                            setVisibleOptions(prev => ({ ...prev, [task.id]: false })); // Hide options after selecting edit
+                          }}
+                          className="block px-4 py-2 text-sm text-[#333333] hover:bg-gray-100 w-full text-left"
+                        >
+                          Edit
+                        </button>
+                        <button 
+                          onClick={() => {
+                            deleteTask(task.id);
+                            setVisibleOptions(prev => ({ ...prev, [task.id]: false })); // Hide options after deleting
+                          }}
+                          className="block px-4 py-2 text-sm text-[#333333] hover:bg-gray-100 w-full text-left"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

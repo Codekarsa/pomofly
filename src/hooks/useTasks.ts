@@ -11,6 +11,8 @@ export interface Task {
   totalPomodoroSessions: number;
   totalTimeSpent: number;
   createdAt: Date;
+  estimatedPomodoros?: number;
+  archived?: boolean;
 }
 
 export function useTasks(projectId?: string) {
@@ -52,7 +54,7 @@ export function useTasks(projectId?: string) {
     return () => unsubscribe();
   }, [projectId]);
 
-  const addTask = useCallback(async (title: string, projectId: string) => {
+  const addTask = useCallback(async (title: string, projectId: string, estimatedPomodoros?: number) => {
     const user = auth.currentUser;
     if (!user) throw new Error('User not authenticated');
 
@@ -64,7 +66,8 @@ export function useTasks(projectId?: string) {
         completed: false,
         totalPomodoroSessions: 0,
         totalTimeSpent: 0,
-        createdAt: new Date()
+        createdAt: new Date(),
+        estimatedPomodoros // Include estimatedPomodoros
       };
       const docRef = await addDoc(collection(db, "tasks"), newTask);
       return docRef.id;
@@ -115,6 +118,15 @@ export function useTasks(projectId?: string) {
     }
   }, []);
 
+  const archiveTask = useCallback(async (id: string) => {
+    try {
+      await updateDoc(doc(db, "tasks", id), { archived: true });
+    } catch (err) {
+      console.error("Error archiving task:", err);
+      throw err;
+    }
+  }, []);
+
   return { 
     tasks, 
     loading, 
@@ -123,6 +135,7 @@ export function useTasks(projectId?: string) {
     updateTask, 
     deleteTask, 
     toggleTaskCompletion, 
-    incrementPomodoroSession 
+    incrementPomodoroSession, 
+    archiveTask 
   };
 }
