@@ -140,7 +140,7 @@ export default function PomodoroTimer({ settings }: PomodoroTimerProps) {
           Long Break
         </button>
       </div>
-      <div className="text-6xl font-bold mb-4 text-[#1A1A1A] text-center py-6">
+      <div className="text-8xl font-bold mb-4 text-[#1A1A1A] text-center py-6">
         {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
       </div>
       <div className="flex justify-center mb-4">
