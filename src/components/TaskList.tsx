@@ -8,9 +8,9 @@ export default function TaskList() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [editingTask, setEditingTask] = useState<{ id: string, title: string, estimatedPomodoros?: number } | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
-  const [visibleOptions, setVisibleOptions] = useState<{ [key: string]: boolean }>({}); // State to manage visibility of pop-up menu
+  const [visibleOptions, setVisibleOptions] = useState<{ [key: string]: boolean }>({});
   const [searchTerm, setSearchTerm] = useState('');
-  const [isDropdownActive, setIsDropdownActive] = useState(false); // State to manage dropdown visibility
+  const [isDropdownActive, setIsDropdownActive] = useState(false);
 
   const { projects } = useProjects();
   const { 
@@ -22,12 +22,6 @@ export default function TaskList() {
     toggleTaskCompletion, 
     deleteTask 
   } = useTasks(selectedProjectId);
-
-  const filteredProjects = searchTerm
-    ? projects.filter(project =>
-        project.name.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : projects; // Show all options if no text
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +63,7 @@ export default function TaskList() {
       <h2 className="text-2xl font-bold mb-6 text-[#1A1A1A] border-b pb-2">Your Tasks</h2>
       <form onSubmit={handleSubmit} className="mb-6">
         {/* First Row: New Task Title */}
-        <div className="flex items-center mb-2"> {/* Margin bottom for spacing */}
+        <div className="flex items-center mb-2">
           <input
             type="text"
             value={newTaskTitle}
@@ -79,60 +73,61 @@ export default function TaskList() {
           />
         </div>
         {/* Second Row: Estimated Pomodoros and Project Selection */}
-        <div className="flex items-center justify-between w-full"> {/* Full width div for the inputs */}
+        <div className="flex items-center justify-between w-full">
           <input
             type="number"
             value={estimatedPomodoros}
             onChange={(e) => setEstimatedPomodoros(e.target.value ? parseInt(e.target.value) : undefined)}
             placeholder="Estimated Pomodoros"
-            className="shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333] w-1/3" // Adjust width as needed
+            className="shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333] w-1/3"
           />
-          <div className="relative w-2/5"> {/* Wrap in a relative div for positioning */}
+          <div className="relative w-2/5">
             <input
               type="text"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                if (e.target.value === '') {
+                  setSelectedProjectId(''); // Clear selected project when input is empty
+                }
+              }}
               placeholder="Select a project"
-              className="shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333] w-full pr-10" // Increased width and padding right for the icon
-              onFocus={() => setIsDropdownActive(true)} // Show dropdown on focus
-              onBlur={() => setIsDropdownActive(false)} // Hide dropdown on blur
+              className="shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333] w-full pr-10"
+              onFocus={() => setIsDropdownActive(true)}
+              onBlur={() => {
+                setTimeout(() => {
+                  setIsDropdownActive(false);
+                }, 100);
+              }}
             />
-            <span className="absolute right-3 top-2.5 text-[#1A1A1A]"> {/* Position the icon */}
-              {/* Down Arrow Icon (SVG) */}
+            <span className="absolute right-3 top-2.5 text-[#1A1A1A]">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </span>
-            {isDropdownActive && filteredProjects.length > 0 && (
+            {isDropdownActive && (
               <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 max-h-60 overflow-y-auto">
-                {filteredProjects.map((project) => (
+                {projects.filter(project => 
+                  searchTerm === '' || project.name.toLowerCase().includes(searchTerm.toLowerCase())
+                ).map((project) => (
                   <li
                     key={project.id}
                     onClick={() => {
                       setSelectedProjectId(project.id);
-                      setSearchTerm('');
-                      setIsDropdownActive(false); // Hide dropdown after selection
+                      setSearchTerm(project.name);
+                      setIsDropdownActive(false);
                     }}
                     className="cursor-pointer hover:bg-gray-100 px-3 py-2 text-[#1A1A1A]"
                   >
                     {project.name}
                   </li>
                 ))}
-                <li
-                  onClick={() => {
-                    // Handle adding a new project
-                    console.log("Add Project clicked");
-                  }}
-                  className="cursor-pointer hover:bg-gray-100 px-3 py-2 text-[#1A1A1A]"
-                >
-                  Add Project
-                </li>
               </ul>
             )}
           </div>
-          <div className="flex justify-end"> {/* Align Add Task button to the right */}
+          <div className="flex justify-end">
             <button className="bg-[#333333] hover:bg-[#1A1A1A] text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out">
-              Add Task
+            Add Task
             </button>
           </div>
         </div>
