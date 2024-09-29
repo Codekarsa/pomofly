@@ -11,6 +11,8 @@ export default function TaskList() {
   const [visibleOptions, setVisibleOptions] = useState<{ [key: string]: boolean }>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [isDropdownActive, setIsDropdownActive] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0); // Track the current page
+  const itemsPerPage = 2; // Number of items to display per page
 
   const { projects } = useProjects();
   const { 
@@ -57,6 +59,13 @@ export default function TaskList() {
   if (tasksError) return <div>Error loading tasks: {tasksError.message}</div>;
 
   const filteredTasks = tasks.filter(task => showCompleted || !task.completed);
+  const displayedTasks = filteredTasks.slice(0, (currentPage + 1) * itemsPerPage); // Get tasks for the current page
+
+  const loadMoreTasks = () => {
+    if ((currentPage + 1) * itemsPerPage < filteredTasks.length) {
+      setCurrentPage(prevPage => prevPage + 1); // Load the next page
+    }
+  };
 
   return (
     <div className="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8 mb-4 transition-all duration-300 hover:shadow-xl">
@@ -127,7 +136,7 @@ export default function TaskList() {
           </div>
           <div className="flex justify-end">
             <button className="bg-[#333333] hover:bg-[#1A1A1A] text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out">
-            Add Task
+              Add Task
             </button>
           </div>
         </div>
@@ -153,7 +162,7 @@ export default function TaskList() {
         </div>
       </div>
       <ul className="space-y-3">
-        {filteredTasks.map((task) => (
+        {displayedTasks.map((task) => (
           <li key={task.id} className={`rounded-md p-4 shadow-sm transition-all duration-200 hover:shadow-md ${task.completed ? 'bg-[#e0f7fa]' : 'bg-[#f2f2f2]'}`}>
             {/* Check if the task is being edited */}
             {editingTask && editingTask.id === task.id ? (
@@ -235,6 +244,17 @@ export default function TaskList() {
           </li>
         ))}
       </ul>
+      {/* Load More Button */}
+      {displayedTasks.length < filteredTasks.length && (
+        <div className="flex justify-center mt-4">
+          <button 
+            onClick={loadMoreTasks} 
+            className="bg-[#333333] hover:bg-[#1A1A1A] text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out"
+          >
+            Load More
+          </button>
+        </div>
+      )}
     </div>
   );
 }
