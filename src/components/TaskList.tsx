@@ -69,7 +69,7 @@ export default function TaskList() {
             value={newTaskTitle}
             onChange={(e) => setNewTaskTitle(e.target.value)}
             placeholder="New task title"
-            className="flex-grow shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
+            className="flex-grow shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
           />
         </div>
         {/* Second Row: Estimated Pomodoros and Project Selection */}
@@ -79,7 +79,7 @@ export default function TaskList() {
             value={estimatedPomodoros}
             onChange={(e) => setEstimatedPomodoros(e.target.value ? parseInt(e.target.value) : undefined)}
             placeholder="Estimated Pomodoros"
-            className="shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333] w-1/3"
+            className="shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#333333] focus:border-[#333333] w-1/3"
           />
           <div className="relative w-2/5">
             <input
@@ -92,7 +92,7 @@ export default function TaskList() {
                 }
               }}
               placeholder="Select a project"
-              className="shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333] w-full pr-10"
+              className="shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#333333] focus:border-[#333333] w-full pr-10"
               onFocus={() => setIsDropdownActive(true)}
               onBlur={() => {
                 setTimeout(() => {
@@ -100,7 +100,7 @@ export default function TaskList() {
                 }, 100);
               }}
             />
-            <span className="absolute right-3 top-2.5 text-[#1A1A1A]">
+            <span className="absolute right-3 top-2.5 text-[#1A1A1A] ">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
@@ -163,13 +163,13 @@ export default function TaskList() {
                     type="text"
                     value={editingTask.title}
                     onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
-                    className="flex-grow shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
+                    className="flex-grow shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
                   />
                   <input
                     type="number"
                     value={editingTask.estimatedPomodoros}
                     onChange={(e) => setEditingTask({ ...editingTask, estimatedPomodoros: e.target.value ? parseInt(e.target.value) : undefined })}
-                    className="shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
+                    className="shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
                   />
                 </div>
                 <div className="flex items-center space-x-2">
