@@ -145,7 +145,7 @@ export default function TaskList() {
             htmlFor="showCompleted" 
             className="flex items-center cursor-pointer text-[#1A1A1A] transition duration-200 ease-in-out"
           >
-            <span className={`w-5 h-5 flex items-center justify-center border-2 rounded-md ${showCompleted ? 'bg-[#333333] text-white' : 'bg-white'} transition duration-200 ease-in-out`}>
+            <span className={`w-5 h-5 flex items-center justify-center border-2 rounded-md ${showCompleted ? 'bg-[#f2f2f2] text-white' : 'bg-white'} transition duration-200 ease-in-out`}>
               {showCompleted && <span className="text-xs">✔️</span>}
             </span>
             <span className="ml-2">Show completed tasks</span>
@@ -188,7 +188,7 @@ export default function TaskList() {
                     type="checkbox"
                     checked={task.completed}
                     onChange={() => toggleTaskCompletion(task.id, task.completed)}
-                    className="h-5 w-5 text-[#333333] focus:ring-[#333333] border-gray-300 rounded"
+                    className="h-5 w-5 min-w-5 text-[#333333] focus:ring-[#333333] border-gray-300 rounded"
                   />
                   <span className={`${task.completed ? 'line-through text-[#666666]' : 'text-[#1A1A1A]'} text-lg`}>
                     {task.title}

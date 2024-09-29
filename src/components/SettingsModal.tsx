@@ -46,7 +46,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
                 name="pomodoro"
                 value={localSettings.pomodoro}
                 onChange={handleChange}
-                className="mt-1 text-[#1A1A1A] block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                className="mt-1 text-[#1A1A1A] block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2"
               />
             </div>
             <div>
@@ -57,7 +57,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
                 name="shortBreak"
                 value={localSettings.shortBreak}
                 onChange={handleChange}
-                className="mt-1 text-[#1A1A1A] block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                className="mt-1 text-[#1A1A1A] block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2"
               />
             </div>
             <div>
@@ -68,7 +68,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
                 name="longBreak"
                 value={localSettings.longBreak}
                 onChange={handleChange}
-                className="mt-1 text-[#1A1A1A] block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                className="mt-1 text-[#1A1A1A] block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2"
               />
             </div>
             <div>
@@ -79,13 +79,13 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
                 name="longBreakInterval"
                 value={localSettings.longBreakInterval}
                 onChange={handleChange}
-                className="mt-1 text-[#1A1A1A] block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                className="mt-1 text-[#1A1A1A] block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2"
               />
             </div>
           </div>
           <div className="mt-4 flex justify-end">
             <button type="button" onClick={onClose} className="mr-2 px-4 py-2 bg-gray-200 text-gray-800 rounded">Cancel</button>
-            <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded">Save</button>
+            <button type="submit" className="px-4 py-2 bg-[#333333] text-white rounded">Save</button>
           </div>
         </form>
       </div>

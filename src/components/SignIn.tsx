@@ -16,7 +16,7 @@ export default function SignIn() {
     <div className="flex justify-center items-center h-screen bg-gray-100">
       <button
         onClick={signInWithGoogle}
-        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+        className="bg-[#666666] hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
       >
         Sign In with Google
       </button>
