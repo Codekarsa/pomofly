@@ -5,6 +5,10 @@ export default function ProjectList() {
   const { projects, loading, error, addProject, updateProject, deleteProject } = useProjects();
   const [newProjectName, setNewProjectName] = useState('');
   const [editingProject, setEditingProject] = useState<{ id: string, name: string } | null>(null);
+  
+  // State for infinite paging
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 4; // Number of items to display per page
 
   const handleAddProject = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -14,7 +18,6 @@ export default function ProjectList() {
         setNewProjectName('');
       } catch (err) {
         console.error("Failed to add project:", err);
-        // You might want to show an error message to the user here
       }
     }
   };
@@ -27,7 +30,6 @@ export default function ProjectList() {
         setEditingProject(null);
       } catch (err) {
         console.error("Failed to update project:", err);
-        // You might want to show an error message to the user here
       }
     }
   };
@@ -38,13 +40,21 @@ export default function ProjectList() {
         await deleteProject(id);
       } catch (err) {
         console.error("Failed to delete project:", err);
-        // You might want to show an error message to the user here
       }
     }
   };
 
   if (loading) return <div>Loading projects...</div>;
   if (error) return <div>Error: {error.message}</div>;
+
+  // Filtered projects for pagination
+  const displayedProjects = projects.slice(0, (currentPage + 1) * itemsPerPage); // Get projects for the current page
+
+  const loadMoreProjects = () => {
+    if ((currentPage + 1) * itemsPerPage < projects.length) {
+      setCurrentPage(prevPage => prevPage + 1); // Load the next page
+    }
+  };
 
   return (
     <div className="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8 mb-4 transition-all duration-300 hover:shadow-xl">
@@ -66,7 +76,7 @@ export default function ProjectList() {
       </form>
 
       <ul className="space-y-3">
-        {projects.map((project) => (
+        {displayedProjects.map((project) => (
           <li key={project.id} className="bg-[#f2f2f2] rounded-md p-4 shadow-sm transition-all duration-200 hover:shadow-md">
             {editingProject && editingProject.id === project.id ? (
               <form onSubmit={handleUpdateProject} className="flex items-center space-x-2">
@@ -107,6 +117,17 @@ export default function ProjectList() {
           </li>
         ))}
       </ul>
+      {/* Load More Button */}
+      {displayedProjects.length < projects.length && (
+        <div className="flex justify-center mt-4">
+          <button 
+            onClick={loadMoreProjects} 
+            className="bg-[#333333] hover:bg-[#1A1A1A] text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out"
+          >
+            Load More
+          </button>
+        </div>
+      )}
     </div>
   );
 }

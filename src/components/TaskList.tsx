@@ -12,7 +12,7 @@ export default function TaskList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDropdownActive, setIsDropdownActive] = useState(false);
   const [currentPage, setCurrentPage] = useState(0); // Track the current page
-  const itemsPerPage = 2; // Number of items to display per page
+  const itemsPerPage = 4; // Number of items to display per page
 
   const { projects } = useProjects();
   const { 
