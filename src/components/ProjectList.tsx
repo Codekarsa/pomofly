@@ -57,7 +57,7 @@ export default function ProjectList() {
             value={newProjectName}
             onChange={(e) => setNewProjectName(e.target.value)}
             placeholder="New project name"
-            className="flex-grow shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
+            className="flex-grow shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
           />
           <button type="submit" className="bg-[#333333] hover:bg-[#1A1A1A] text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out transform hover:scale-105">
             Add Project
@@ -74,7 +74,7 @@ export default function ProjectList() {
                   type="text"
                   value={editingProject.name}
                   onChange={(e) => setEditingProject({ ...editingProject, name: e.target.value })}
-                  className="flex-grow shadow-sm border-gray-300 rounded-md py-1 px-2 text-[#1A1A1A] focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
+                  className="flex-grow shadow-sm border-gray-300 rounded-md py-1 px-2 text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
                 />
                 <button type="submit" className="bg-[#333333] hover:bg-[#1A1A1A] text-white font-bold py-1 px-2 rounded-md text-sm transition duration-150 ease-in-out">
                   Save
