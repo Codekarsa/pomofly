@@ -75,22 +75,24 @@ export default function PomodoroTimer({ settings }: PomodoroTimerProps) {
         <span className="font-semibold">Today's Pomodoro Sessions: </span>
         <span className="text-[#333333]">{countTodaysSessions()}</span>
       </div>
-      <div className="mb-1 relative"> {/* Added relative positioning for the icon */}
-        <input
-          type="text"
-          placeholder="Search tasks..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          onFocus={() => setIsDropdownOpen(true)} // Open dropdown on focus
-          onBlur={() => setTimeout(() => setIsDropdownOpen(false), 100)} // Close dropdown after a short delay
-          className="shadow-sm bg-white border-gray-300 rounded-md w-full py-2 px-3 text-[#1A1A1A] leading-tight focus:outline-none focus:ring-2 focus:ring-[#333333] focus:border-[#333333] transition duration-150 ease-in-out"
-        />
-        <span className="absolute right-3 top-2.5 text-[#1A1A1A]"> {/* Positioning the icon */}
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </span>
-      </div>
+      {user && !loading && !error && (
+        <div className="mb-1 relative"> {/* Added relative positioning for the icon */}
+          <input
+            type="text"
+            placeholder="Search tasks..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onFocus={() => setIsDropdownOpen(true)} // Open dropdown on focus
+            onBlur={() => setTimeout(() => setIsDropdownOpen(false), 100)} // Close dropdown after a short delay
+            className="shadow-sm bg-white border-gray-300 rounded-md w-full py-2 px-3 text-[#1A1A1A] leading-tight focus:outline-none focus:ring-2 focus:ring-[#333333] focus:border-[#333333] transition duration-150 ease-in-out"
+          />
+          <span className="absolute right-3 top-2.5 text-[#1A1A1A]"> {/* Positioning the icon */}
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </span>
+        </div>
+      )}
       {user && !loading && !error && (
         <div className="relative mb-4">
           <div>
