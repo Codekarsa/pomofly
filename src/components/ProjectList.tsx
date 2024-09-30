@@ -8,7 +8,7 @@ export default function ProjectList() {
   
   // State for infinite paging
   const [currentPage, setCurrentPage] = useState(0);
-  const itemsPerPage = 4; // Number of items to display per page
+  const itemsPerPage = 2; // Number of items to display per page
 
   const handleAddProject = async (e: React.FormEvent) => {
     e.preventDefault();
