@@ -42,11 +42,13 @@ export default function Dashboard() {
         {user ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
-              <ProjectList />
-              <TaskList />
+              <PomodoroTimer settings={settings} /> {/* Moved Timer to the left */}
             </div>
             <div>
-              <PomodoroTimer settings={settings} />
+              <div className="space-y-8"> {/* Added space between ProjectList and TaskList */}
+                <ProjectList />
+                <TaskList />
+              </div>
             </div>
           </div>
         ) : (
