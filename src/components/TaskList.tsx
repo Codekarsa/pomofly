@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTasks } from '../hooks/useTasks';
 import { useProjects } from '../hooks/useProjects';
+import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 
 export default function TaskList() {
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -11,8 +12,8 @@ export default function TaskList() {
   const [visibleOptions, setVisibleOptions] = useState<{ [key: string]: boolean }>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [isDropdownActive, setIsDropdownActive] = useState(false);
-  const [currentPage, setCurrentPage] = useState(0); // Track the current page
-  const itemsPerPage = 4; // Number of items to display per page
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 4;
 
   const { projects } = useProjects();
   const { 
@@ -24,16 +25,26 @@ export default function TaskList() {
     toggleTaskCompletion, 
     deleteTask 
   } = useTasks(selectedProjectId);
+  const { event } = useGoogleAnalytics();
+
+  useEffect(() => {
+    event('task_list_view', { total_tasks: tasks.length });
+  }, [event, tasks.length]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newTaskTitle.trim() && selectedProjectId) {
       try {
         await addTask(newTaskTitle, selectedProjectId, estimatedPomodoros);
+        event('task_added', { 
+          project_id: selectedProjectId, 
+          estimated_pomodoros: estimatedPomodoros 
+        });
         setNewTaskTitle('');
         setEstimatedPomodoros(undefined);
       } catch (error) {
         console.error("Failed to add task:", error);
+        event('task_add_error', { error_message: (error as Error).message });
       }
     }
   };
@@ -43,35 +54,74 @@ export default function TaskList() {
     if (editingTask && editingTask.title.trim()) {
       try {
         await updateTask(editingTask.id, { title: editingTask.title, estimatedPomodoros: editingTask.estimatedPomodoros });
+        event('task_updated', { 
+          task_id: editingTask.id, 
+          new_estimated_pomodoros: editingTask.estimatedPomodoros 
+        });
         setEditingTask(null);
         setEstimatedPomodoros(undefined);
       } catch (error) {
         console.error("Failed to update task:", error);
+        event('task_update_error', { 
+          task_id: editingTask.id, 
+          error_message: (error as Error).message 
+        });
       }
     }
   };
 
+  const handleToggleTaskCompletion = (taskId: string, currentCompletionState: boolean) => {
+    toggleTaskCompletion(taskId, currentCompletionState);
+    event('task_completion_toggled', { 
+      task_id: taskId, 
+      new_state: !currentCompletionState 
+    });
+  };
+
+  const handleDeleteTask = (taskId: string) => {
+    deleteTask(taskId);
+    event('task_deleted', { task_id: taskId });
+  };
+
   const toggleOptionsVisibility = (taskId: string) => {
     setVisibleOptions(prev => ({ ...prev, [taskId]: !prev[taskId] }));
+    event('task_options_toggled', { task_id: taskId });
+  };
+
+  const handleShowCompletedToggle = () => {
+    setShowCompleted(!showCompleted);
+    event('show_completed_tasks_toggled', { new_state: !showCompleted });
+  };
+
+  const handleSearchTermChange = (term: string) => {
+    setSearchTerm(term);
+    event('task_search', { search_term: term });
+  };
+
+  const handleProjectSelect = (projectId: string, projectName: string) => {
+    setSelectedProjectId(projectId);
+    setSearchTerm(projectName);
+    setIsDropdownActive(false);
+    event('project_selected_for_task', { project_id: projectId });
+  };
+
+  const loadMoreTasks = () => {
+    if ((currentPage + 1) * itemsPerPage < filteredTasks.length) {
+      setCurrentPage(prevPage => prevPage + 1);
+      event('load_more_tasks', { new_page: currentPage + 1 });
+    }
   };
 
   if (tasksLoading) return <div>Loading tasks...</div>;
   if (tasksError) return <div>Error loading tasks: {tasksError.message}</div>;
 
   const filteredTasks = tasks.filter(task => showCompleted || !task.completed);
-  const displayedTasks = filteredTasks.slice(0, (currentPage + 1) * itemsPerPage); // Get tasks for the current page
-
-  const loadMoreTasks = () => {
-    if ((currentPage + 1) * itemsPerPage < filteredTasks.length) {
-      setCurrentPage(prevPage => prevPage + 1); // Load the next page
-    }
-  };
+  const displayedTasks = filteredTasks.slice(0, (currentPage + 1) * itemsPerPage);
 
   return (
     <div className="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8 mb-4 transition-all duration-300 hover:shadow-xl">
       <h2 className="text-2xl font-bold mb-6 text-[#1A1A1A] border-b pb-2">Your Tasks</h2>
       <form onSubmit={handleSubmit} className="mb-6">
-        {/* First Row: New Task Title */}
         <div className="flex items-center mb-2">
           <input
             type="text"
@@ -81,7 +131,6 @@ export default function TaskList() {
             className="flex-grow shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
           />
         </div>
-        {/* Second Row: Estimated Pomodoros and Project Selection */}
         <div className="flex items-center justify-between w-full">
           <input
             type="number"
@@ -95,9 +144,9 @@ export default function TaskList() {
               type="text"
               value={searchTerm}
               onChange={(e) => {
-                setSearchTerm(e.target.value);
+                handleSearchTermChange(e.target.value);
                 if (e.target.value === '') {
-                  setSelectedProjectId(''); // Clear selected project when input is empty
+                  setSelectedProjectId('');
                 }
               }}
               placeholder="Select a project"
@@ -121,11 +170,7 @@ export default function TaskList() {
                 ).map((project) => (
                   <li
                     key={project.id}
-                    onClick={() => {
-                      setSelectedProjectId(project.id);
-                      setSearchTerm(project.name);
-                      setIsDropdownActive(false);
-                    }}
+                    onClick={() => handleProjectSelect(project.id, project.name)}
                     className="cursor-pointer hover:bg-gray-100 px-3 py-2 text-[#1A1A1A]"
                   >
                     {project.name}
@@ -146,7 +191,7 @@ export default function TaskList() {
           <input
             type="checkbox"
             checked={showCompleted}
-            onChange={() => setShowCompleted(!showCompleted)}
+            onChange={handleShowCompletedToggle}
             className="hidden"
             id="showCompleted"
           />
@@ -164,7 +209,6 @@ export default function TaskList() {
       <ul className="space-y-3">
         {displayedTasks.map((task) => (
           <li key={task.id} className={`rounded-md p-4 shadow-sm transition-all duration-200 hover:shadow-md ${task.completed ? 'bg-[#e0f7fa]' : 'bg-[#f2f2f2]'}`}>
-            {/* Check if the task is being edited */}
             {editingTask && editingTask.id === task.id ? (
               <div className="flex flex-col space-y-2">
                 <div className="flex items-center space-x-2">
@@ -196,7 +240,7 @@ export default function TaskList() {
                   <input
                     type="checkbox"
                     checked={task.completed}
-                    onChange={() => toggleTaskCompletion(task.id, task.completed)}
+                    onChange={() => handleToggleTaskCompletion(task.id, task.completed)}
                     className="h-5 w-5 min-w-5 text-[#333333] focus:ring-[#333333] border-gray-300 rounded"
                   />
                   <span className={`${task.completed ? 'line-through text-[#666666]' : 'text-[#1A1A1A]'} text-lg`}>
@@ -212,7 +256,7 @@ export default function TaskList() {
                     onClick={() => toggleOptionsVisibility(task.id)} 
                     className="text-[#333333] hover:text-[#1A1A1A] font-medium text-sm"
                   >
-                    &#x2026; {/* Three dots icon */}
+                    &#x2026;
                   </button>
                   {visibleOptions[task.id] && (
                     <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-300 rounded-md shadow-lg z-10">
@@ -220,7 +264,8 @@ export default function TaskList() {
                         <button 
                           onClick={() => {
                             setEditingTask({ id: task.id, title: task.title, estimatedPomodoros: task.estimatedPomodoros });
-                            setVisibleOptions(prev => ({ ...prev, [task.id]: false })); // Hide options after selecting edit
+                            setVisibleOptions(prev => ({ ...prev, [task.id]: false }));
+                            event('task_edit_started', { task_id: task.id });
                           }}
                           className="block px-4 py-2 text-sm text-[#333333] hover:bg-gray-100 w-full text-left"
                         >
@@ -228,8 +273,8 @@ export default function TaskList() {
                         </button>
                         <button 
                           onClick={() => {
-                            deleteTask(task.id);
-                            setVisibleOptions(prev => ({ ...prev, [task.id]: false })); // Hide options after deleting
+                            handleDeleteTask(task.id);
+                            setVisibleOptions(prev => ({ ...prev, [task.id]: false }));
                           }}
                           className="block px-4 py-2 text-sm text-[#333333] hover:bg-gray-100 w-full text-left"
                         >
@@ -244,7 +289,6 @@ export default function TaskList() {
           </li>
         ))}
       </ul>
-      {/* Load More Button */}
       {displayedTasks.length < filteredTasks.length && (
         <div className="flex justify-center mt-4">
           <button 

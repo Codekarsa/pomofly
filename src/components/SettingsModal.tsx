@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -19,17 +20,49 @@ interface SettingsModalProps {
 
 export default function SettingsModal({ isOpen, onClose, settings, onSave }: SettingsModalProps) {
   const [localSettings, setLocalSettings] = useState(settings);
+  const { event } = useGoogleAnalytics();
+
+  useEffect(() => {
+    if (isOpen) {
+      event('settings_modal_opened', {
+        initial_pomodoro: settings.pomodoro,
+        initial_shortBreak: settings.shortBreak,
+        initial_longBreak: settings.longBreak,
+        initial_longBreakInterval: settings.longBreakInterval
+      });
+    }
+  }, [isOpen, event, settings]);
+
+  useEffect(() => {
+    setLocalSettings(settings);
+  }, [settings]);
 
   if (!isOpen) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setLocalSettings(prev => ({ ...prev, [name]: parseInt(value) }));
+    const newValue = parseInt(value);
+    setLocalSettings(prev => ({ ...prev, [name]: newValue }));
+    event('setting_changed', { setting_name: name, new_value: newValue });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const changesMade = JSON.stringify(localSettings) !== JSON.stringify(settings);
     onSave(localSettings);
+    event('settings_saved', { 
+      pomodoro: localSettings.pomodoro,
+      shortBreak: localSettings.shortBreak,
+      longBreak: localSettings.longBreak,
+      longBreakInterval: localSettings.longBreakInterval,
+      changes_made: changesMade
+    });
+  };
+
+  const handleClose = () => {
+    const changesMade = JSON.stringify(localSettings) !== JSON.stringify(settings);
+    onClose();
+    event('settings_modal_closed', { changes_saved: false, changes_made: changesMade });
   };
 
   return (
@@ -84,8 +117,19 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
             </div>
           </div>
           <div className="mt-4 flex justify-end">
-            <button type="button" onClick={onClose} className="mr-2 px-4 py-2 bg-gray-200 text-gray-800 rounded">Cancel</button>
-            <button type="submit" className="px-4 py-2 bg-[#333333] text-white rounded">Save</button>
+            <button 
+              type="button" 
+              onClick={handleClose} 
+              className="mr-2 px-4 py-2 bg-gray-200 text-gray-800 rounded"
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              className="px-4 py-2 bg-[#333333] text-white rounded"
+            >
+              Save
+            </button>
           </div>
         </form>
       </div>
