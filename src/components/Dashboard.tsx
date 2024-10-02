@@ -6,7 +6,8 @@ import Header from './Header';
 import PomodoroTimer from './PomodoroTimer';
 import TaskList from './TaskList';
 import ProjectList from './ProjectList';
-import SettingsModal from './SettingsModal'; // Add this import
+import SettingsModal from './SettingsModal';
+import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 
 const defaultSettings = {
   pomodoro: 25,
@@ -19,33 +20,65 @@ export default function Dashboard() {
   const { user, loading } = useAuth();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settings, setSettings] = useState(defaultSettings);
+  const { event } = useGoogleAnalytics();
 
   useEffect(() => {
     const savedSettings = localStorage.getItem('pomodoroSettings');
     if (savedSettings) {
-      setSettings(JSON.parse(savedSettings));
+      const parsedSettings = JSON.parse(savedSettings);
+      setSettings(parsedSettings);
+      event('settings_loaded', { 
+        pomodoro: parsedSettings.pomodoro,
+        shortBreak: parsedSettings.shortBreak,
+        longBreak: parsedSettings.longBreak,
+        longBreakInterval: parsedSettings.longBreakInterval
+      });
+    } else {
+      event('default_settings_used', {});
     }
-  }, []);
+  }, [event]);
+
+  useEffect(() => {
+    event('dashboard_view', { 
+      is_authenticated: !!user 
+    });
+  }, [user, event]);
 
   const handleSettingsSave = (newSettings: typeof defaultSettings) => {
     setSettings(newSettings);
     localStorage.setItem('pomodoroSettings', JSON.stringify(newSettings));
     setIsSettingsOpen(false);
+    event('settings_saved', { 
+      pomodoro: newSettings.pomodoro,
+      shortBreak: newSettings.shortBreak,
+      longBreak: newSettings.longBreak,
+      longBreakInterval: newSettings.longBreakInterval
+    });
+  };
+
+  const handleSettingsOpen = () => {
+    setIsSettingsOpen(true);
+    event('settings_modal_opened', {});
+  };
+
+  const handleSettingsClose = () => {
+    setIsSettingsOpen(false);
+    event('settings_modal_closed', {});
   };
 
   if (loading) return <div>Loading...</div>;
 
   return (
     <div className="min-h-screen bg-[#CCCCCC]">
-      <Header onSettingsClick={() => setIsSettingsOpen(true)} />
+      <Header onSettingsClick={handleSettingsOpen} />
       <main className="container mx-auto px-4 py-8">
         {user ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
-              <PomodoroTimer settings={settings} /> {/* Moved Timer to the left */}
+              <PomodoroTimer settings={settings} />
             </div>
             <div>
-              <div className="space-y-8"> {/* Added space between ProjectList and TaskList */}
+              <div className="space-y-8">
                 <ProjectList />
                 <TaskList />
               </div>
@@ -62,7 +95,7 @@ export default function Dashboard() {
       </main>
       <SettingsModal
         isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
+        onClose={handleSettingsClose}
         settings={settings}
         onSave={handleSettingsSave}
       />
