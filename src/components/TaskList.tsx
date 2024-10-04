@@ -1,19 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTasks } from '../hooks/useTasks';
 import { useProjects } from '../hooks/useProjects';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { MoreHorizontal, Plus, Pencil, Trash2 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
-export default function TaskList() {
+const TaskList = React.memo(() => {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [estimatedPomodoros, setEstimatedPomodoros] = useState<number | undefined>(undefined);
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [editingTask, setEditingTask] = useState<{ id: string, title: string, estimatedPomodoros?: number } | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
-  const [visibleOptions, setVisibleOptions] = useState<{ [key: string]: boolean }>({});
   const [searchTerm, setSearchTerm] = useState('');
-  const [isDropdownActive, setIsDropdownActive] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
-  const itemsPerPage = 4;
+  const itemsPerPage = 5;
 
   const { projects } = useProjects();
   const { 
@@ -27,11 +43,14 @@ export default function TaskList() {
   } = useTasks(selectedProjectId);
   const { event } = useGoogleAnalytics();
 
+  const memoizedProjects = useMemo(() => projects, [projects]);
+  const memoizedTasks = useMemo(() => tasks, [tasks]);
+
   useEffect(() => {
     event('task_list_view', { total_tasks: tasks.length });
   }, [event, tasks.length]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (newTaskTitle.trim() && selectedProjectId) {
       try {
@@ -47,9 +66,9 @@ export default function TaskList() {
         event('task_add_error', { error_message: (error as Error).message });
       }
     }
-  };
+  }, [addTask, event, estimatedPomodoros, newTaskTitle, selectedProjectId]);
 
-  const handleUpdateTask = async (e: React.FormEvent) => {
+  const handleUpdateTask = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingTask && editingTask.title.trim()) {
       try {
@@ -59,7 +78,6 @@ export default function TaskList() {
           new_estimated_pomodoros: editingTask.estimatedPomodoros 
         });
         setEditingTask(null);
-        setEstimatedPomodoros(undefined);
       } catch (error) {
         console.error("Failed to update task:", error);
         event('task_update_error', { 
@@ -68,237 +86,185 @@ export default function TaskList() {
         });
       }
     }
-  };
+  }, [editingTask, event, updateTask]);
 
-  const handleToggleTaskCompletion = (taskId: string, currentCompletionState: boolean) => {
+  const filteredTasks = useMemo(() => 
+    memoizedTasks.filter(task => 
+      (showCompleted || !task.completed) &&
+      (searchTerm === '' || task.title.toLowerCase().includes(searchTerm.toLowerCase()))
+    ),
+    [memoizedTasks, showCompleted, searchTerm]
+  );
+
+  const displayedTasks = useMemo(() => 
+    filteredTasks.slice(0, (currentPage + 1) * itemsPerPage),
+    [filteredTasks, currentPage, itemsPerPage]
+  );
+
+  const handleToggleTaskCompletion = useCallback((taskId: string, currentCompletionState: boolean) => {
     toggleTaskCompletion(taskId, currentCompletionState);
     event('task_completion_toggled', { 
       task_id: taskId, 
       new_state: !currentCompletionState 
     });
-  };
+  }, [event, toggleTaskCompletion]);
 
-  const handleDeleteTask = (taskId: string) => {
+  const handleDeleteTask = useCallback((taskId: string) => {
     deleteTask(taskId);
     event('task_deleted', { task_id: taskId });
-  };
+  }, [deleteTask, event]);
 
-  const toggleOptionsVisibility = (taskId: string) => {
-    setVisibleOptions(prev => ({ ...prev, [taskId]: !prev[taskId] }));
-    event('task_options_toggled', { task_id: taskId });
-  };
-
-  const handleShowCompletedToggle = () => {
+  const handleShowCompletedToggle = useCallback(() => {
     setShowCompleted(!showCompleted);
     event('show_completed_tasks_toggled', { new_state: !showCompleted });
-  };
+  }, [event]);
 
-  const handleSearchTermChange = (term: string) => {
+  const handleSearchTermChange = useCallback((term: string) => {
     setSearchTerm(term);
     event('task_search', { search_term: term });
-  };
+  }, [event]);
 
-  const handleProjectSelect = (projectId: string, projectName: string) => {
-    setSelectedProjectId(projectId);
-    setSearchTerm(projectName);
-    setIsDropdownActive(false);
-    event('project_selected_for_task', { project_id: projectId });
-  };
-
-  const loadMoreTasks = () => {
+  const loadMoreTasks = useCallback(() => {
     if ((currentPage + 1) * itemsPerPage < filteredTasks.length) {
       setCurrentPage(prevPage => prevPage + 1);
       event('load_more_tasks', { new_page: currentPage + 1 });
     }
-  };
+  }, [currentPage, event, filteredTasks.length, itemsPerPage]);
 
   if (tasksLoading) return <div>Loading tasks...</div>;
   if (tasksError) return <div>Error loading tasks: {tasksError.message}</div>;
 
-  const filteredTasks = tasks.filter(task => showCompleted || !task.completed);
-  const displayedTasks = filteredTasks.slice(0, (currentPage + 1) * itemsPerPage);
-
   return (
-    <div className="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8 mb-4 transition-all duration-300 hover:shadow-xl">
-      <h2 className="text-2xl font-bold mb-6 text-[#1A1A1A] border-b pb-2">Your Tasks</h2>
-      <form onSubmit={handleSubmit} className="mb-6">
-        <div className="flex items-center mb-2">
-          <input
-            type="text"
-            value={newTaskTitle}
-            onChange={(e) => setNewTaskTitle(e.target.value)}
-            placeholder="New task title"
-            className="flex-grow shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
-          />
-        </div>
-        <div className="flex items-center justify-between w-full">
-          <input
-            type="number"
-            value={estimatedPomodoros}
-            onChange={(e) => setEstimatedPomodoros(e.target.value ? parseInt(e.target.value) : undefined)}
-            placeholder="Estimated Pomodoros"
-            className="shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#333333] focus:border-[#333333] w-1/3"
-          />
-          <div className="relative w-2/5">
-            <input
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Your Tasks</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4 mb-6">
+          <div className="flex items-center space-x-2">
+            <Input
               type="text"
-              value={searchTerm}
-              onChange={(e) => {
-                handleSearchTermChange(e.target.value);
-                if (e.target.value === '') {
-                  setSelectedProjectId('');
-                }
-              }}
-              placeholder="Select a project"
-              className="shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#333333] focus:border-[#333333] w-full pr-10"
-              onFocus={() => setIsDropdownActive(true)}
-              onBlur={() => {
-                setTimeout(() => {
-                  setIsDropdownActive(false);
-                }, 100);
-              }}
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              placeholder="New task title"
+              className="flex-grow"
             />
-            <span className="absolute right-3 top-2.5 text-[#1A1A1A] ">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </span>
-            {isDropdownActive && (
-              <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 max-h-60 overflow-y-auto">
-                {projects.filter(project => 
-                  searchTerm === '' || project.name.toLowerCase().includes(searchTerm.toLowerCase())
-                ).map((project) => (
-                  <li
-                    key={project.id}
-                    onClick={() => handleProjectSelect(project.id, project.name)}
-                    className="cursor-pointer hover:bg-gray-100 px-3 py-2 text-[#1A1A1A]"
-                  >
-                    {project.name}
-                  </li>
+            <Input
+              type="number"
+              value={estimatedPomodoros}
+              onChange={(e) => setEstimatedPomodoros(e.target.value ? parseInt(e.target.value) : undefined)}
+              placeholder="Pomodoros"
+              className="w-24"
+            />
+          </div>
+          <div className="flex items-center space-x-2">
+            <Select onValueChange={setSelectedProjectId} value={selectedProjectId}>
+              <SelectTrigger className="flex-grow">
+                <SelectValue placeholder="Select a project" />
+              </SelectTrigger>
+              <SelectContent>
+                {memoizedProjects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
                 ))}
-              </ul>
-            )}
-          </div>
-          <div className="flex justify-end">
-            <button className="bg-[#333333] hover:bg-[#1A1A1A] text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out">
+              </SelectContent>
+            </Select>
+            <Button type="submit">
+              <Plus className="w-4 h-4 mr-2" />
               Add Task
-            </button>
+            </Button>
           </div>
-        </div>
-      </form>
-      <div className="flex items-center mb-4">
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            checked={showCompleted}
-            onChange={handleShowCompletedToggle}
-            className="hidden"
+        </form>
+
+        <div className="flex items-center space-x-2 mb-4">
+          <Checkbox
             id="showCompleted"
+            checked={showCompleted}
+            onCheckedChange={handleShowCompletedToggle}
           />
-          <label 
-            htmlFor="showCompleted" 
-            className="flex items-center cursor-pointer text-[#1A1A1A] transition duration-200 ease-in-out"
-          >
-            <span className={`w-5 h-5 flex items-center justify-center border-2 rounded-md ${showCompleted ? 'bg-[#f2f2f2] text-white' : 'bg-white'} transition duration-200 ease-in-out`}>
-              {showCompleted && <span className="text-xs">✔️</span>}
-            </span>
-            <span className="ml-2">Show completed tasks</span>
-          </label>
+          <label htmlFor="showCompleted" className="text-sm">Show completed tasks</label>
         </div>
-      </div>
-      <ul className="space-y-3">
-        {displayedTasks.map((task) => (
-          <li key={task.id} className={`rounded-md p-4 shadow-sm transition-all duration-200 hover:shadow-md ${task.completed ? 'bg-[#e0f7fa]' : 'bg-[#f2f2f2]'}`}>
-            {editingTask && editingTask.id === task.id ? (
-              <div className="flex flex-col space-y-2">
-                <div className="flex items-center space-x-2">
-                  <input
+
+        <Input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => handleSearchTermChange(e.target.value)}
+          placeholder="Search tasks"
+          className="mb-4"
+        />
+
+        <ul className="space-y-2">
+          {displayedTasks.map((task) => (
+            <li key={task.id} className="flex items-center justify-between p-2 hover:bg-accent rounded-md transition-colors">
+              {editingTask && editingTask.id === task.id ? (
+                <form onSubmit={handleUpdateTask} className="flex items-center space-x-2 w-full">
+                  <Input
                     type="text"
                     value={editingTask.title}
                     onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
-                    className="flex-grow shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
+                    className="flex-grow"
                   />
-                  <input
+                  <Input
                     type="number"
                     value={editingTask.estimatedPomodoros}
                     onChange={(e) => setEditingTask({ ...editingTask, estimatedPomodoros: e.target.value ? parseInt(e.target.value) : undefined })}
-                    className="shadow-sm border-gray-300 rounded-md py-2 px-3 text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#333333] focus:border-[#333333]"
+                    placeholder="Pomodoros"
+                    className="w-24"
                   />
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button type="submit" onClick={handleUpdateTask} className="bg-[#333333] hover:bg-[#1A1A1A] text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out">
-                    Save
-                  </button>
-                  <button type="button" onClick={() => setEditingTask(null)} className="bg-[#666666] hover:bg-[#333333] text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out">
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
-                    checked={task.completed}
-                    onChange={() => handleToggleTaskCompletion(task.id, task.completed)}
-                    className="h-5 w-5 min-w-5 text-[#333333] focus:ring-[#333333] border-gray-300 rounded"
-                  />
-                  <span className={`${task.completed ? 'line-through text-[#666666]' : 'text-[#1A1A1A]'} text-lg`}>
-                    {task.title}
-                    {task.completed && <span className="ml-2 text-green-500">✔️</span>}
-                  </span>
-                  <span className="text-sm text-[#666666]">
-                    {task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0} sessions
-                  </span>
-                </div>
-                <div className="relative">
-                  <button 
-                    onClick={() => toggleOptionsVisibility(task.id)} 
-                    className="text-[#333333] hover:text-[#1A1A1A] font-medium text-sm"
-                  >
-                    &#x2026;
-                  </button>
-                  {visibleOptions[task.id] && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-300 rounded-md shadow-lg z-10">
-                      <div className="py-1">
-                        <button 
-                          onClick={() => {
-                            setEditingTask({ id: task.id, title: task.title, estimatedPomodoros: task.estimatedPomodoros });
-                            setVisibleOptions(prev => ({ ...prev, [task.id]: false }));
-                            event('task_edit_started', { task_id: task.id });
-                          }}
-                          className="block px-4 py-2 text-sm text-[#333333] hover:bg-gray-100 w-full text-left"
-                        >
-                          Edit
-                        </button>
-                        <button 
-                          onClick={() => {
-                            handleDeleteTask(task.id);
-                            setVisibleOptions(prev => ({ ...prev, [task.id]: false }));
-                          }}
-                          className="block px-4 py-2 text-sm text-[#333333] hover:bg-gray-100 w-full text-left"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
-      {displayedTasks.length < filteredTasks.length && (
-        <div className="flex justify-center mt-4">
-          <button 
-            onClick={loadMoreTasks} 
-            className="bg-[#333333] hover:bg-[#1A1A1A] text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out"
-          >
-            Load More
-          </button>
-        </div>
-      )}
-    </div>
+                  <Button type="submit" size="sm" variant="outline">Save</Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setEditingTask(null)}>Cancel</Button>
+                </form>
+              ) : (
+                <>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      checked={task.completed}
+                      onCheckedChange={() => handleToggleTaskCompletion(task.id, task.completed)}
+                    />
+                    <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
+                      {task.title}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      ({task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0})
+                    </span>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </Button>
+                      
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => {
+                        setEditingTask({ id: task.id, title: task.title, estimatedPomodoros: task.estimatedPomodoros });
+                        event('task_edit_started', { task_id: task.id });
+                      }}>
+                        <Pencil className="w-4 h-4 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDeleteTask(task.id)}>
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+        {displayedTasks.length < filteredTasks.length && (
+          <div className="flex justify-center mt-4">
+            <Button onClick={loadMoreTasks} variant="outline">
+              Load More
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
-}
+});
+
+TaskList.displayName = 'TaskList';
+
+export default TaskList;
