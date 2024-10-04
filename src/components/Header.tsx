@@ -47,7 +47,16 @@ export default function Header({ onSettingsClick }: { onSettingsClick: () => voi
     <header className="bg-[#333333] text-white p-4">
       <div className="container mx-auto flex justify-between items-center">
         <h1 className="text-2xl font-bold">Pomofly</h1>
-        <div>
+        <div className="flex items-center">
+          <a
+            href="https://github.com/Codekarsa/pomofly"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center bg-[#666666] hover:bg-[#1A1A1A] text-white font-bold py-2 px-4 rounded mr-4 transition duration-150 ease-in-out"
+          >
+            <span className="text-xl mr-1">⭐</span>
+            <span>Star on GitHub</span>
+          </a>
           <button
             onClick={handleSettingsClick}
             className="bg-[#666666] hover:bg-[#1A1A1A] text-white font-bold py-2 px-4 rounded mr-2"
