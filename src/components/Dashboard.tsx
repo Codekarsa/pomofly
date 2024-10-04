@@ -1,6 +1,5 @@
 'use client'
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import Header from './Header';
 import PomodoroTimer from './PomodoroTimer';
@@ -66,32 +65,30 @@ export default function Dashboard() {
     event('settings_modal_closed', {});
   };
 
-  if (loading) return <div>Loading...</div>;
+  const memoizedSettings = useMemo(() => settings, [settings]);
+
+  if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
 
   return (
-    <div className="min-h-screen bg-[#CCCCCC]">
+    <div className="min-h-screen bg-gray-50">
       <Header onSettingsClick={handleSettingsOpen} />
       <main className="container mx-auto px-4 py-8">
-        {user ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <PomodoroTimer settings={settings} />
-            </div>
-            <div>
-              <div className="space-y-8">
-                <ProjectList />
-                <TaskList />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="space-y-8">
+            <PomodoroTimer settings={memoizedSettings} />
+            {user && <ProjectList />}
+          </div>
+          <div className="space-y-8">
+            {user ? (
+              <TaskList />
+            ) : (
+              <div className="bg-white p-6 rounded-lg shadow-md">
+                <h2 className="text-xl font-semibold mb-4">Welcome to Pomodoro Timer</h2>
+                <p className="text-gray-600">Sign in to access task and project management features.</p>
               </div>
-            </div>
+            )}
           </div>
-        ) : (
-          <div className='flex flex-col items-center justify-center'>
-            <PomodoroTimer settings={settings} />
-            <div className="mt-8">
-              <p className="mb-4 text-[#333333]">Sign in to access task and project management features.</p>
-            </div>
-          </div>
-        )}
+        </div>
       </main>
       <SettingsModal
         isOpen={isSettingsOpen}
