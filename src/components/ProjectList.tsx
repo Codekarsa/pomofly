@@ -1,21 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useProjects } from '../hooks/useProjects';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Pencil, Trash2, Plus, MoreHorizontal } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
-export default function ProjectList() {
+const ProjectList = React.memo(() => {
   const { projects, loading, error, addProject, updateProject, deleteProject } = useProjects();
   const { event } = useGoogleAnalytics();
   const [newProjectName, setNewProjectName] = useState('');
   const [editingProject, setEditingProject] = useState<{ id: string, name: string } | null>(null);
-  
   const [currentPage, setCurrentPage] = useState(0);
-  const itemsPerPage = 2;
+  const itemsPerPage = 5;
+
+  const memoizedProjects = useMemo(() => projects, [projects]);
 
   useEffect(() => {
     event('project_list_view', { total_projects: projects.length });
   }, [event, projects.length]);
 
-  const handleAddProject = async (e: React.FormEvent) => {
+  const handleAddProject = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (newProjectName.trim()) {
       try {
@@ -27,9 +38,9 @@ export default function ProjectList() {
         event('project_add_error', { error_message: (err as Error).message });
       }
     }
-  };
+  }, [addProject, event, newProjectName]);
 
-  const handleUpdateProject = async (e: React.FormEvent) => {
+  const handleUpdateProject = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingProject && editingProject.name.trim()) {
       try {
@@ -41,9 +52,9 @@ export default function ProjectList() {
         event('project_update_error', { project_id: editingProject.id, error_message: (err as Error).message });
       }
     }
-  };
+  }, [editingProject, updateProject, event]);
 
-  const handleDeleteProject = async (id: string) => {
+  const handleDeleteProject = useCallback(async (id: string) => {
     if (window.confirm('Are you sure you want to delete this project?')) {
       try {
         await deleteProject(id);
@@ -53,72 +64,99 @@ export default function ProjectList() {
         event('project_delete_error', { project_id: id, error_message: (err as Error).message });
       }
     }
-  };
+  }, [deleteProject, event]);
 
-  const loadMoreProjects = () => {
+  const handleEditProject = useCallback((project: { id: string, name: string }) => {
+    setEditingProject(project);
+    event('project_edit_started', { project_id: project.id });
+  }, [event]);
+
+  const loadMoreProjects = useCallback(() => {
     if ((currentPage + 1) * itemsPerPage < projects.length) {
       setCurrentPage(prevPage => prevPage + 1);
       event('load_more_projects', { new_page: currentPage + 1 });
     }
-  };
+  }, [currentPage, itemsPerPage, projects.length, event]);
+
+  const displayedProjects = useMemo(() => 
+    memoizedProjects.slice(0, (currentPage + 1) * itemsPerPage),
+    [memoizedProjects, currentPage, itemsPerPage]
+  );
 
   if (loading) return <div>Loading projects...</div>;
   if (error) return <div>Error: {error.message}</div>;
 
-  const displayedProjects = projects.slice(0, (currentPage + 1) * itemsPerPage);
-
   return (
-    <div className="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8 mb-4 transition-all duration-300 hover:shadow-xl">
-      <h2 className="text-2xl font-bold mb-6 text-[#1A1A1A] border-b pb-2">Your Projects</h2>
-      
-      <form onSubmit={handleAddProject} className="mb-6">
-        {/* ... (form JSX remains the same) ... */}
-      </form>
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Your Projects</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleAddProject} className="flex items-center space-x-2 mb-6">
+          <Input
+            type="text"
+            value={newProjectName}
+            onChange={(e) => setNewProjectName(e.target.value)}
+            placeholder="New project name"
+            className="flex-grow"
+          />
+          <Button type="submit" size="sm">
+            <Plus className="w-4 h-4 mr-2" />
+            Add Project
+          </Button>
+        </form>
 
-      <ul className="space-y-3">
-        {displayedProjects.map((project) => (
-          <li key={project.id} className="bg-[#f2f2f2] rounded-md p-4 shadow-sm transition-all duration-200 hover:shadow-md">
-            {editingProject && editingProject.id === project.id ? (
-              <form onSubmit={handleUpdateProject} className="flex items-center space-x-2">
-                {/* ... (edit form JSX remains the same) ... */}
-              </form>
-            ) : (
-              <div className="flex items-center justify-between">
-                <span className="text-base font-medium text-[#1A1A1A] overflow-hidden whitespace-nowrap overflow-ellipsis">
-                  {project.name}
-                </span>
-                <div className="flex items-center space-x-2">
-                  <button 
-                    onClick={() => {
-                      setEditingProject({ id: project.id, name: project.name });
-                      event('project_edit_started', { project_id: project.id });
-                    }} 
-                    className="text-[#333333] hover:text-[#1A1A1A] font-medium text-sm"
-                  >
-                    Edit
-                  </button>
-                  <button 
-                    onClick={() => handleDeleteProject(project.id)} 
-                    className="text-[#333333] hover:text-[#1A1A1A] font-medium text-sm"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
-      {displayedProjects.length < projects.length && (
-        <div className="flex justify-center mt-4">
-          <button 
-            onClick={loadMoreProjects} 
-            className="bg-[#333333] hover:bg-[#1A1A1A] text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out"
-          >
-            Load More
-          </button>
-        </div>
-      )}
-    </div>
+        <ul className="space-y-2">
+          {displayedProjects.map((project) => (
+            <li key={project.id} className="flex items-center justify-between p-2 hover:bg-accent rounded-md transition-colors">
+              {editingProject && editingProject.id === project.id ? (
+                <form onSubmit={handleUpdateProject} className="flex items-center space-x-2 w-full">
+                  <Input
+                    type="text"
+                    value={editingProject.name}
+                    onChange={(e) => setEditingProject({ ...editingProject, name: e.target.value })}
+                    className="flex-grow"
+                  />
+                  <Button type="submit" size="sm" variant="outline">Save</Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setEditingProject(null)}>Cancel</Button>
+                </form>
+              ) : (
+                <>
+                  <span className="text-sm font-medium">{project.name}</span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEditProject(project)}>
+                        <Pencil className="w-4 h-4 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDeleteProject(project.id)}>
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+        {displayedProjects.length < memoizedProjects.length && (
+          <div className="flex justify-center mt-4">
+            <Button onClick={loadMoreProjects} variant="outline">
+              Load More
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
-}
+});
+
+ProjectList.displayName = 'ProjectList';
+
+export default ProjectList;
