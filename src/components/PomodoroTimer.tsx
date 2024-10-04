@@ -1,11 +1,12 @@
-/* eslint-disable react/no-unescaped-entities */
-'use client'
-
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { usePomodoro } from '@/hooks/usePomodoro';
 import { useTasks } from '@/hooks/useTasks';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -18,19 +19,14 @@ interface PomodoroTimerProps {
   settings: PomodoroSettings;
 }
 
-export default function PomodoroTimer({ settings }: PomodoroTimerProps) {
+const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) => {
   const { user } = useAuth();
   const { event } = useGoogleAnalytics();
   const [selectedTaskId, setSelectedTaskId] = useState('');
-  const { tasks, loading, error, incrementPomodoroSession } = useTasks();
+  const { tasks, loading, incrementPomodoroSession } = useTasks();
   
   const [completedSessions, setCompletedSessions] = useState<{ date: string }[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-
-  useEffect(() => {
-    event('pomodoro_timer_view', { user_authenticated: !!user });
-  }, [event, user]);
 
   const handlePomodoroComplete = useCallback(() => {
     if (user && selectedTaskId) {
@@ -44,12 +40,10 @@ export default function PomodoroTimer({ settings }: PomodoroTimerProps) {
     } else {
       event('pomodoro_session_completed', { 
         duration: settings.pomodoro,
-        user_authenticated: false,
         phase: 'pomodoro'
       });
     }
-    console.log('Pomodoro phase completed!');
-  }, [user, selectedTaskId, incrementPomodoroSession, settings.pomodoro, event]);
+  }, [user, selectedTaskId, settings.pomodoro, incrementPomodoroSession, event]);
 
   const { 
     phase,
@@ -61,169 +55,133 @@ export default function PomodoroTimer({ settings }: PomodoroTimerProps) {
     switchPhase
   } = usePomodoro(settings, handlePomodoroComplete);
 
-  const timerKey = `${settings.pomodoro}-${settings.shortBreak}-${settings.longBreak}-${settings.longBreakInterval}`;
-
   useEffect(() => {
-    event('pomodoro_settings_changed', {
-      pomodoro: settings.pomodoro,
-      shortBreak: settings.shortBreak,
-      longBreak: settings.longBreak,
-      longBreakInterval: settings.longBreakInterval
-    });
-  }, [settings, event]);
+    event('pomodoro_timer_view', { user_authenticated: !!user });
+  }, [event, user]);
 
-  const countTodaysSessions = () => {
-    const today = new Date();
-    return completedSessions.filter(session => {
-      const sessionDate = new Date(session.date);
-      return sessionDate.toLocaleDateString() === today.toLocaleDateString();
-    }).length;
-  };
+  const countTodaysSessions = useCallback(() => {
+    const today = new Date().toDateString();
+    return completedSessions.filter(session => 
+      new Date(session.date).toDateString() === today
+    ).length;
+  }, [completedSessions]);
 
-  const handleDoneNext = () => {
-    if (user && selectedTaskId) {
-      incrementPomodoroSession(selectedTaskId, settings.pomodoro);
-      setCompletedSessions(prev => [...prev, { date: new Date().toISOString() }]);
-      event('pomodoro_session_manually_completed', { 
-        duration: settings.pomodoro,
-        task_id: selectedTaskId,
-        phase: phase
-      });
-    }
-    const nextPhase = phase === 'pomodoro' ? 'shortBreak' : 'pomodoro';
-    switchPhase(nextPhase);
+  const handleDoneNext = useCallback(() => {
+    handlePomodoroComplete();
     resetTimer();
-    event('pomodoro_phase_switched', { new_phase: nextPhase });
-  };
+    switchPhase(phase === 'pomodoro' ? 'shortBreak' : 'pomodoro');
+    event('pomodoro_phase_switched', { new_phase: phase === 'pomodoro' ? 'shortBreak' : 'pomodoro' });
+  }, [handlePomodoroComplete, resetTimer, switchPhase, phase, event]);
 
-  const filteredTasks = tasks.filter(task => 
-    !task.completed && 
-    (searchTerm === '' || task.title.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Move filteredTasks calculation outside component
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(task => 
+      !task.completed && 
+      (searchTerm === '' || task.title.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  }, [tasks, searchTerm]);
 
-  const handleTaskSelect = (taskId: string, taskTitle: string) => {
+  const handleTaskSelect = useCallback((taskId: string) => {
     setSelectedTaskId(taskId);
-    setSearchTerm(taskTitle);
-    setIsDropdownOpen(false);
+    const selectedTask = tasks.find(task => task.id === taskId);
+    if (selectedTask) {
+      setSearchTerm(selectedTask.title);
+    }
     event('task_selected_for_pomodoro', { task_id: taskId });
-  };
+  }, [tasks, event, setSearchTerm]);
+
+  const taskSelector = useMemo(() => (
+    <Select onValueChange={handleTaskSelect} value={selectedTaskId}>
+      <SelectTrigger className="w-full">
+        <SelectValue placeholder="Select a task" />
+      </SelectTrigger>
+      <SelectContent>
+        {filteredTasks.map((task) => (
+          <SelectItem key={task.id} value={task.id}>{task.title}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  ), [handleTaskSelect, selectedTaskId, filteredTasks]);
+
+  if (loading) return <div>Loading...</div>;
+  // if (error) return <div>Error: {error}</div>;
 
   return (
-    <div key={timerKey} className="bg-[#f2f2f2] shadow-md rounded px-8 pt-6 pb-8 mb-4">
-      <h2 className="text-2xl font-bold mb-4 text-[#1A1A1A]">Pomodoro Timer</h2>
-      <div className="mb-4 text-lg text-[#1A1A1A]">
-        <span className="font-semibold">Today's Pomodoro Sessions: </span>
-        <span className="text-[#333333]">{countTodaysSessions()}</span>
-      </div>
-      {user && !loading && !error && (
-        <div className="mb-1 relative">
-          <input
-            type="text"
-            placeholder="Search tasks..."
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              event('task_search', { search_term: e.target.value });
-            }}
-            onFocus={() => setIsDropdownOpen(true)}
-            onBlur={() => setTimeout(() => setIsDropdownOpen(false), 100)}
-            className="shadow-sm bg-white border-gray-300 rounded-md w-full py-2 px-3 text-[#1A1A1A] leading-tight focus:outline-none focus:ring-2 focus:ring-[#333333] focus:border-[#333333] transition duration-150 ease-in-out"
-          />
-          <span className="absolute right-3 top-2.5 text-[#1A1A1A]">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </span>
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader>
+        <CardTitle>Pomodoro Timer</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="mb-4 text-lg">
+          <span className="font-semibold">Today&apos;s Sessions: </span>
+          <span>{countTodaysSessions()}</span>
         </div>
-      )}
-      {user && !loading && !error && (
-        <div className="relative mb-4">
-          <div>
-            {isDropdownOpen && (
-              <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 max-h-60 overflow-y-auto">
-                {filteredTasks.length > 0 ? (
-                  filteredTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      onClick={() => handleTaskSelect(task.id, task.title)}
-                      className="cursor-pointer hover:bg-gray-100 px-3 py-2 text-[#1A1A1A]"
-                    >
-                      {task.title}
-                    </div>
-                  ))
-                ) : (
-                  <div className="px-3 py-2 text-[#666666]">No tasks found</div>
-                )}
-              </div>
-            )}
+        {user && (
+          <div className="mb-4">
+            {taskSelector}
           </div>
-        </div>
-      )}
-      <div className="mb-4 flex justify-center">
-        <button 
-          onClick={() => {
-            switchPhase('pomodoro');
-            event('pomodoro_phase_switched', { new_phase: 'pomodoro' });
-          }} 
-          className={`mr-2 ${phase === 'pomodoro' ? 'bg-[#333333] text-white' : 'bg-[#CCCCCC]'} px-4 py-2 rounded`}
-        >
-          Pomodoro
-        </button>
-        <button 
-          onClick={() => {
-            switchPhase('shortBreak');
-            event('pomodoro_phase_switched', { new_phase: 'shortBreak' });
-          }} 
-          className={`mr-2 ${phase === 'shortBreak' ? 'bg-[#333333] text-white' : 'bg-[#CCCCCC]'} px-4 py-2 rounded`}
-        >
-          Short Break
-        </button>
-        <button 
-          onClick={() => {
-            switchPhase('longBreak');
-            event('pomodoro_phase_switched', { new_phase: 'longBreak' });
-          }} 
-          className={`${phase === 'longBreak' ? 'bg-[#333333] text-white' : 'bg-[#CCCCCC]'} px-4 py-2 rounded`}
-        >
-          Long Break
-        </button>
-      </div>
-      <div className="text-8xl font-bold mb-4 text-[#1A1A1A] text-center py-6">
-        {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
-      </div>
-      <div className="flex justify-center mb-4">
-        <button
-          onClick={() => {
-            toggleTimer();
-            event('pomodoro_timer_toggled', { 
-              action: isActive ? 'pause' : 'start',
-              phase: phase
-            });
-          }}
-          className={`${
-            isActive ? 'bg-[#666666] hover:bg-[#333333]' : 'bg-[#333333] hover:bg-[#1A1A1A]'
-          } text-white font-bold py-2 px-4 rounded mr-2`}
-        >
-          {isActive ? 'Pause' : 'Start'}
-        </button>
-        <button
-          onClick={() => {
-            resetTimer();
-            event('pomodoro_timer_reset', { phase: phase });
-          }}
-          className="bg-[#666666] hover:bg-[#333333] text-white font-bold py-2 px-4 rounded"
-        >
-          Reset
-        </button>
-        {isActive && (
-          <button
-            onClick={handleDoneNext}
-            className="bg-[#333333] hover:bg-[#1A1A1A] text-white font-bold py-2 px-4 rounded ml-2"
-          >
-            Done/Next
-          </button>
         )}
-      </div>
-    </div>
+        <div className="mb-4 flex justify-center space-x-2">
+          {['pomodoro', 'shortBreak', 'longBreak'].map((timerPhase) => (
+            <Button
+              key={timerPhase}
+              onClick={() => {
+                switchPhase(timerPhase as 'pomodoro' | 'shortBreak' | 'longBreak');
+                event('pomodoro_phase_switched', { new_phase: timerPhase });
+              }}
+              variant={phase === timerPhase ? 'default' : 'outline'}
+            >
+              {timerPhase === 'pomodoro' ? 'Pomodoro' : timerPhase === 'shortBreak' ? 'Short Break' : 'Long Break'}
+            </Button>
+          ))}
+        </div>
+        <div className="text-8xl font-bold mb-4 text-center py-6">
+          {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
+        </div>
+        <div className="flex justify-center space-x-2 mb-4">
+          <Button
+            onClick={() => {
+              toggleTimer();
+              event('pomodoro_timer_toggled', { 
+                action: isActive ? 'pause' : 'start',
+                phase: phase
+              });
+            }}
+            variant={isActive ? 'secondary' : 'default'}
+          >
+            {isActive ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
+            {isActive ? 'Pause' : 'Start'}
+          </Button>
+          <Button
+            onClick={() => {
+              resetTimer();
+              event('pomodoro_timer_reset', { phase: phase });
+            }}
+            variant="outline"
+          >
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Reset
+          </Button>
+          {isActive && (
+            <Button
+              onClick={handleDoneNext}
+              variant="default"
+            >
+              <CheckCircle className="mr-2 h-4 w-4" />
+              Done/Next
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
-}
+});
+
+PomodoroTimer.displayName = 'PomodoroTimer';
+
+export default React.memo(PomodoroTimer, (prevProps, nextProps) => {
+  console.log('PomodoroTimer props comparison:');
+  console.log('prevProps:', prevProps);
+  console.log('nextProps:', nextProps);
+  return JSON.stringify(prevProps) === JSON.stringify(nextProps);
+});
