@@ -7,6 +7,9 @@ import TaskList from './TaskList';
 import ProjectList from './ProjectList';
 import SettingsModal from './SettingsModal';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
+import { Github } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 
 const defaultSettings = {
   pomodoro: 25,
@@ -79,9 +82,9 @@ export default function Dashboard() {
   if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex flex-col min-h-screen">
       <Header onSettingsClick={handleSettingsOpen} />
-      <main className="container mx-auto px-4 py-8">
+      <main className="flex-grow container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="space-y-8">
             <PomodoroTimer settings={memoizedSettings} />
@@ -104,8 +107,28 @@ export default function Dashboard() {
         onClose={handleSettingsClose}
         settings={settings}
         onSave={handleSettingsSave}
-        event={memoizedEvent} // Pass memoized event function
+        event={memoizedEvent}
       />
+      <Footer />
     </div>
   );
 }
+
+const Footer = () => (
+  <footer className="bg-background border-t py-2 text-sm text-muted-foreground">
+    <div className="container mx-auto px-4 flex items-center justify-between">
+      <div className="flex items-center space-x-4">
+        <span>© 2024 Pomofly</span>
+        <Separator orientation="vertical" className="h-4" />
+        <a href="/#" className="hover:underline">Privacy</a>
+        <a href="/#" className="hover:underline">Terms</a>
+      </div>
+      <div className="flex items-center space-x-4">
+        <span>Made with ❤️ by Codekarsa</span>
+        <Button variant="ghost" size="icon">
+          <Github className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  </footer>
+);
