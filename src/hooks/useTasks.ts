@@ -77,12 +77,13 @@ export function useTasks(projectId?: string) {
     }
   }, []);
 
-  const updateTask = useCallback(async (id: string, updates: Partial<Omit<Task, 'id' | 'userId'>>) => {
+  const updateTask = useCallback(async (taskId: string, updates: Partial<Task>) => {
+    const taskRef = doc(db, "tasks", taskId);
     try {
-      await updateDoc(doc(db, "tasks", id), updates);
-    } catch (err) {
-      console.error("Error updating task:", err);
-      throw err;
+      await updateDoc(taskRef, updates);
+    } catch (error) {
+      console.error("Error updating task:", error);
+      throw error; // Optionally re-throw the error if you want to handle it further up the call stack
     }
   }, []);
 

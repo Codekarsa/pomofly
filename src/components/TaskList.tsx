@@ -25,7 +25,7 @@ const TaskList = React.memo(() => {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [estimatedPomodoros, setEstimatedPomodoros] = useState<number | undefined>(undefined);
   const [selectedProjectId, setSelectedProjectId] = useState('');
-  const [editingTask, setEditingTask] = useState<{ id: string, title: string, estimatedPomodoros?: number } | null>(null);
+  const [editingTask, setEditingTask] = useState<{ id: string, title: string, estimatedPomodoros?: number, projectId?: string } | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
@@ -72,10 +72,15 @@ const TaskList = React.memo(() => {
     e.preventDefault();
     if (editingTask && editingTask.title.trim()) {
       try {
-        await updateTask(editingTask.id, { title: editingTask.title, estimatedPomodoros: editingTask.estimatedPomodoros });
+        await updateTask(editingTask.id, {
+          title: editingTask.title,
+          estimatedPomodoros: editingTask.estimatedPomodoros,
+          projectId: editingTask.projectId // Add this line
+        });
         event('task_updated', { 
           task_id: editingTask.id, 
-          new_estimated_pomodoros: editingTask.estimatedPomodoros 
+          new_estimated_pomodoros: editingTask.estimatedPomodoros,
+          new_project_id: editingTask.projectId // Add this line
         });
         setEditingTask(null);
       } catch (error) {
@@ -196,22 +201,40 @@ const TaskList = React.memo(() => {
           {displayedTasks.map((task) => (
             <li key={task.id} className="flex items-center justify-between p-2 hover:bg-accent rounded-md transition-colors">
               {editingTask && editingTask.id === task.id ? (
-                <form onSubmit={handleUpdateTask} className="flex items-center space-x-2 w-full">
-                  <Input
-                    type="text"
-                    value={editingTask.title}
-                    onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
-                    className="flex-grow"
-                  />
-                  <Input
-                    type="number"
-                    value={editingTask.estimatedPomodoros}
-                    onChange={(e) => setEditingTask({ ...editingTask, estimatedPomodoros: e.target.value ? parseInt(e.target.value) : undefined })}
-                    placeholder="Pomodoros"
-                    className="w-24"
-                  />
-                  <Button type="submit" size="sm" variant="outline">Save</Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => setEditingTask(null)}>Cancel</Button>
+                <form onSubmit={handleUpdateTask} className="flex flex-col space-y-2 w-full">
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      type="text"
+                      value={editingTask.title}
+                      onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
+                      className="flex-grow"
+                      placeholder="Task title"
+                    />
+                    <Input
+                      type="number"
+                      value={editingTask.estimatedPomodoros}
+                      onChange={(e) => setEditingTask({ ...editingTask, estimatedPomodoros: e.target.value ? parseInt(e.target.value) : undefined })}
+                      placeholder="Pomodoros"
+                      className="w-24"
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Select
+                      value={editingTask.projectId}
+                      onValueChange={(value) => setEditingTask({ ...editingTask, projectId: value })}
+                    >
+                      <SelectTrigger className="flex-grow">
+                        <SelectValue placeholder="Select a project" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {memoizedProjects.map((project) => (
+                          <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button type="submit" size="sm" variant="outline">Save</Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setEditingTask(null)}>Cancel</Button>
+                  </div>
                 </form>
               ) : (
                 <>
@@ -236,7 +259,12 @@ const TaskList = React.memo(() => {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => {
-                        setEditingTask({ id: task.id, title: task.title, estimatedPomodoros: task.estimatedPomodoros });
+                        setEditingTask({
+                          id: task.id,
+                          title: task.title,
+                          estimatedPomodoros: task.estimatedPomodoros,
+                          projectId: task.projectId // Make sure this line is included
+                        });
                         event('task_edit_started', { task_id: task.id });
                       }}>
                         <Pencil className="w-4 h-4 mr-2" />
