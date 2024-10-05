@@ -1,26 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
+import React, { useState, useEffect, useCallback, memo } from 'react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+type Settings = {
+  pomodoro: number;
+  shortBreak: number;
+  longBreak: number;
+  longBreakInterval: number;
+};
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  settings: {
-    pomodoro: number;
-    shortBreak: number;
-    longBreak: number;
-    longBreakInterval: number;
-  };
-  onSave: (settings: {
-    pomodoro: number;
-    shortBreak: number;
-    longBreak: number;
-    longBreakInterval: number;
-  }) => void;
+  settings: Settings;
+  onSave: (settings: Settings) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  event: (eventName: string, eventParams: Record<string, any>) => void;
 }
 
-export default function SettingsModal({ isOpen, onClose, settings, onSave }: SettingsModalProps) {
-  const [localSettings, setLocalSettings] = useState(settings);
-  const { event } = useGoogleAnalytics();
+const SettingsModal = memo(({ isOpen, onClose, settings, onSave, event }: SettingsModalProps) => {
+  const [localSettings, setLocalSettings] = useState<Settings>(settings);
+
+  useEffect(() => {
+    if (isOpen) {
+      setLocalSettings(settings);
+    }
+  }, [isOpen, settings]);
 
   useEffect(() => {
     if (isOpen) {
@@ -33,106 +39,69 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
     }
   }, [isOpen, event, settings]);
 
-  useEffect(() => {
-    setLocalSettings(settings);
-  }, [settings]);
-
-  if (!isOpen) return null;
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    const newValue = parseInt(value);
+    const newValue = value === '' ? 1 : Math.max(1, parseInt(value, 10));
     setLocalSettings(prev => ({ ...prev, [name]: newValue }));
     event('setting_changed', { setting_name: name, new_value: newValue });
-  };
+  }, [event]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     const changesMade = JSON.stringify(localSettings) !== JSON.stringify(settings);
-    onSave(localSettings);
-    event('settings_saved', { 
-      pomodoro: localSettings.pomodoro,
-      shortBreak: localSettings.shortBreak,
-      longBreak: localSettings.longBreak,
-      longBreakInterval: localSettings.longBreakInterval,
-      changes_made: changesMade
-    });
-  };
+    if (changesMade) {
+      onSave(localSettings);
+      event('settings_saved', { 
+        ...localSettings,
+        changes_made: changesMade
+      });
+    }
+    onClose();
+  }, [localSettings, onSave, settings, event, onClose]);
 
-  const handleClose = () => {
+  const handleDialogClose = useCallback(() => {
     const changesMade = JSON.stringify(localSettings) !== JSON.stringify(settings);
     onClose();
     event('settings_modal_closed', { changes_saved: false, changes_made: changesMade });
-  };
+  }, [localSettings, onClose, settings, event]);
+
+  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
-      <div className="bg-[#f2f2f2] p-6 rounded-lg">
-        <h2 className="text-2xl font-bold mb-4 text-[#1A1A1A]">Settings</h2>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <h2 className="text-xl font-semibold mb-4">Timer Settings</h2>
         <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="pomodoro" className="block text-sm font-medium text-gray-700">Pomodoro (minutes)</label>
-              <input
-                type="number"
-                id="pomodoro"
-                name="pomodoro"
-                value={localSettings.pomodoro}
-                onChange={handleChange}
-                className="mt-1 text-[#1A1A1A] block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2"
-              />
-            </div>
-            <div>
-              <label htmlFor="shortBreak" className="block text-sm font-medium text-gray-700">Short Break (minutes)</label>
-              <input
-                type="number"
-                id="shortBreak"
-                name="shortBreak"
-                value={localSettings.shortBreak}
-                onChange={handleChange}
-                className="mt-1 text-[#1A1A1A] block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2"
-              />
-            </div>
-            <div>
-              <label htmlFor="longBreak" className="block text-sm font-medium text-gray-700">Long Break (minutes)</label>
-              <input
-                type="number"
-                id="longBreak"
-                name="longBreak"
-                value={localSettings.longBreak}
-                onChange={handleChange}
-                className="mt-1 text-[#1A1A1A] block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2"
-              />
-            </div>
-            <div>
-              <label htmlFor="longBreakInterval" className="block text-sm font-medium text-gray-700">Long Break Interval</label>
-              <input
-                type="number"
-                id="longBreakInterval"
-                name="longBreakInterval"
-                value={localSettings.longBreakInterval}
-                onChange={handleChange}
-                className="mt-1 text-[#1A1A1A] block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2"
-              />
-            </div>
+          <div className="space-y-4">
+            {Object.entries(localSettings).map(([key, value]) => (
+              <div key={key} className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor={key} className="text-right capitalize">
+                  {key.replace(/([A-Z])/g, ' $1').trim()}
+                </Label>
+                <Input
+                  id={key}
+                  name={key}
+                  type="number"
+                  value={value.toString()}
+                  onChange={handleChange}
+                  className="col-span-3"
+                  min="1"
+                />
+              </div>
+            ))}
           </div>
-          <div className="mt-4 flex justify-end">
-            <button 
-              type="button" 
-              onClick={handleClose} 
-              className="mr-2 px-4 py-2 bg-gray-200 text-gray-800 rounded"
-            >
+          <div className="mt-6 flex justify-end space-x-2">
+            <Button type="button" variant="outline" onClick={handleDialogClose}>
               Cancel
-            </button>
-            <button 
-              type="submit" 
-              className="px-4 py-2 bg-[#333333] text-white rounded"
-            >
-              Save
-            </button>
+            </Button>
+            <Button type="submit">Save changes</Button>
           </div>
         </form>
       </div>
     </div>
   );
-}
+});
+
+SettingsModal.displayName = 'SettingsModal';
+
+export default SettingsModal;

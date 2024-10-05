@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import Header from './Header';
 import PomodoroTimer from './PomodoroTimer';
@@ -26,6 +26,14 @@ export default function Dashboard() {
     if (savedSettings) {
       const parsedSettings = JSON.parse(savedSettings);
       setSettings(parsedSettings);
+    }
+  }, []); // Empty dependency array
+
+  // Separate effect for analytics
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('pomodoroSettings');
+    if (savedSettings) {
+      const parsedSettings = JSON.parse(savedSettings);
       event('settings_loaded', { 
         pomodoro: parsedSettings.pomodoro,
         shortBreak: parsedSettings.shortBreak,
@@ -35,7 +43,10 @@ export default function Dashboard() {
     } else {
       event('default_settings_used', {});
     }
-  }, [event]);
+  }, []); // Empty dependency array
+
+  // Memoize the event function
+  const memoizedEvent = useCallback(event, []);
 
   useEffect(() => {
     event('dashboard_view', { 
@@ -43,7 +54,15 @@ export default function Dashboard() {
     });
   }, [user, event]);
 
-  const handleSettingsSave = (newSettings: typeof defaultSettings) => {
+  const handleSettingsOpen = useCallback(() => {
+    setIsSettingsOpen(true);
+  }, []);
+
+  const handleSettingsClose = useCallback(() => {
+    setIsSettingsOpen(false);
+  }, []);
+
+  const handleSettingsSave = useCallback((newSettings: typeof defaultSettings) => {
     setSettings(newSettings);
     localStorage.setItem('pomodoroSettings', JSON.stringify(newSettings));
     setIsSettingsOpen(false);
@@ -53,17 +72,7 @@ export default function Dashboard() {
       longBreak: newSettings.longBreak,
       longBreakInterval: newSettings.longBreakInterval
     });
-  };
-
-  const handleSettingsOpen = () => {
-    setIsSettingsOpen(true);
-    event('settings_modal_opened', {});
-  };
-
-  const handleSettingsClose = () => {
-    setIsSettingsOpen(false);
-    event('settings_modal_closed', {});
-  };
+  }, [event]);
 
   const memoizedSettings = useMemo(() => settings, [settings]);
 
@@ -95,6 +104,7 @@ export default function Dashboard() {
         onClose={handleSettingsClose}
         settings={settings}
         onSave={handleSettingsSave}
+        event={memoizedEvent} // Pass memoized event function
       />
     </div>
   );
