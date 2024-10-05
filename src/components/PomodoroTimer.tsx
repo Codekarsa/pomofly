@@ -107,7 +107,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   // if (error) return <div>Error: {error}</div>;
 
   return (
-    <Card className="w-full max-w-md mx-auto">
+    <Card className="w-full mx-auto">
       <CardHeader>
         <CardTitle>Pomodoro Timer</CardTitle>
       </CardHeader>
@@ -180,8 +180,10 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
 PomodoroTimer.displayName = 'PomodoroTimer';
 
 export default React.memo(PomodoroTimer, (prevProps, nextProps) => {
-  console.log('PomodoroTimer props comparison:');
-  console.log('prevProps:', prevProps);
-  console.log('nextProps:', nextProps);
-  return JSON.stringify(prevProps) === JSON.stringify(nextProps);
+  return (
+    prevProps.settings.pomodoro === nextProps.settings.pomodoro &&
+    prevProps.settings.shortBreak === nextProps.settings.shortBreak &&
+    prevProps.settings.longBreak === nextProps.settings.longBreak &&
+    prevProps.settings.longBreakInterval === nextProps.settings.longBreakInterval
+  );
 });
