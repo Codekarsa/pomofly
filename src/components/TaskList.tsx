@@ -75,12 +75,12 @@ const TaskList = React.memo(() => {
         await updateTask(editingTask.id, {
           title: editingTask.title,
           estimatedPomodoros: editingTask.estimatedPomodoros,
-          projectId: editingTask.projectId // Add this line
+          projectId: editingTask.projectId
         });
         event('task_updated', { 
           task_id: editingTask.id, 
           new_estimated_pomodoros: editingTask.estimatedPomodoros,
-          new_project_id: editingTask.projectId // Add this line
+          new_project_id: editingTask.projectId
         });
         setEditingTask(null);
       } catch (error) {
@@ -263,7 +263,7 @@ const TaskList = React.memo(() => {
                           id: task.id,
                           title: task.title,
                           estimatedPomodoros: task.estimatedPomodoros,
-                          projectId: task.projectId // Make sure this line is included
+                          projectId: task.projectId
                         });
                         event('task_edit_started', { task_id: task.id });
                       }}>

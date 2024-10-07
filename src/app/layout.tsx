@@ -3,7 +3,7 @@ import { Inter } from 'next/font/google';
 import { AuthProvider } from './contexts/AuthContext';
 import GoogleAnalytics from '../components/GoogleAnalytics';
 import { Suspense } from 'react';
-import { cn } from '@/lib/utils'; // Utility for classNames if needed
+import { cn } from '@/lib/utils';
 
 const inter = Inter({ subsets: ['latin'] });
 

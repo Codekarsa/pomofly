@@ -30,9 +30,8 @@ export default function Dashboard() {
       const parsedSettings = JSON.parse(savedSettings);
       setSettings(parsedSettings);
     }
-  }, []); // Empty dependency array
+  }, []);
 
-  // Separate effect for analytics
   useEffect(() => {
     const savedSettings = localStorage.getItem('pomodoroSettings');
     if (savedSettings) {
@@ -46,9 +45,8 @@ export default function Dashboard() {
     } else {
       event('default_settings_used', {});
     }
-  }, []); // Empty dependency array
+  }, []);
 
-  // Memoize the event function
   const memoizedEvent = useCallback(event, []);
 
   useEffect(() => {

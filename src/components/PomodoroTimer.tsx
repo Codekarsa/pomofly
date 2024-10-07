@@ -73,7 +73,6 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     event('pomodoro_phase_switched', { new_phase: phase === 'pomodoro' ? 'shortBreak' : 'pomodoro' });
   }, [handlePomodoroComplete, resetTimer, switchPhase, phase, event]);
 
-  // Move filteredTasks calculation outside component
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => 
       !task.completed && 
@@ -104,7 +103,6 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   ), [handleTaskSelect, selectedTaskId, filteredTasks]);
 
   if (loading) return <div>Loading...</div>;
-  // if (error) return <div>Error: {error}</div>;
 
   return (
     <Card className="w-full mx-auto">

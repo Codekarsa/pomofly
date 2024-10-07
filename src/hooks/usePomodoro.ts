@@ -74,7 +74,6 @@ export function usePomodoro(settings: PomodoroSettings, onComplete?: () => void)
     setIsActive(false);
   }, [settings]);
 
-  // Add this effect to update the timer when settings change
   useEffect(() => {
     setMinutes(settings[phase]);
     setSeconds(0);
