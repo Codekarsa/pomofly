@@ -10,6 +10,8 @@ import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { Github } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { signInWithPopup } from 'firebase/auth';
+import { auth, googleProvider } from '@/lib/firebase';
 
 const defaultSettings = {
   pomodoro: 25,
@@ -77,6 +79,16 @@ export default function Dashboard() {
 
   const memoizedSettings = useMemo(() => settings, [settings]);
 
+  const handleSignIn = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+      event('user_sign_in', { method: 'Google' });
+    } catch (error) {
+      console.error('Error signing in:', error);
+      event('sign_in_error', { error: (error as Error).message });
+    }
+  };
+
   if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
 
   return (
@@ -93,8 +105,11 @@ export default function Dashboard() {
               <TaskList />
             ) : (
               <div className="bg-white p-6 rounded-lg shadow-md">
-                <h2 className="text-xl font-semibold mb-4">Welcome to Pomodoro Timer</h2>
-                <p className="text-gray-600">Sign in to access task and project management features.</p>
+                <h2 className="text-xl font-semibold mb-4">Welcome to Pomofly, an Elegant and Simple Pomodoro Timer</h2>
+                <p className="text-gray-600 mb-4">Sign in to access task and project management features.</p>
+                <Button onClick={handleSignIn} className="w-full sm:w-auto">
+                  Sign in with Google
+                </Button>
               </div>
             )}
           </div>
