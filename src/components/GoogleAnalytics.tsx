@@ -9,15 +9,14 @@ export default function GoogleAnalytics({ GA_MEASUREMENT_ID }: { GA_MEASUREMENT_
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    // Load the Google Analytics script
+    
     const script = document.createElement('script');
     script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
     script.async = true;
     document.head.appendChild(script);
 
-    // Initialize gtag
     function gtag(...args: [string, ...unknown[]]) {
-      window.dataLayer = window.dataLayer || []; // Ensure dataLayer is defined
+      window.dataLayer = window.dataLayer || [];
       window.dataLayer.push(args);
     }
     gtag('js', new Date());
@@ -25,7 +24,6 @@ export default function GoogleAnalytics({ GA_MEASUREMENT_ID }: { GA_MEASUREMENT_
       page_path: pathname + searchParams.toString(),
     });
 
-    // Cleanup script on component unmount
     return () => {
       document.head.removeChild(script);
     };

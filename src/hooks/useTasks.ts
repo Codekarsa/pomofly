@@ -67,7 +67,7 @@ export function useTasks(projectId?: string) {
         totalPomodoroSessions: 0,
         totalTimeSpent: 0,
         createdAt: new Date(),
-        estimatedPomodoros // Include estimatedPomodoros
+        estimatedPomodoros
       };
       const docRef = await addDoc(collection(db, "tasks"), newTask);
       return docRef.id;
@@ -83,7 +83,7 @@ export function useTasks(projectId?: string) {
       await updateDoc(taskRef, updates);
     } catch (error) {
       console.error("Error updating task:", error);
-      throw error; // Optionally re-throw the error if you want to handle it further up the call stack
+      throw error;
     }
   }, []);
 
