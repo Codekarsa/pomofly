@@ -13,13 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Combobox } from './ui/combobox';
 
 const TaskList = React.memo(() => {
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -163,16 +157,12 @@ const TaskList = React.memo(() => {
             />
           </div>
           <div className="flex items-center space-x-2">
-            <Select onValueChange={setSelectedProjectId} value={selectedProjectId}>
-              <SelectTrigger className="flex-grow">
-                <SelectValue placeholder="Select a project" />
-              </SelectTrigger>
-              <SelectContent>
-                {memoizedProjects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              options={memoizedProjects.map(project => ({ value: project.name, label: project.name }))}
+              value={selectedProjectId}
+              onChange={(value) => setSelectedProjectId(value)}
+              placeholder="Select a project"
+            />
             <Button type="submit">
               <Plus className="w-4 h-4 mr-2" />
               Add Task
@@ -219,19 +209,12 @@ const TaskList = React.memo(() => {
                     />
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Select
-                      value={editingTask.projectId}
-                      onValueChange={(value) => setEditingTask({ ...editingTask, projectId: value })}
-                    >
-                      <SelectTrigger className="flex-grow">
-                        <SelectValue placeholder="Select a project" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {memoizedProjects.map((project) => (
-                          <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      options={memoizedProjects.map(project => ({ value: project.name, label: project.name }))}
+                      value={editingTask.projectId || ''}
+                      onChange={(value) => setEditingTask({ ...editingTask, projectId: value })}
+                      placeholder="Select a project"
+                    />
                     <Button type="submit" size="sm" variant="outline">Save</Button>
                     <Button type="button" size="sm" variant="ghost" onClick={() => setEditingTask(null)}>Cancel</Button>
                   </div>

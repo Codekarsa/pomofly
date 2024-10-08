@@ -5,8 +5,8 @@ import { useTasks } from '@/hooks/useTasks';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
+import { Combobox } from './ui/combobox';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -26,7 +26,6 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   const { tasks, loading, incrementPomodoroSession } = useTasks();
   
   const [completedSessions, setCompletedSessions] = useState<{ date: string }[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
 
   const handlePomodoroComplete = useCallback(() => {
     if (user && selectedTaskId) {
@@ -73,34 +72,21 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     event('pomodoro_phase_switched', { new_phase: phase === 'pomodoro' ? 'shortBreak' : 'pomodoro' });
   }, [handlePomodoroComplete, resetTimer, switchPhase, phase, event]);
 
-  const filteredTasks = useMemo(() => {
-    return tasks.filter(task => 
-      !task.completed && 
-      (searchTerm === '' || task.title.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-  }, [tasks, searchTerm]);
-
   const handleTaskSelect = useCallback((taskId: string) => {
     setSelectedTaskId(taskId);
-    const selectedTask = tasks.find(task => task.id === taskId);
-    if (selectedTask) {
-      setSearchTerm(selectedTask.title);
-    }
     event('task_selected_for_pomodoro', { task_id: taskId });
-  }, [tasks, event, setSearchTerm]);
+  }, [event]);
 
   const taskSelector = useMemo(() => (
-    <Select onValueChange={handleTaskSelect} value={selectedTaskId}>
-      <SelectTrigger className="w-full">
-        <SelectValue placeholder="Select a task" />
-      </SelectTrigger>
-      <SelectContent>
-        {filteredTasks.map((task) => (
-          <SelectItem key={task.id} value={task.id}>{task.title}</SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  ), [handleTaskSelect, selectedTaskId, filteredTasks]);
+    <Combobox
+      options={tasks
+        .filter(task => !task.completed)
+        .map(task => ({ value: task.title, label: task.title }))}
+      value={selectedTaskId}
+      onChange={handleTaskSelect}
+      placeholder="Select a task"
+    />
+  ), [handleTaskSelect, selectedTaskId, tasks]);
 
   if (loading) return <div>Loading...</div>;
 
@@ -177,11 +163,4 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
 
 PomodoroTimer.displayName = 'PomodoroTimer';
 
-export default React.memo(PomodoroTimer, (prevProps, nextProps) => {
-  return (
-    prevProps.settings.pomodoro === nextProps.settings.pomodoro &&
-    prevProps.settings.shortBreak === nextProps.settings.shortBreak &&
-    prevProps.settings.longBreak === nextProps.settings.longBreak &&
-    prevProps.settings.longBreakInterval === nextProps.settings.longBreakInterval
-  );
-});
+export default PomodoroTimer;
