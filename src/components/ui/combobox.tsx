@@ -53,8 +53,8 @@ export const Combobox: React.FC<ComboboxProps> = ({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0">
-        <Command>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+        <Command className="w-full">
           <CommandInput
             placeholder="Search..."
             value={searchValue}
