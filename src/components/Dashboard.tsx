@@ -105,7 +105,7 @@ export default function Dashboard() {
               <TaskList />
             ) : (
               <div className="bg-white p-6 rounded-lg shadow-md">
-                <h2 className="text-xl font-semibold mb-4">Welcome to Pomofly, an Elegant and Simple Pomodoro Timer</h2>
+                <h2 className="text-xl font-semibold mb-4">Welcome to Pomofly, an Elegant and Minimal Pomodoro Timer</h2>
                 <p className="text-gray-600 mb-4">Sign in to access task and project management features.</p>
                 <Button onClick={handleSignIn} className="w-full sm:w-auto">
                   Sign in with Google
