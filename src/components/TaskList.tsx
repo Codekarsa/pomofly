@@ -24,16 +24,18 @@ const TaskList = React.memo(() => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 5;
+  const [showAddTaskForm, setShowAddTaskForm] = useState(false);
+  const [showSearchForm, setShowSearchForm] = useState(false);
 
   const { projects } = useProjects();
-  const { 
-    tasks, 
-    loading: tasksLoading, 
-    error: tasksError, 
-    addTask, 
-    updateTask, 
-    toggleTaskCompletion, 
-    deleteTask 
+  const {
+    tasks,
+    loading: tasksLoading,
+    error: tasksError,
+    addTask,
+    updateTask,
+    toggleTaskCompletion,
+    deleteTask
   } = useTasks(selectedProjectId);
   const { event } = useGoogleAnalytics();
 
@@ -49,9 +51,9 @@ const TaskList = React.memo(() => {
     if (newTaskTitle.trim() && selectedProjectId) {
       try {
         await addTask(newTaskTitle, selectedProjectId, estimatedPomodoros);
-        event('task_added', { 
-          project_id: selectedProjectId, 
-          estimated_pomodoros: estimatedPomodoros 
+        event('task_added', {
+          project_id: selectedProjectId,
+          estimated_pomodoros: estimatedPomodoros
         });
         setNewTaskTitle('');
         setEstimatedPomodoros(undefined);
@@ -71,40 +73,40 @@ const TaskList = React.memo(() => {
           estimatedPomodoros: editingTask.estimatedPomodoros,
           projectId: editingTask.projectId
         });
-        event('task_updated', { 
-          task_id: editingTask.id, 
+        event('task_updated', {
+          task_id: editingTask.id,
           new_estimated_pomodoros: editingTask.estimatedPomodoros,
           new_project_id: editingTask.projectId
         });
         setEditingTask(null);
       } catch (error) {
         console.error("Failed to update task:", error);
-        event('task_update_error', { 
-          task_id: editingTask.id, 
-          error_message: (error as Error).message 
+        event('task_update_error', {
+          task_id: editingTask.id,
+          error_message: (error as Error).message
         });
       }
     }
   }, [editingTask, event, updateTask]);
 
-  const filteredTasks = useMemo(() => 
-    memoizedTasks.filter(task => 
+  const filteredTasks = useMemo(() =>
+    memoizedTasks.filter(task =>
       (showCompleted || !task.completed) &&
       (searchTerm === '' || task.title.toLowerCase().includes(searchTerm.toLowerCase()))
     ),
     [memoizedTasks, showCompleted, searchTerm]
   );
 
-  const displayedTasks = useMemo(() => 
+  const displayedTasks = useMemo(() =>
     filteredTasks.slice(0, (currentPage + 1) * itemsPerPage),
     [filteredTasks, currentPage, itemsPerPage]
   );
 
   const handleToggleTaskCompletion = useCallback((taskId: string, currentCompletionState: boolean) => {
     toggleTaskCompletion(taskId, currentCompletionState);
-    event('task_completion_toggled', { 
-      task_id: taskId, 
-      new_state: !currentCompletionState 
+    event('task_completion_toggled', {
+      task_id: taskId,
+      new_state: !currentCompletionState
     });
   }, [event, toggleTaskCompletion]);
 
@@ -139,36 +141,74 @@ const TaskList = React.memo(() => {
         <CardTitle>Your Tasks</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4 mb-6">
-          <div className="flex items-center space-x-2">
-            <Input
-              type="text"
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              placeholder="New task title"
-              className="flex-grow"
-            />
-            <Input
-              type="number"
-              value={estimatedPomodoros}
-              onChange={(e) => setEstimatedPomodoros(e.target.value ? parseInt(e.target.value) : undefined)}
-              placeholder="Pomodoros"
-              className="w-24"
-            />
-          </div>
-          <div className="flex items-center space-x-2">
-            <Combobox
-              options={memoizedProjects.map(project => ({ value: project.name, label: project.name }))}
-              value={selectedProjectId}
-              onChange={(value) => setSelectedProjectId(value)}
-              placeholder="Select a project"
-            />
-            <Button type="submit">
-              <Plus className="w-4 h-4 mr-2" />
+        <div className="flex justify-end mb-4">
+          {!showAddTaskForm && (
+            <Button onClick={() => setShowAddTaskForm(true)} className="mr-2">
               Add Task
             </Button>
+          )}
+          {!showSearchForm && (
+            <Button onClick={() => setShowSearchForm(true)}>
+              Search Tasks
+            </Button>
+          )}
+        </div>
+
+        {showAddTaskForm && (
+          <form onSubmit={handleSubmit} className="space-y-4 mb-6">
+            <div className="flex items-center space-x-2">
+              <Input
+                type="text"
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                placeholder="New task title"
+                className="w-full"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Input
+                type="number"
+                value={estimatedPomodoros}
+                onChange={(e) => setEstimatedPomodoros(e.target.value ? parseInt(e.target.value) : undefined)}
+                placeholder="Estimated Pomodoros"
+                className="w-1/2"
+              />
+              <div className="w-1/2">
+                <Combobox
+                  options={memoizedProjects.map(project => ({ value: project.name, label: project.name }))}
+                  value={selectedProjectId}
+                  onChange={(value) => setSelectedProjectId(value)}
+                  placeholder="Select a project"
+                />
+              </div>
+
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button type="submit" className="w-1/2">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Task
+              </Button>
+              <Button type="button" onClick={() => setShowAddTaskForm(false)} variant="outline" className="w-1/2">
+                Cancel
+              </Button>
+            </div>
+          </form>
+        )}
+
+        {showSearchForm && (
+          <div className="flex items-center space-x-2 mb-4">
+            <Input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => handleSearchTermChange(e.target.value)}
+              placeholder="Search tasks"
+              className="flex-grow"
+            />
+            <Button type="button" onClick={() => setShowSearchForm(false)} variant="outline">
+              Cancel
+            </Button>
           </div>
-        </form>
+        )}
 
         <div className="flex items-center space-x-2 mb-4">
           <Checkbox
@@ -178,15 +218,7 @@ const TaskList = React.memo(() => {
           />
           <label htmlFor="showCompleted" className="text-sm">Show completed tasks</label>
         </div>
-
-        <Input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => handleSearchTermChange(e.target.value)}
-          placeholder="Search tasks"
-          className="mb-4"
-        />
-
+        <hr />
         <ul className="space-y-2">
           {displayedTasks.map((task) => (
             <li key={task.id} className="flex items-center justify-between p-2 hover:bg-accent rounded-md transition-colors">
@@ -238,7 +270,7 @@ const TaskList = React.memo(() => {
                       <Button variant="ghost" size="sm">
                         <MoreHorizontal className="w-4 h-4" />
                       </Button>
-                      
+
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => {
