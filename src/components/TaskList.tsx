@@ -118,7 +118,7 @@ const TaskList = React.memo(() => {
   const handleShowCompletedToggle = useCallback(() => {
     setShowCompleted(!showCompleted);
     event('show_completed_tasks_toggled', { new_state: !showCompleted });
-  }, [event]);
+  }, [event, showCompleted]);
 
   const handleSearchTermChange = useCallback((term: string) => {
     setSearchTerm(term);

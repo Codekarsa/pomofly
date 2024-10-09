@@ -16,27 +16,6 @@ export function usePomodoro(settings: PomodoroSettings, onComplete?: () => void)
   const [isActive, setIsActive] = useState(false);
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    if (isActive) {
-      interval = setInterval(() => {
-        if (seconds > 0) {
-          setSeconds(seconds - 1);
-        } else if (minutes > 0) {
-          setMinutes(minutes - 1);
-          setSeconds(59);
-        } else {
-          clearInterval(interval!);
-          setIsActive(false);
-          handlePhaseComplete();
-        }
-      }, 1000);
-    } else if (!isActive && seconds !== 0) {
-      clearInterval(interval!);
-    }
-    return () => clearInterval(interval!);
-  }, [isActive, minutes, seconds]);
-
   const handlePhaseComplete = useCallback(() => {
     if (phase === 'pomodoro') {
       setSessionsCompleted(prev => prev + 1);
@@ -56,6 +35,27 @@ export function usePomodoro(settings: PomodoroSettings, onComplete?: () => void)
       onComplete();
     }
   }, [phase, sessionsCompleted, settings, onComplete]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (isActive) {
+      interval = setInterval(() => {
+        if (seconds > 0) {
+          setSeconds(seconds - 1);
+        } else if (minutes > 0) {
+          setMinutes(minutes - 1);
+          setSeconds(59);
+        } else {
+          clearInterval(interval!);
+          setIsActive(false);
+          handlePhaseComplete();
+        }
+      }, 1000);
+    } else if (!isActive && seconds !== 0) {
+      clearInterval(interval!);
+    }
+    return () => clearInterval(interval!);
+  }, [isActive, minutes, seconds, settings, handlePhaseComplete]);
 
   const toggleTimer = useCallback(() => {
     setIsActive(!isActive);
