@@ -47,9 +47,9 @@ export default function Dashboard() {
     } else {
       event('default_settings_used', {});
     }
-  }, []);
+  }, [event]);
 
-  const memoizedEvent = useCallback(event, []);
+  const memoizedEvent = useCallback(event, [event]);
 
   useEffect(() => {
     event('dashboard_view', { 
