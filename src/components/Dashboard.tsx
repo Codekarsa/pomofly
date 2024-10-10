@@ -130,6 +130,7 @@ export default function Dashboard() {
 const Footer = () => (
   <footer className="bg-background border-t py-2 text-sm text-muted-foreground">
     <div className="container mx-auto px-4 flex items-center justify-between">
+      <div className="autobacklink"></div>
       <div className="flex items-center space-x-4">
         <span>© 2024 Pomofly</span>
         <Separator orientation="vertical" className="h-4" />
