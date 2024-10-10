@@ -20,19 +20,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
-        <Script
-          src="https://autoback.link/autobacklink.js?ref=pomofly.com"
-          strategy="afterInteractive"
-          async
-          defer
-        />
-      </head>
       <body className={cn(inter.className, "bg-gray-100")}>
         <AuthProvider>{children}</AuthProvider>
         <Suspense fallback={<div>Loading...</div>}>
           <GoogleAnalytics GA_MEASUREMENT_ID={process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!} />
         </Suspense>
+        <Script src="https://autoback.link/autobacklink.js?ref=pomofly.com" defer async />
       </body>
     </html>
   );
