@@ -12,19 +12,15 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
-
-const defaultSettings = {
-  pomodoro: 25,
-  shortBreak: 5,
-  longBreak: 15,
-  longBreakInterval: 4
-};
+import { usePomodoro, defaultSettings } from '@/hooks/usePomodoro';
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settings, setSettings] = useState(defaultSettings);
   const { event } = useGoogleAnalytics();
+  const [settings, setSettings] = useState(defaultSettings);
+
+  const { updateSettings } = usePomodoro(settings);
 
   useEffect(() => {
     const savedSettings = localStorage.getItem('pomodoroSettings');
@@ -67,7 +63,7 @@ export default function Dashboard() {
 
   const handleSettingsSave = useCallback((newSettings: typeof defaultSettings) => {
     setSettings(newSettings);
-    localStorage.setItem('pomodoroSettings', JSON.stringify(newSettings));
+    updateSettings(newSettings);
     setIsSettingsOpen(false);
     event('settings_saved', { 
       pomodoro: newSettings.pomodoro,
@@ -75,7 +71,7 @@ export default function Dashboard() {
       longBreak: newSettings.longBreak,
       longBreakInterval: newSettings.longBreakInterval
     });
-  }, [event]);
+  }, [event, updateSettings]);
 
   const memoizedSettings = useMemo(() => settings, [settings]);
 
@@ -102,7 +98,7 @@ export default function Dashboard() {
           </div>
           <div className="space-y-8">
             {user ? (
-              <TaskList />
+              <TaskList settings={settings} />
             ) : (
               <div className="bg-white p-6 rounded-lg shadow-md">
                 <h2 className="text-xl font-semibold mb-4">Welcome to Pomofly, an Elegant and Minimal Pomodoro Timer</h2>
