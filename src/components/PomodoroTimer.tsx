@@ -51,7 +51,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     isActive, 
     toggleTimer, 
     resetTimer,
-    switchPhase
+    switchPhase,
   } = usePomodoro(settings, handlePomodoroComplete);
 
   useEffect(() => {
