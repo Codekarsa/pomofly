@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import GoogleAnalytics from '../components/GoogleAnalytics';
 import { Suspense } from 'react';
 import { cn } from '@/lib/utils';
+import Script from 'next/script';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -19,6 +20,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <Script
+          src="https://autoback.link/autobacklink.js?ref=pomofly.com"
+          strategy="afterInteractive"
+          async
+          defer
+        />
+      </head>
       <body className={cn(inter.className, "bg-gray-100")}>
         <AuthProvider>{children}</AuthProvider>
         <Suspense fallback={<div>Loading...</div>}>
