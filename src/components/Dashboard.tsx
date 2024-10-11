@@ -92,57 +92,68 @@ export default function Dashboard() {
   if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header onSettingsClick={handleSettingsOpen} />
-      <main className="flex-grow container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="space-y-8">
-            <PomodoroTimer settings={memoizedSettings} />
-            {user && <ProjectList />}
+    <>
+      <div className="flex flex-col min-h-screen">
+        <Header onSettingsClick={handleSettingsOpen} />
+        <main className="flex-grow container mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="space-y-8">
+              <PomodoroTimer settings={memoizedSettings} />
+              {user && <ProjectList />}
+            </div>
+            <div className="space-y-8">
+              {user ? (
+                <TaskList />
+              ) : (
+                <div className="bg-white p-6 rounded-lg shadow-md">
+                  <h2 className="text-xl font-semibold mb-4">Welcome to Pomofly, an Elegant and Minimal Pomodoro Timer</h2>
+                  <p className="text-gray-600 mb-4">Sign in to access task and project management features.</p>
+                  <Button onClick={handleSignIn} className="w-full sm:w-auto">
+                    Sign in with Google
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="space-y-8">
-            {user ? (
-              <TaskList />
-            ) : (
-              <div className="bg-white p-6 rounded-lg shadow-md">
-                <h2 className="text-xl font-semibold mb-4">Welcome to Pomofly, an Elegant and Minimal Pomodoro Timer</h2>
-                <p className="text-gray-600 mb-4">Sign in to access task and project management features.</p>
-                <Button onClick={handleSignIn} className="w-full sm:w-auto">
-                  Sign in with Google
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-      </main>
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={handleSettingsClose}
-        settings={settings}
-        onSave={handleSettingsSave}
-        event={memoizedEvent}
-      />
-      <Footer />
-    </div>
+        </main>
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={handleSettingsClose}
+          settings={settings}
+          onSave={handleSettingsSave}
+          event={memoizedEvent}
+        />
+        <Footer />
+      </div>
+      <AutoBacklink />
+    </>
   );
 }
 
 const Footer = () => (
-  <footer className="bg-background border-t py-2 text-sm text-muted-foreground">
-    <div className="container mx-auto px-4 flex items-center justify-between">
-      <div className="flex items-center space-x-4">
-        <span>© 2024 Pomofly</span>
-        <Separator orientation="vertical" className="h-4" />
-        <a href="/#" className="hover:underline">Privacy</a>
-        <a href="/#" className="hover:underline">Terms</a>
-        <div className="autobacklink"></div>
-      </div>
-      <div className="flex items-center space-x-4">
-        <span>Made with ❤️ by Codekarsa</span>
-        <Button variant="ghost" size="icon">
-          <Github className="h-4 w-4" />
-        </Button>
+  <footer className="bg-background border-t py-2 text-sm text-muted-foreground mt-auto">
+    <div className="container mx-auto px-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center space-x-4">
+          <span>© 2024 Pomofly</span>
+          <Separator orientation="vertical" className="h-4" />
+          <a href="/#" className="hover:underline">Privacy</a>
+          <a href="/#" className="hover:underline">Terms</a>
+        </div>
+        <div className="flex items-center space-x-4">
+          <span>Made with ❤️ by Codekarsa</span>
+          <Button variant="ghost" size="icon">
+            <Github className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   </footer>
+);
+
+const AutoBacklink = () => (
+  <div className="bg-background border-t py-4 w-full text-sm text-muted-foreground mx-auto overflow-hidden">
+    <div className='text-lg font-bold px-28 mb-4'>Indie Hacker</div>
+    <div className="autobacklink grid grid-cols-6 gap-4 px-28"></div>
+  </div>
 );
