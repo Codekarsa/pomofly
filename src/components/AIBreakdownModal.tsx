@@ -8,11 +8,11 @@ import { useClaudeAI } from '@/hooks/useClaudeAI';
 import { Checkbox } from './ui/checkbox';
 
 interface PomodoroSettings {
-    pomodoro: number;
-    shortBreak: number;
-    longBreak: number;
-    longBreakInterval: number;
-  }
+  pomodoro: number;
+  shortBreak: number;
+  longBreak: number;
+  longBreakInterval: number;
+}
 
 interface AIBreakdownModalProps {
   isOpen: boolean;
@@ -55,7 +55,7 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="max-h-[80vh] overflow-y-auto"> {/* Added max height and overflow */}
         <DialogHeader>
           <DialogTitle>Break Down Your Work with AI</DialogTitle>
         </DialogHeader>
