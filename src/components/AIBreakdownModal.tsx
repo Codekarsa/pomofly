@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -7,6 +7,7 @@ import { Label } from './ui/label';
 import { useClaudeAI } from '@/hooks/useClaudeAI';
 import { Checkbox } from './ui/checkbox';
 import { Pencil, Trash2, X } from 'lucide-react';
+import { Combobox } from './ui/combobox';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -15,14 +16,20 @@ interface PomodoroSettings {
   longBreakInterval: number;
 }
 
+interface Project {
+  id: string;
+  name: string;
+}
+
 interface AIBreakdownModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (tasks: { title: string; estimatedPomodoros: number }[]) => void;
+  onSave: (tasks: { title: string; estimatedPomodoros: number }[], projectId: string) => void; // Updated to include projectId
   settings: PomodoroSettings;
+  projects: Project[]; // List of projects
 }
 
-export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onClose, onSave, settings }) => {
+export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onClose, onSave, settings, projects }) => {
   const [description, setDescription] = useState('');
   const [useCustomDates, setUseCustomDates] = useState(false);
   const [startDate, setStartDate] = useState('');
@@ -35,6 +42,24 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
   const [pomodoroDuration, setPomodoroDuration] = useState(settings.pomodoro);
   const [shortBreakDuration, setShortBreakDuration] = useState(settings.shortBreak);
   const [longBreakDuration, setLongBreakDuration] = useState(settings.longBreak);
+  
+  // State for project selection
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const adjustTextareaHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      const newHeight = Math.min(textarea.scrollHeight, 8 * 24);
+      textarea.style.height = `${newHeight}px`;
+    }
+  };
+
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [description]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,8 +79,8 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
   };
 
   const handleSave = () => {
-    if (breakdownResult) {
-      onSave(breakdownResult);
+    if (breakdownResult && selectedProject) {
+      onSave(breakdownResult, selectedProject);
       onClose();
     }
   };
@@ -93,10 +118,16 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
               <Label htmlFor="description">Work Description</Label>
               <Textarea
                 id="description"
+                ref={textareaRef}
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => {
+                  setDescription(e.target.value);
+                  adjustTextareaHeight();
+                }}
                 placeholder="Describe your complex task..."
                 required
+                className="resize-none overflow-hidden"
+                rows={3} // Set an initial number of rows
               />
             </div>
             <div className="flex space-x-4">
@@ -130,6 +161,15 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
                   min="1"
                 />
               </div>
+            </div>
+            <div>
+              <Label htmlFor="projectSelect">Select Project</Label>
+              <Combobox
+                options={projects.map(project => ({ value: project.id, label: project.name }))}
+                value={selectedProject || ''}
+                onChange={(value) => setSelectedProject(value)}
+                placeholder="Select a project"
+              />
             </div>
             <div className="flex items-center space-x-2">
               <Checkbox
@@ -240,7 +280,11 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
                 </li>
               ))}
             </ul>
-            <Button onClick={handleSave} className="mt-4 w-full bg-primary text-primary-foreground hover:bg-primary/90">
+            <Button 
+              onClick={handleSave} 
+              className="mt-4 w-full bg-primary text-primary-foreground hover:bg-primary/90"
+              disabled={!selectedProject}
+            >
               Save Breakdown
             </Button>
           </div>
