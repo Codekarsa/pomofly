@@ -30,6 +30,11 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
   const [breakdownResult, setBreakdownResult] = useState<{ title: string; estimatedPomodoros: number }[] | null>(null);
   const { getTaskBreakdown, loading, error } = useClaudeAI();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  
+  // State for custom durations
+  const [pomodoroDuration, setPomodoroDuration] = useState(settings.pomodoro);
+  const [shortBreakDuration, setShortBreakDuration] = useState(settings.shortBreak);
+  const [longBreakDuration, setLongBreakDuration] = useState(settings.longBreak);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,9 +43,9 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
         description,
         useCustomDates ? new Date(startDate) : undefined,
         useCustomDates ? new Date(endDate) : undefined,
-        settings.pomodoro,
-        settings.shortBreak,
-        settings.longBreak
+        pomodoroDuration, // Use custom duration
+        shortBreakDuration, // Use custom duration
+        longBreakDuration // Use custom duration
       );
       setBreakdownResult(result.tasks);
     } catch (err) {
@@ -94,6 +99,38 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
                 required
               />
             </div>
+            <div className="flex space-x-4">
+              <div className="flex-1">
+                <Label htmlFor="pomodoroDuration">Pomodoro Duration (minutes)</Label>
+                <Input
+                  id="pomodoroDuration"
+                  type="number"
+                  value={pomodoroDuration}
+                  onChange={(e) => setPomodoroDuration(parseInt(e.target.value, 10))}
+                  min="1"
+                />
+              </div>
+              <div className="flex-1">
+                <Label htmlFor="shortBreakDuration">Short Break Duration (minutes)</Label>
+                <Input
+                  id="shortBreakDuration"
+                  type="number"
+                  value={shortBreakDuration}
+                  onChange={(e) => setShortBreakDuration(parseInt(e.target.value, 10))}
+                  min="1"
+                />
+              </div>
+              <div className="flex-1">
+                <Label htmlFor="longBreakDuration">Long Break Duration (minutes)</Label>
+                <Input
+                  id="longBreakDuration"
+                  type="number"
+                  value={longBreakDuration}
+                  onChange={(e) => setLongBreakDuration(parseInt(e.target.value, 10))}
+                  min="1"
+                />
+              </div>
+            </div>
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="useCustomDates"
@@ -104,23 +141,26 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
             </div>
             {useCustomDates && (
               <>
-                <div>
-                  <Label htmlFor="startDate">Start Date</Label>
-                  <Input
-                    id="startDate"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="endDate">End Date</Label>
-                  <Input
-                    id="endDate"
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
+                <div className="flex space-x-4">
+                  <div className="flex-1">
+                    <Label htmlFor="startDate">Start Date</Label>
+                    <Input
+                      id="startDate"
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <Label htmlFor="endDate">End Date</Label>
+                    <Input
+                      id="endDate"
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      required={!!startDate}
+                    />
+                  </div>
                 </div>
               </>
             )}
@@ -146,14 +186,14 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
                           value={task.title}
                           onChange={(e) => handleTaskChange(index, 'title', e.target.value)}
                           className="w-full border border-input rounded-md shadow-sm focus:ring focus:ring-ring"
-                          onBlur={() => setEditingIndex(null)} // Stop editing on blur
+                          onBlur={() => setEditingIndex(null)} 
                         />
                         <Input
                           type="number"
                           value={task.estimatedPomodoros}
                           onChange={(e) => handleTaskChange(index, 'estimatedPomodoros', e.target.value)}
                           className="w-20 border border-input rounded-md shadow-sm focus:ring focus:ring-ring"
-                          onBlur={() => setEditingIndex(null)} // Stop editing on blur
+                          onBlur={() => setEditingIndex(null)}
                         />
                       </>
                     ) : (
