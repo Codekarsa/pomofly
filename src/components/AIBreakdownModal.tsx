@@ -178,9 +178,9 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
             <ul className="space-y-2">
               {breakdownResult.map((task, index) => (
                 <li key={index} className="flex items-center justify-between p-4 border-b border-border rounded-md hover:bg-muted transition">
-                  <div className="flex items-center space-x-4 w-full">
-                    {editingIndex === index ? (
-                      <>
+                  <div className="flex items-center w-full">
+                    <div className="flex-1">
+                      {editingIndex === index ? (
                         <Input
                           type="text"
                           value={task.title}
@@ -188,20 +188,23 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
                           className="w-full border border-input rounded-md shadow-sm focus:ring focus:ring-ring"
                           onBlur={() => setEditingIndex(null)} 
                         />
+                      ) : (
+                        <span className="text-foreground font-medium">{task.title}</span>
+                      )}
+                    </div>
+                    <div className="flex-none w-32">
+                      {editingIndex === index ? (
                         <Input
                           type="number"
                           value={task.estimatedPomodoros}
                           onChange={(e) => handleTaskChange(index, 'estimatedPomodoros', e.target.value)}
-                          className="w-20 border border-input rounded-md shadow-sm focus:ring focus:ring-ring"
+                          className="border border-input rounded-md shadow-sm focus:ring focus:ring-ring"
                           onBlur={() => setEditingIndex(null)}
                         />
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-foreground font-medium">{task.title}</span>
+                      ) : (
                         <span className="text-muted-foreground">{task.estimatedPomodoros} pomodoros</span>
-                      </>
-                    )}
+                      )}
+                    </div>
                   </div>
                   {editingIndex === index ? (
                     <div>
