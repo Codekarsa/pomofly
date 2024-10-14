@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import GoogleAnalytics from '../components/GoogleAnalytics';
 import { Suspense } from 'react';
 import { cn } from '@/lib/utils';
+import Script from 'next/script';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -24,6 +25,7 @@ export default function RootLayout({
         <Suspense fallback={<div>Loading...</div>}>
           <GoogleAnalytics GA_MEASUREMENT_ID={process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!} />
         </Suspense>
+        <Script src="https://autoback.link/autobacklink.js?ref=pomofly.com" defer async />
       </body>
     </html>
   );

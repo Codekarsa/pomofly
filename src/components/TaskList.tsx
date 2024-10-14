@@ -69,7 +69,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
           estimated_pomodoros: estimatedPomodoros
         });
         setNewTaskTitle('');
-        setEstimatedPomodoros(undefined);
+        setEstimatedPomodoros(0);
       } catch (error) {
         console.error("Failed to add task:", error);
         event('task_add_error', { error_message: (error as Error).message });
