@@ -14,8 +14,20 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Combobox } from './ui/combobox';
+import { AIBreakdownModal } from './AIBreakdownModal';
 
-const TaskList = React.memo(() => {
+interface PomodoroSettings {
+  pomodoro: number;
+  shortBreak: number;
+  longBreak: number;
+  longBreakInterval: number;
+}
+
+interface TaskListProps {
+  settings: PomodoroSettings;
+}
+
+const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [estimatedPomodoros, setEstimatedPomodoros] = useState<number | undefined>(undefined);
   const [selectedProjectId, setSelectedProjectId] = useState('');
@@ -26,6 +38,7 @@ const TaskList = React.memo(() => {
   const itemsPerPage = 5;
   const [showAddTaskForm, setShowAddTaskForm] = useState(false);
   const [showSearchForm, setShowSearchForm] = useState(false);
+  const [showAIBreakdownModal, setShowAIBreakdownModal] = useState(false);
 
   const { projects } = useProjects();
   const {
@@ -132,6 +145,13 @@ const TaskList = React.memo(() => {
     }
   }, [currentPage, event, filteredTasks.length, itemsPerPage]);
 
+  const handleAIBreakdownSave = (tasks: { title: string; estimatedPomodoros: number }[]) => {
+    tasks.forEach(task => {
+      addTask(task.title, selectedProjectId, task.estimatedPomodoros);
+    });
+    setShowAIBreakdownModal(false);
+  };
+
   if (tasksLoading) return <div>Loading tasks...</div>;
   if (tasksError) return <div>Error loading tasks: {tasksError.message}</div>;
 
@@ -148,10 +168,13 @@ const TaskList = React.memo(() => {
             </Button>
           )}
           {!showSearchForm && (
-            <Button onClick={() => setShowSearchForm(true)}>
+            <Button onClick={() => setShowSearchForm(true)} className="mr-2">
               Search Tasks
             </Button>
           )}
+          <Button onClick={() => setShowAIBreakdownModal(true)} className="ml-2 bg-indigo-600 text-white hover:bg-indigo-800">
+            Task Breakdown with AI
+          </Button>
         </div>
 
         {showAddTaskForm && (
@@ -304,6 +327,13 @@ const TaskList = React.memo(() => {
           </div>
         )}
       </CardContent>
+      <AIBreakdownModal
+        isOpen={showAIBreakdownModal}
+        onClose={() => setShowAIBreakdownModal(false)}
+        onSave={handleAIBreakdownSave}
+        settings={settings}
+        projects={projects}
+      />
     </Card>
   );
 });
