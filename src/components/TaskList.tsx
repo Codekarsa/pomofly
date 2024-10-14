@@ -173,7 +173,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
             </Button>
           )}
           <Button onClick={() => setShowAIBreakdownModal(true)} className="ml-2">
-            AI Breakdown
+            AI Task Breakdown
           </Button>
         </div>
 
