@@ -9,12 +9,20 @@ interface PomodoroSettings {
   longBreakInterval: number;
 }
 
-export function usePomodoro(settings: PomodoroSettings, onComplete?: () => void) {
+export const defaultSettings: PomodoroSettings = {
+  pomodoro: 25,
+  shortBreak: 5,
+  longBreak: 15,
+  longBreakInterval: 4
+};
+
+export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () => void) {
   const [phase, setPhase] = useState<PomodoroPhase>('pomodoro');
-  const [minutes, setMinutes] = useState(settings[phase]);
+  const [minutes, setMinutes] = useState(initialSettings[phase]);
   const [seconds, setSeconds] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
+  const [settings, setSettings] = useState(initialSettings);
 
   const handlePhaseComplete = useCallback(() => {
     if (phase === 'pomodoro') {
@@ -35,6 +43,11 @@ export function usePomodoro(settings: PomodoroSettings, onComplete?: () => void)
       onComplete();
     }
   }, [phase, sessionsCompleted, settings, onComplete]);
+
+  const updateSettings = useCallback((newSettings: PomodoroSettings) => {
+    setSettings(newSettings);
+    localStorage.setItem('pomodoroSettings', JSON.stringify(newSettings));
+  }, []);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -86,6 +99,8 @@ export function usePomodoro(settings: PomodoroSettings, onComplete?: () => void)
     isActive, 
     toggleTimer, 
     resetTimer,
-    switchPhase
+    switchPhase,
+    settings,
+    updateSettings
   };
 }
