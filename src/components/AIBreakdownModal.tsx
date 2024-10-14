@@ -24,9 +24,9 @@ interface Project {
 interface AIBreakdownModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (tasks: { title: string; estimatedPomodoros: number }[], projectId: string) => void; // Updated to include projectId
+  onSave: (tasks: { title: string; estimatedPomodoros: number }[], projectId: string) => void;
   settings: PomodoroSettings;
-  projects: Project[]; // List of projects
+  projects: Project[]; 
 }
 
 export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onClose, onSave, settings, projects }) => {
@@ -38,12 +38,10 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
   const { getTaskBreakdown, loading, error } = useClaudeAI();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   
-  // State for custom durations
   const [pomodoroDuration, setPomodoroDuration] = useState(settings.pomodoro);
   const [shortBreakDuration, setShortBreakDuration] = useState(settings.shortBreak);
   const [longBreakDuration, setLongBreakDuration] = useState(settings.longBreak);
   
-  // State for project selection
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -68,9 +66,9 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
         description,
         useCustomDates ? new Date(startDate) : undefined,
         useCustomDates ? new Date(endDate) : undefined,
-        pomodoroDuration, // Use custom duration
-        shortBreakDuration, // Use custom duration
-        longBreakDuration // Use custom duration
+        pomodoroDuration,
+        shortBreakDuration,
+        longBreakDuration
       );
       setBreakdownResult(result.tasks);
     } catch (err) {
@@ -127,7 +125,7 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
                 placeholder="Describe your complex task..."
                 required
                 className="resize-none overflow-hidden"
-                rows={3} // Set an initial number of rows
+                rows={3}
               />
             </div>
             <div className="flex space-x-4">
