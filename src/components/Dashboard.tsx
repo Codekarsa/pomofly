@@ -34,7 +34,7 @@ export default function Dashboard() {
     const savedSettings = localStorage.getItem('pomodoroSettings');
     if (savedSettings) {
       const parsedSettings = JSON.parse(savedSettings);
-      event('settings_loaded', { 
+      event('settings_loaded', {
         pomodoro: parsedSettings.pomodoro,
         shortBreak: parsedSettings.shortBreak,
         longBreak: parsedSettings.longBreak,
@@ -48,8 +48,8 @@ export default function Dashboard() {
   const memoizedEvent = useCallback(event, [event]);
 
   useEffect(() => {
-    event('dashboard_view', { 
-      is_authenticated: !!user 
+    event('dashboard_view', {
+      is_authenticated: !!user
     });
   }, [user, event]);
 
@@ -65,7 +65,7 @@ export default function Dashboard() {
     setSettings(newSettings);
     updateSettings(newSettings);
     setIsSettingsOpen(false);
-    event('settings_saved', { 
+    event('settings_saved', {
       pomodoro: newSettings.pomodoro,
       shortBreak: newSettings.shortBreak,
       longBreak: newSettings.longBreak,
@@ -99,7 +99,7 @@ export default function Dashboard() {
             </div>
             <div className="space-y-8">
               {user ? (
-                <TaskList />
+                <TaskList settings={settings} />
               ) : (
                 <div className="bg-white p-6 rounded-lg shadow-md">
                   <h2 className="text-xl font-semibold mb-4">Welcome to Pomofly, an Elegant and Minimal Pomodoro Timer</h2>
@@ -111,21 +111,6 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-
-          <div className="space-y-8">
-            {user ? (
-              <TaskList settings={settings} />
-            ) : (
-              <div className="bg-white p-6 rounded-lg shadow-md">
-                <h2 className="text-xl font-semibold mb-4">Welcome to Pomofly, an Elegant and Minimal Pomodoro Timer</h2>
-                <p className="text-gray-600 mb-4">Sign in to access task and project management features.</p>
-                <Button onClick={handleSignIn} className="w-full sm:w-auto">
-                  Sign in with Google
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
         </main>
         <SettingsModal
           isOpen={isSettingsOpen}
