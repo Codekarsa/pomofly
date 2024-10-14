@@ -172,8 +172,8 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
               Search Tasks
             </Button>
           )}
-          <Button onClick={() => setShowAIBreakdownModal(true)} className="ml-2">
-            AI Task Breakdown
+          <Button onClick={() => setShowAIBreakdownModal(true)} className="ml-2 bg-indigo-600 text-white hover:bg-indigo-800">
+            Task Breakdown with AI
           </Button>
         </div>
 
@@ -332,6 +332,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
         onClose={() => setShowAIBreakdownModal(false)}
         onSave={handleAIBreakdownSave}
         settings={settings}
+        projects={projects}
       />
     </Card>
   );
