@@ -2,14 +2,14 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import Header from './Header';
+import Footer from './Footer';
+import AutoBacklink from './Autobacklink';
 import PomodoroTimer from './PomodoroTimer';
 import TaskList from './TaskList';
 import ProjectList from './ProjectList';
 import SettingsModal from './SettingsModal';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
-import { Github } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
 import { usePomodoro, defaultSettings } from '@/hooks/usePomodoro';
@@ -125,31 +125,3 @@ export default function Dashboard() {
     </>
   );
 }
-
-const Footer = () => (
-  <footer className="bg-background border-t py-2 text-sm text-muted-foreground mt-auto">
-    <div className="container mx-auto px-4">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center space-x-4">
-          <span>© 2024 Pomofly</span>
-          <Separator orientation="vertical" className="h-4" />
-          <a href="/#" className="hover:underline">Privacy</a>
-          <a href="/#" className="hover:underline">Terms</a>
-        </div>
-        <div className="flex items-center space-x-4">
-          <span>Made with ❤️ by Codekarsa</span>
-          <Button variant="ghost" size="icon">
-            <Github className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    </div>
-  </footer>
-);
-
-const AutoBacklink = () => (
-  <div className="bg-background border-t py-4 w-full text-sm text-muted-foreground mx-auto overflow-hidden">
-    <div className='text-lg font-bold px-28 mb-4'>Indie Hacker</div>
-    <div className="autobacklink grid grid-cols-6 gap-4 px-28"></div>
-  </div>
-);
