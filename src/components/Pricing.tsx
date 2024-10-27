@@ -26,7 +26,7 @@ export default function Pricing() {
     {
       name: "Premium Plan",
       description: "For power users",
-      price: { monthly: 9.99, yearly: 99.99 },
+      price: { monthly: 2.99, yearly: 29.99 },
       features: [
         "Unlimited tasks",
         "Unlimited projects",
@@ -39,7 +39,7 @@ export default function Pricing() {
   return (
     <>
       <div className="flex flex-col min-h-screen">
-        <Header onSettingsClick={() => {}} />
+        <Header/>
         <main className="flex-grow container mx-auto px-4 py-8">
           <h1 className="text-3xl font-bold mb-8 text-center">Choose Your Plan</h1>
           <div className="flex justify-center items-center mb-8">

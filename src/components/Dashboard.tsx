@@ -56,7 +56,6 @@ export default function Dashboard() {
   const handleSettingsOpen = useCallback(() => {
     setIsSettingsOpen(true);
   }, []);
-
   const handleSettingsClose = useCallback(() => {
     setIsSettingsOpen(false);
   }, []);
@@ -90,11 +89,11 @@ export default function Dashboard() {
   return (
     <>
       <div className="flex flex-col min-h-screen">
-        <Header onSettingsClick={handleSettingsOpen} />
+        <Header/>
         <main className="flex-grow container mx-auto px-4 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="space-y-8">
-              <PomodoroTimer settings={memoizedSettings} />
+              <PomodoroTimer settings={memoizedSettings} onSettingsClick={handleSettingsOpen}/>
               {user && <ProjectList />}
             </div>
             <div className="space-y-8">

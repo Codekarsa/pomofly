@@ -9,7 +9,7 @@ import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { Button } from '@/components/ui/button';
 import { Github } from 'lucide-react';
 
-export default function Header({ onSettingsClick }: { onSettingsClick: () => void }) {
+export default function Header() {
   const { user } = useAuth();
   const { event } = useGoogleAnalytics();
 
@@ -41,15 +41,12 @@ export default function Header({ onSettingsClick }: { onSettingsClick: () => voi
     }
   };
 
-  const handleSettingsClick = () => {
-    event('settings_button_click', {});
-    onSettingsClick();
-  };
-
   return (
     <header className="bg-background border-b">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-        <h1 className="text-xl font-semibold text-foreground">Pomofly</h1>
+        <Link href="/" className="text-xl font-semibold text-foreground hover:text-primary transition-colors">
+          Pomofly
+        </Link>
         <div className="flex items-center space-x-2">
           <Link href="/pricing">
             <Button variant="ghost">Pricing</Button>
@@ -64,9 +61,6 @@ export default function Header({ onSettingsClick }: { onSettingsClick: () => voi
               <Github className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Star on GitHub</span>
             </a>
-          </Button>
-          <Button variant="ghost" size="sm" onClick={handleSettingsClick}>
-            Settings
           </Button>
           {user ? (
             <Button variant="ghost" size="sm" onClick={handleSignOut}>

@@ -17,9 +17,10 @@ interface PomodoroSettings {
 
 interface PomodoroTimerProps {
   settings: PomodoroSettings;
+  onSettingsClick: () => void;
 }
 
-const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) => {
+const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings, onSettingsClick }) => {
   const { user } = useAuth();
   const { event } = useGoogleAnalytics();
   const [selectedTaskId, setSelectedTaskId] = useState('');
@@ -93,7 +94,12 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   return (
     <Card className="w-full mx-auto">
       <CardHeader>
-        <CardTitle>Pomodoro Timer</CardTitle>
+        <div className="flex justify-between items-center">
+          <CardTitle>Pomodoro Timer</CardTitle>
+          <Button variant="ghost" size="sm" onClick={onSettingsClick}>
+            Settings
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="mb-4 text-lg">
