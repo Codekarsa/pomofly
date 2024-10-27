@@ -19,7 +19,7 @@ export default function Pricing() {
       features: [
         "Unlimited tasks",
         "Unlimited projects",
-        "5 Premium AI Submissions"
+        "5 AI Task Breakdowns per month"
       ],
       buttonText: "Current Plan"
     },
@@ -30,7 +30,7 @@ export default function Pricing() {
       features: [
         "Unlimited tasks",
         "Unlimited projects",
-        "Unlimited Premium AI Submissions"
+        "Unlimited AI Task Breakdowns"
       ],
       buttonText: "Upgrade to Premium"
     }

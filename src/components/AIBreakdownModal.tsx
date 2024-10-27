@@ -8,6 +8,7 @@ import { useClaudeAI } from '@/hooks/useClaudeAI';
 import { Checkbox } from './ui/checkbox';
 import { Pencil, Trash2, X } from 'lucide-react';
 import { Combobox } from './ui/combobox';
+import { useSubscription } from '@/hooks/useSubscription';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -37,6 +38,7 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
   const [breakdownResult, setBreakdownResult] = useState<{ title: string; estimatedPomodoros: number }[] | null>(null);
   const { getTaskBreakdown, loading, error } = useClaudeAI();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const { subscription, incrementAIBreakdownUsage } = useSubscription();
   
   const [pomodoroDuration, setPomodoroDuration] = useState(settings.pomodoro);
   const [shortBreakDuration, setShortBreakDuration] = useState(settings.shortBreak);
@@ -61,6 +63,13 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!subscription) return;
+
+    if (subscription.type === 'free' && subscription.aiBreakdownsUsed >= subscription.aiBreakdownsLimit) {
+      alert('You have reached your AI breakdown limit. Please upgrade to Premium for unlimited breakdowns.');
+      return;
+    }
+
     try {
       const result = await getTaskBreakdown(
         description,
@@ -71,6 +80,7 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
         longBreakDuration
       );
       setBreakdownResult(result.tasks);
+      await incrementAIBreakdownUsage();
     } catch (err) {
       console.error('Failed to get task breakdown:', err);
     }

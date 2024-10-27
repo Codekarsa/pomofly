@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Combobox } from './ui/combobox';
 import { AIBreakdownModal } from './AIBreakdownModal';
+import { useSubscription } from '@/hooks/useSubscription';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -28,6 +29,7 @@ interface TaskListProps {
 }
 
 const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
+  const { subscription } = useSubscription();
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [estimatedPomodoros, setEstimatedPomodoros] = useState<number | undefined>(undefined);
   const [selectedProjectId, setSelectedProjectId] = useState('');
@@ -161,20 +163,33 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
         <CardTitle>Your Tasks</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex justify-end mb-4">
-          {!showAddTaskForm && (
-            <Button onClick={() => setShowAddTaskForm(true)} className="mr-2">
-              Add Task
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            {subscription && (
+              <span className="text-sm text-muted-foreground">
+                AI Breakdowns: {subscription.aiBreakdownsUsed} / {subscription.type === 'free' ? subscription.aiBreakdownsLimit : 'Unlimited'}
+              </span>
+            )}
+          </div>
+          <div className="flex">
+            {!showAddTaskForm && (
+              <Button onClick={() => setShowAddTaskForm(true)} className="mr-2">
+                Add Task
+              </Button>
+            )}
+            {!showSearchForm && (
+              <Button onClick={() => setShowSearchForm(true)} className="mr-2">
+                Search Tasks
+              </Button>
+            )}
+            <Button 
+              onClick={() => setShowAIBreakdownModal(true)} 
+              className="ml-2 bg-indigo-600 text-white hover:bg-indigo-800"
+              disabled={subscription?.type === 'free' && subscription.aiBreakdownsUsed >= subscription.aiBreakdownsLimit}
+            >
+              Task Breakdown with AI
             </Button>
-          )}
-          {!showSearchForm && (
-            <Button onClick={() => setShowSearchForm(true)} className="mr-2">
-              Search Tasks
-            </Button>
-          )}
-          <Button onClick={() => setShowAIBreakdownModal(true)} className="ml-2 bg-indigo-600 text-white hover:bg-indigo-800">
-            Task Breakdown with AI
-          </Button>
+          </div>
         </div>
 
         {showAddTaskForm && (
