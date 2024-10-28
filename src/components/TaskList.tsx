@@ -29,7 +29,7 @@ interface TaskListProps {
 }
 
 const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
-  const { subscription } = useSubscription();
+  const { subscription, isPremium } = useSubscription();
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [estimatedPomodoros, setEstimatedPomodoros] = useState<number | undefined>(undefined);
   const [selectedProjectId, setSelectedProjectId] = useState('');
@@ -167,7 +167,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
           <div>
             {subscription && (
               <span className="text-sm text-muted-foreground">
-                AI Breakdowns: {subscription.aiBreakdownsUsed} / {subscription.type === 'free' ? subscription.aiBreakdownsLimit : 'Unlimited'}
+                AI Breakdowns: {subscription.aiBreakdownsUsed} / {isPremium() ? 'Unlimited' : subscription.aiBreakdownsLimit}
               </span>
             )}
           </div>

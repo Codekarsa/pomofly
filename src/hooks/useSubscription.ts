@@ -6,6 +6,7 @@ interface Subscription {
   type: 'free' | 'premium';
   aiBreakdownsUsed: number;
   aiBreakdownsLimit: number;
+  expiresAt?: Date;
 }
 
 export function useSubscription() {
@@ -23,7 +24,17 @@ export function useSubscription() {
       doc(db, 'subscriptions', user.uid),
       (docSnapshot) => {
         if (docSnapshot.exists()) {
-          setSubscription(docSnapshot.data() as Subscription);
+          const data = docSnapshot.data() as Subscription;
+          // Check if the premium subscription has expired
+          if (data.type === 'premium' && data.expiresAt && data.expiresAt < new Date()) {
+            setSubscription({
+              type: 'free',
+              aiBreakdownsUsed: 0,
+              aiBreakdownsLimit: 5
+            });
+          } else {
+            setSubscription(data);
+          }
         } else {
           // Set default free subscription if not found
           setSubscription({
@@ -58,6 +69,7 @@ export function useSubscription() {
     await setDoc(subscriptionRef, data, { merge: true });
   };
 
-  return { subscription, loading, incrementAIBreakdownUsage, updateSubscription };
-}
+  const isPremium = () => subscription?.type === 'premium';
 
+  return { subscription, loading, incrementAIBreakdownUsage, updateSubscription, isPremium };
+}

@@ -38,7 +38,7 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
   const [breakdownResult, setBreakdownResult] = useState<{ title: string; estimatedPomodoros: number }[] | null>(null);
   const { getTaskBreakdown, loading, error } = useClaudeAI();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const { subscription, incrementAIBreakdownUsage } = useSubscription();
+  const { subscription, incrementAIBreakdownUsage, isPremium } = useSubscription();
   
   const [pomodoroDuration, setPomodoroDuration] = useState(settings.pomodoro);
   const [shortBreakDuration, setShortBreakDuration] = useState(settings.shortBreak);
@@ -65,7 +65,7 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
     e.preventDefault();
     if (!subscription) return;
 
-    if (subscription.type === 'free' && subscription.aiBreakdownsUsed >= subscription.aiBreakdownsLimit) {
+    if (!isPremium() && subscription.aiBreakdownsUsed >= subscription.aiBreakdownsLimit) {
       alert('You have reached your AI breakdown limit. Please upgrade to Premium for unlimited breakdowns.');
       return;
     }
