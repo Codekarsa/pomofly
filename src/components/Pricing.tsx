@@ -8,14 +8,12 @@ import Footer from './Footer';
 import AutoBacklink from './Autobacklink';
 import { Switch } from "@/components/ui/switch";
 import { useSubscription } from '@/hooks/useSubscription';
-import { initiateUpgrade } from '@/lib/upgrade';
-import { useToast } from '@/hooks/use-toast';
+import { PurchaseButton } from '@/components/PurchaseButton';
 
 export default function Pricing() {
   const [isYearly, setIsYearly] = useState(false);
-  const { subscription, isPremium } = useSubscription();
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+  const { isPremium } = useSubscription();
+  const [isLoading] = useState(false);
 
   const plans = [
     {
@@ -33,9 +31,9 @@ export default function Pricing() {
     {
       name: "Premium Plan",
       description: "For power users",
-      price: { 
+      price: {
         monthly: 2.99,
-        yearly: 29.99
+        yearly: 24.99
       },
       features: [
         "Unlimited tasks",
@@ -47,58 +45,14 @@ export default function Pricing() {
     }
   ];
 
-  const handleUpgrade = async () => {
-    if (!subscription) {
-      toast({
-        title: "Error",
-        description: "Please sign in to upgrade your plan",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      await initiateUpgrade(isYearly);
-    } catch (error) {
-      console.error('Error during upgrade:', error);
-      toast({
-        title: "Error",
-        description: "Failed to initiate upgrade. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const getButtonProps = (plan: typeof plans[0]) => {
-    if (plan.type === "free") {
-      return {
-        onClick: undefined,
-        disabled: true,
-        children: isPremium() ? "Free Plan" : "Current Plan"
-      };
-    }
-
-    return {
-      onClick: handleUpgrade,
-      disabled: isPremium() || isLoading,
-      children: isLoading 
-        ? "Processing..." 
-        : isPremium() 
-          ? "Current Plan" 
-          : plan.buttonText
-    };
-  };
 
   return (
     <>
       <div className="flex flex-col min-h-screen">
-        <Header/>
+        <Header />
         <main className="flex-grow container mx-auto px-4 py-8">
           <h1 className="text-3xl font-bold mb-8 text-center">Choose Your Plan</h1>
-          
+
           <div className="flex justify-center items-center mb-8">
             <span className={`mr-2 ${!isYearly ? 'font-bold' : ''}`}>Monthly</span>
             <Switch
@@ -142,12 +96,20 @@ export default function Pricing() {
                   </ul>
                 </CardContent>
                 <CardFooter>
-                  <Button 
-                    className="w-full"
-                    {...getButtonProps(plan)}
-                  >
-                    {getButtonProps(plan).children}
-                  </Button>
+                  {plan.type === 'free' ? (
+                    <Button
+                      className="w-full"
+                      disabled={true}
+                    >
+                      {isPremium() ? "Free Plan" : "Current Plan"}
+                    </Button>
+                  ) : (
+                    <PurchaseButton
+                      isYearly={isYearly}
+                      className="w-full"
+                      disabled={isPremium() || isLoading}
+                    />
+                  )}
                 </CardFooter>
               </Card>
             ))}
@@ -156,6 +118,7 @@ export default function Pricing() {
         <Footer />
       </div>
       <AutoBacklink />
+
     </>
   );
 }
