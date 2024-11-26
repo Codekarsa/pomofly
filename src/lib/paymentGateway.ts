@@ -2,6 +2,8 @@
 import Stripe from 'stripe';
 import LemonSqueezy from '@lemonsqueezy/lemonsqueezy.js';
 import Xendit from 'xendit-node';
+import { getLemonSqueezy } from '@/lib/lemonsqueezy';
+
 
 export interface PaymentGatewayResponse {
   sessionId: string;
@@ -20,7 +22,7 @@ export interface PaymentGateway {
 }
 
 class StripeGateway implements PaymentGateway {
-//   private stripe: Stripe;
+  //   private stripe: Stripe;
 
   constructor() {
     if (!process.env.STRIPE_SECRET_KEY) {
@@ -45,44 +47,53 @@ class StripeGateway implements PaymentGateway {
     // });
 
     return { 
-    //   sessionId: session.id, 
-    //   url: session.url || '' 
-      sessionId: '', 
-      url: '' 
+      //   sessionId: session.id, 
+      //   url: session.url || '' 
+        sessionId: '', 
+        url: '' 
     };
   }
 }
 
 class LemonSqueezyGateway implements PaymentGateway {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private lemonSqueezy: any; // Type will be provided by @lemonsqueezy/lemonsqueezy.js
+  private lemonSqueezy: any;
 
   constructor() {
-    if (!process.env.LEMON_SQUEEZY_API_KEY) {
-      throw new Error('LEMON_SQUEEZY_API_KEY is not configured');
+    if (!process.env.LEMON_SQUEEZY_API_KEY || !process.env.LEMON_SQUEEZY_STORE_ID) {
+      throw new Error('LemonSqueezy configuration is incomplete');
     }
-    // this.lemonSqueezy = new LemonSqueezy(process.env.LEMON_SQUEEZY_API_KEY);
+    this.lemonSqueezy = getLemonSqueezy();
   }
 
   async createCheckoutSession(request: PaymentGatewayRequest): Promise<PaymentGatewayResponse> {
-    const checkout = await this.lemonSqueezy.createCheckout({
-      store: process.env.LEMON_SQUEEZY_STORE_ID!,
-      variant: request.priceId,
-      custom: { 
-        user_id: request.userId,
-        plan_type: request.isYearly ? 'yearly' : 'monthly'
-      },
-      checkout_data: {
-        email: request.userEmail
-      },
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/upgrade-success`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/upgrade-cancelled`,
-    });
+    try {
+      const checkout = await this.lemonSqueezy.createCheckout({
+        store: process.env.LEMON_SQUEEZY_STORE_ID!,
+        variant: request.priceId,
+        custom: { 
+          user_id: request.userId,
+          plan_type: request.isYearly ? 'yearly' : 'monthly'
+        },
+        checkout_data: {
+          email: request.userEmail
+        },
+        success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/upgrade-success`,
+        cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/upgrade-cancelled`,
+        product_options: {
+          enabled_variants: [request.priceId],
+          redirect_url: `${process.env.NEXT_PUBLIC_BASE_URL}/upgrade-success`
+        }
+      });
 
-    return {
-      sessionId: checkout.data.id,
-      url: checkout.data.attributes.url
-    };
+      return {
+        sessionId: checkout.data.id,
+        url: checkout.data.attributes.url
+      };
+    } catch (error) {
+      console.error('Error creating LemonSqueezy checkout session:', error);
+      throw new Error('Failed to create checkout session with LemonSqueezy.');
+    }
   }
 }
 
@@ -115,9 +126,9 @@ class XenditGateway implements PaymentGateway {
     // });
 
     return {
-    //   sessionId: invoice.id,
-    //   url: invoice.invoice_url
-    sessionId: '', 
+      //   sessionId: invoice.id,
+      //   url: invoice.invoice_url
+      sessionId: '', 
       url: '' 
     };
   }
@@ -132,10 +143,10 @@ const gatewayMap: Record<string, new () => PaymentGateway> = {
 export function getPaymentGateway(): PaymentGateway {
   const gatewayName = process.env.NEXT_PUBLIC_ACTIVE_PAYMENT_GATEWAY?.toLowerCase() || 'stripe';
   const GatewayClass = gatewayMap[gatewayName];
-  
+
   if (!GatewayClass) {
     throw new Error(`Invalid payment gateway: ${gatewayName}`);
   }
-  
+
   return new GatewayClass();
 }

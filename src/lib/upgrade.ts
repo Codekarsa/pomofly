@@ -1,4 +1,5 @@
 import { auth } from './firebase';
+import { getPaymentGateway } from './paymentGateway';
 
 interface PriceIds {
   monthly: string;
@@ -15,8 +16,8 @@ const priceIds: Record<string, PriceIds> = {
     yearly: process.env.NEXT_PUBLIC_LEMON_SQUEEZY_YEARLY_VARIANT_ID!
   },
   xendit: {
-    monthly: '2.99',
-    yearly: '29.99'
+    monthly: process.env.NEXT_PUBLIC_XENDIT_MONTHLY_PRICE_ID!,
+    yearly: process.env.NEXT_PUBLIC_XENDIT_YEARLY_PRICE_ID!
   }
 };
 
@@ -34,30 +35,19 @@ export async function initiateUpgrade(isYearly: boolean): Promise<void> {
   }
 
   try {
-    const response = await fetch('/api/upgrade', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        userId: user.uid,
-        priceId,
-        isYearly,
-        userEmail: user.email
-      }),
+    const paymentGateway = getPaymentGateway();
+    const response = await paymentGateway.createCheckoutSession({
+      userId: user.uid,
+      priceId,
+      isYearly,
+      userEmail: user.email || undefined,
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to initiate upgrade');
-    }
-
-    const { url } = await response.json();
-    if (!url) {
+    if (!response.url) {
       throw new Error('No checkout URL received');
     }
 
-    window.location.href = url;
+    window.location.href = response.url;
   } catch (error) {
     console.error('Upgrade initiation failed:', error);
     throw error;

@@ -1,53 +1,31 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth } from '@/lib/firebase';
-import { useSubscription } from '@/hooks/useSubscription';
+import { useToast } from '@/hooks/use-toast';
 
 export default function UpgradeSuccess() {
   const router = useRouter();
-  const { updateSubscription } = useSubscription();
-  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
-    const handleSuccessfulUpgrade = async () => {
-      const user = auth.currentUser;
-      if (!user) {
-        setError('User not authenticated');
-        setTimeout(() => router.push('/'), 3000);
-        return;
-      }
+    toast({
+      title: "Success!",
+      description: "Your subscription has been activated. Enjoy premium features!",
+    });
+    
+    // Redirect to home page after 3 seconds
+    const timer = setTimeout(() => {
+      router.push('/');
+    }, 3000);
 
-      try {
-        const oneYearFromNow = new Date();
-        oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
-
-        await updateSubscription(user.uid, {
-          type: 'premium',
-          aiBreakdownsUsed: 0,
-          expiresAt: oneYearFromNow,
-        });
-
-        // Redirect to the main page after a short delay
-        setTimeout(() => router.push('/'), 3000);
-      } catch (error) {
-        console.error('Failed to update subscription:', error);
-        setError('Failed to update subscription. Please contact support.');
-      }
-    };
-
-    handleSuccessfulUpgrade();
-  }, [router, updateSubscription]);
+    return () => clearTimeout(timer);
+  }, [router, toast]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background">
-      <h1 className="text-3xl font-bold mb-4">
-        {error ? 'Upgrade Error' : 'Upgrade Successful!'}
-      </h1>
-      <p className="text-xl mb-8">
-        {error ? error : 'Thank you for upgrading to Premium.'}
-      </p>
+      <h1 className="text-3xl font-bold mb-4">Upgrade Successful!</h1>
+      <p className="text-xl mb-8">Thank you for upgrading to Premium.</p>
       <p>You will be redirected shortly...</p>
     </div>
   );

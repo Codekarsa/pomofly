@@ -33,7 +33,10 @@ export default function Pricing() {
     {
       name: "Premium Plan",
       description: "For power users",
-      price: { monthly: 2.99, yearly: 29.99 },
+      price: { 
+        monthly: 2.99,
+        yearly: 29.99
+      },
       features: [
         "Unlimited tasks",
         "Unlimited projects",
