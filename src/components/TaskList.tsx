@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MoreHorizontal, Plus, Pencil, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Plus, Pencil, Trash2, Star, Calendar } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +32,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [estimatedPomodoros, setEstimatedPomodoros] = useState<number | undefined>(undefined);
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [editingTask, setEditingTask] = useState<{ id: string, title: string, estimatedPomodoros?: number, projectId?: string } | null>(null);
+  const [editingDeadline, setEditingDeadline] = useState<{ id: string, deadline: string } | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
@@ -48,7 +49,9 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     addTask,
     updateTask,
     toggleTaskCompletion,
-    deleteTask
+    deleteTask,
+    toggleTaskFocus,
+    setTaskDeadline
   } = useTasks(selectedProjectId);
   const { event } = useGoogleAnalytics();
 
@@ -127,6 +130,23 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     deleteTask(taskId);
     event('task_deleted', { task_id: taskId });
   }, [deleteTask, event]);
+
+  const handleToggleTaskFocus = useCallback((taskId: string, currentFocusState: boolean) => {
+    toggleTaskFocus(taskId, currentFocusState);
+    event('task_focus_toggled', {
+      task_id: taskId,
+      new_state: !currentFocusState
+    });
+  }, [toggleTaskFocus, event]);
+
+  const handleSetTaskDeadline = useCallback((taskId: string, deadline: string | null) => {
+    setTaskDeadline(taskId, deadline);
+    event('task_deadline_set', {
+      task_id: taskId,
+      deadline
+    });
+    setEditingDeadline(null);
+  }, [setTaskDeadline, event]);
 
   const handleShowCompletedToggle = useCallback(() => {
     setShowCompleted(!showCompleted);
@@ -274,6 +294,20 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                     <Button type="button" size="sm" variant="ghost" onClick={() => setEditingTask(null)}>Cancel</Button>
                   </div>
                 </form>
+              ) : editingDeadline && editingDeadline.id === task.id ? (
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSetTaskDeadline(task.id, editingDeadline.deadline || null);
+                }} className="flex items-center space-x-2 w-full">
+                  <Input
+                    type="date"
+                    value={editingDeadline.deadline}
+                    onChange={(e) => setEditingDeadline({ ...editingDeadline, deadline: e.target.value })}
+                    className="flex-grow"
+                  />
+                  <Button type="submit" size="sm" variant="outline">Save</Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setEditingDeadline(null)}>Cancel</Button>
+                </form>
               ) : (
                 <>
                   <div className="flex items-center space-x-2">
@@ -281,12 +315,30 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                       checked={task.completed}
                       onCheckedChange={() => handleToggleTaskCompletion(task.id, task.completed)}
                     />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleToggleTaskFocus(task.id, task.focus || false)}
+                      className={`p-1 ${task.focus ? 'text-yellow-500' : 'text-gray-400'}`}
+                    >
+                      <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
+                    </Button>
                     <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
                       {task.title}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       ({task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0})
                     </span>
+                    {task.deadline && (
+                      <span className={`text-xs px-2 py-1 rounded ${
+                        new Date(task.deadline) < new Date() 
+                          ? 'bg-red-100 text-red-800' 
+                          : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {new Date(task.deadline).toLocaleDateString()}
+                        {new Date(task.deadline) < new Date() && ' (Overdue)'}
+                      </span>
+                    )}
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -307,6 +359,15 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                       }}>
                         <Pencil className="w-4 h-4 mr-2" />
                         Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        setEditingDeadline({
+                          id: task.id,
+                          deadline: task.deadline || ''
+                        });
+                      }}>
+                        <Calendar className="w-4 h-4 mr-2" />
+                        Set Deadline
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleDeleteTask(task.id)}>
                         <Trash2 className="w-4 h-4 mr-2" />

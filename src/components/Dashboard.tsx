@@ -6,6 +6,7 @@ import PomodoroTimer from './PomodoroTimer';
 import TaskList from './TaskList';
 import ProjectList from './ProjectList';
 import SettingsModal from './SettingsModal';
+import TodayFocusSection from './TodayFocusSection';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { Github } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -99,7 +100,10 @@ export default function Dashboard() {
             </div>
             <div className="space-y-8">
               {user ? (
-                <TaskList settings={settings} />
+                <>
+                  <TodayFocusSection settings={settings} />
+                  <TaskList settings={settings} />
+                </>
               ) : (
                 <div className="bg-white p-6 rounded-lg shadow-md">
                   <h2 className="text-xl font-semibold mb-4">Welcome to Pomofly, an Elegant and Minimal Pomodoro Timer</h2>
