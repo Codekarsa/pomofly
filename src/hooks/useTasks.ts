@@ -13,6 +13,8 @@ export interface Task {
   createdAt: Date;
   estimatedPomodoros?: number;
   archived?: boolean;
+  focus: boolean;
+  deadline: string | null;
 }
 
 export function useTasks(projectId?: string) {
@@ -67,7 +69,9 @@ export function useTasks(projectId?: string) {
         totalPomodoroSessions: 0,
         totalTimeSpent: 0,
         createdAt: new Date(),
-        estimatedPomodoros
+        estimatedPomodoros,
+        focus: false,
+        deadline: null
       };
       const docRef = await addDoc(collection(db, "tasks"), newTask);
       return docRef.id;
@@ -128,6 +132,28 @@ export function useTasks(projectId?: string) {
     }
   }, []);
 
+  const toggleTaskFocus = useCallback(async (id: string, currentFocusState: boolean) => {
+    try {
+      await updateDoc(doc(db, "tasks", id), {
+        focus: !currentFocusState
+      });
+    } catch (err) {
+      console.error("Error toggling task focus:", err);
+      throw err;
+    }
+  }, []);
+
+  const setTaskDeadline = useCallback(async (id: string, deadline: string | null) => {
+    try {
+      await updateDoc(doc(db, "tasks", id), {
+        deadline
+      });
+    } catch (err) {
+      console.error("Error setting task deadline:", err);
+      throw err;
+    }
+  }, []);
+
   return { 
     tasks, 
     loading, 
@@ -137,6 +163,8 @@ export function useTasks(projectId?: string) {
     deleteTask, 
     toggleTaskCompletion, 
     incrementPomodoroSession, 
-    archiveTask 
+    archiveTask, 
+    toggleTaskFocus,
+    setTaskDeadline
   };
 }
