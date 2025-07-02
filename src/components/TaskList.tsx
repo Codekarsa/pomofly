@@ -13,6 +13,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Combobox } from './ui/combobox';
 import { AIBreakdownModal } from './AIBreakdownModal';
 
@@ -57,6 +63,41 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
 
   const memoizedProjects = useMemo(() => projects, [projects]);
   const memoizedTasks = useMemo(() => tasks, [tasks]);
+
+  // Helper function to get project name by ID
+  const getProjectName = useCallback((projectId: string) => {
+    const project = memoizedProjects.find(p => p.id === projectId);
+    return project?.name || 'Unknown Project';
+  }, [memoizedProjects]);
+
+  // Project Badge Component
+  const ProjectBadge = ({ projectId }: { projectId: string }) => {
+    const projectName = getProjectName(projectId);
+    const displayName = projectName.length > 15 ? projectName.substring(0, 15) + '...' : projectName;
+    
+    // Debug logging
+    console.log('ProjectBadge Debug:', {
+      projectId,
+      projectName,
+      availableProjects: memoizedProjects.map(p => ({ id: p.id, name: p.name })),
+      foundProject: memoizedProjects.find(p => p.id === projectId)
+    });
+    
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 max-w-24 overflow-hidden">
+              {displayName}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{projectName}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
 
   useEffect(() => {
     event('task_list_view', { total_tasks: tasks.length });
@@ -218,7 +259,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
               />
               <div className="w-1/2">
                 <Combobox
-                  options={memoizedProjects.map(project => ({ value: project.name, label: project.name }))}
+                  options={memoizedProjects.map(project => ({ value: project.id, label: project.name }))}
                   value={selectedProjectId}
                   onChange={(value) => setSelectedProjectId(value)}
                   placeholder="Select a project"
@@ -285,7 +326,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                   </div>
                   <div className="flex items-center space-x-2">
                     <Combobox
-                      options={memoizedProjects.map(project => ({ value: project.name, label: project.name }))}
+                      options={memoizedProjects.map(project => ({ value: project.id, label: project.name }))}
                       value={editingTask.projectId || ''}
                       onChange={(value) => setEditingTask({ ...editingTask, projectId: value })}
                       placeholder="Select a project"
@@ -326,6 +367,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                     <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
                       {task.title}
                     </span>
+                    {task.projectId && <ProjectBadge projectId={task.projectId} />}
                     <span className="text-xs text-muted-foreground">
                       ({task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0})
                     </span>
