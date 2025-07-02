@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useTasks } from '../hooks/useTasks';
+import { useProjects } from '../hooks/useProjects';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -10,6 +11,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -24,10 +31,46 @@ interface TodayFocusSectionProps {
 
 const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
   const { tasks, loading, error, toggleTaskCompletion, toggleTaskFocus, setTaskDeadline, deleteTask } = useTasks();
+  const { projects } = useProjects();
 
   const focusedTasks = useMemo(() => {
     return tasks.filter(task => task.focus && !task.completed);
   }, [tasks]);
+
+  // Helper function to get project name by ID
+  const getProjectName = (projectId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    return project?.name || 'Unknown Project';
+  };
+
+  // Project Badge Component
+  const ProjectBadge = ({ projectId }: { projectId: string }) => {
+    const projectName = getProjectName(projectId);
+    const displayName = projectName.length > 15 ? projectName.substring(0, 15) + '...' : projectName;
+    
+    // Debug logging
+    console.log('TodayFocusSection ProjectBadge Debug:', {
+      projectId,
+      projectName,
+      availableProjects: projects.map(p => ({ id: p.id, name: p.name })),
+      foundProject: projects.find(p => p.id === projectId)
+    });
+    
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 max-w-24 overflow-hidden">
+              {displayName}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{projectName}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
 
   // Debug logging
   console.log('TodayFocusSection Debug:', {
@@ -80,6 +123,7 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
                   <span className={`text-sm font-medium ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
                     {task.title}
                   </span>
+                  {task.projectId && <ProjectBadge projectId={task.projectId} />}
                   <span className="text-xs text-muted-foreground">
                     ({task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0})
                   </span>
