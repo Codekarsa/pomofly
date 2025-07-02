@@ -46,7 +46,7 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
   // Project Badge Component
   const ProjectBadge = ({ projectId }: { projectId: string }) => {
     const projectName = getProjectName(projectId);
-    const displayName = projectName.length > 15 ? projectName.substring(0, 15) + '...' : projectName;
+    const displayName = projectName.length > 8 ? projectName.substring(0, 8) + '...' : projectName;
     
     // Debug logging
     console.log('TodayFocusSection ProjectBadge Debug:', {
