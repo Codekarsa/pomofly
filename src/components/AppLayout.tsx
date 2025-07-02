@@ -6,7 +6,8 @@ import SettingsModal from './SettingsModal';
 import { usePomodoro, defaultSettings } from '@/hooks/usePomodoro';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { Button } from "@/components/ui/button";
-import { signInWithPopup } from 'firebase/auth';
+import { Github } from 'lucide-react';
+import { signInWithPopup, signOut } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
 
 interface AppLayoutProps {
@@ -51,6 +52,16 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     }
   };
 
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      event('user_sign_out', { method: 'Google' });
+    } catch (error) {
+      console.error('Error signing out:', error);
+      event('sign_out_error', { error: (error as Error).message });
+    }
+  };
+
   if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
 
   if (!user) {
@@ -71,6 +82,30 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     <div className="flex h-screen bg-gray-100">
       <Sidebar onSettingsClick={handleSettingsOpen} />
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Top Header */}
+        <header className="bg-white border-b border-gray-200 px-6 py-3">
+          <div className="flex justify-between items-center">
+            <h1 className="text-xl font-semibold text-gray-900">Pomofly</h1>
+            <div className="flex items-center space-x-2">
+              <Button variant="ghost" size="sm" asChild>
+                <a
+                  href="https://github.com/Codekarsa/pomofly"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center"
+                >
+                  <Github className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline">Star on GitHub</span>
+                </a>
+              </Button>
+              {user && (
+                <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                  Sign Out
+                </Button>
+              )}
+            </div>
+          </div>
+        </header>
         <main className="flex-1 overflow-y-auto">
           {children}
         </main>

@@ -4,9 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Settings, Timer, CheckSquare, FolderOpen, LogOut } from 'lucide-react';
-import { signOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { Settings, Timer, CheckSquare, FolderOpen } from 'lucide-react';
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -15,14 +13,6 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ onSettingsClick }) => {
   const pathname = usePathname();
   const { user } = useAuth();
-
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
 
   const navigationItems = [
     {
@@ -105,15 +95,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onSettingsClick }) => {
             >
               <Settings className="w-4 h-4 mr-2" />
               Settings
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSignOut}
-              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Sign Out
             </Button>
           </div>
         </div>
