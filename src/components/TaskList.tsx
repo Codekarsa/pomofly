@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MoreHorizontal, Plus, Pencil, Trash2, Star, Calendar, ChevronDown, ChevronRight } from 'lucide-react';
+import { MoreHorizontal, Plus, Pencil, Trash2, Star, Calendar, ChevronDown, ChevronRight, Search, ArrowUpAZ, ArrowDownAZ, Filter } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +22,8 @@ import {
 import { Combobox } from './ui/combobox';
 import { AIBreakdownModal } from './AIBreakdownModal';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -87,7 +89,7 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
                 >
                   <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
                 </Button>
-                <span className="text-sm line-through text-muted-foreground">{task.title}</span>
+                <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
                 {task.projectId && <ProjectBadge projectId={task.projectId} />}
                 <span className="text-xs text-muted-foreground">
                   ({task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0})
@@ -140,6 +142,21 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
   );
 };
 
+const statusOptions = [
+  { value: 'all', label: 'All' },
+  { value: 'active', label: 'Active' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'focused', label: "Today's Focus" },
+];
+
+const sortOptions = [
+  { value: 'createdAt', label: 'Created date' },
+  { value: 'deadline', label: 'Due date' },
+  { value: 'title', label: 'Title (A-Z)' },
+  { value: 'project', label: 'Project' },
+  { value: 'focus', label: 'Focus' },
+];
+
 const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [estimatedPomodoros, setEstimatedPomodoros] = useState<number | undefined>(undefined);
@@ -147,12 +164,15 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [editingTask, setEditingTask] = useState<{ id: string, title: string, estimatedPomodoros?: number, projectId?: string } | null>(null);
   const [editingDeadline, setEditingDeadline] = useState<{ id: string, deadline: string } | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 5;
   const [showAddTaskForm, setShowAddTaskForm] = useState(false);
-  const [showSearchForm, setShowSearchForm] = useState(false);
   const [showAIBreakdownModal, setShowAIBreakdownModal] = useState(false);
+  const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('createdAt');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [search, setSearch] = useState('');
 
   const { projects } = useProjects();
   const {
@@ -253,10 +273,49 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     }
   }, [editingTask, event, updateTask]);
 
-  // Only paginate active (incomplete) tasks
-  const activeTasks = useMemo(() => memoizedTasks.filter(task => !task.completed), [memoizedTasks]);
-  const completedTasks = useMemo(() => memoizedTasks.filter(task => task.completed), [memoizedTasks]);
+  // Filtering logic
+  const filteredTasks = useMemo(() => {
+    let tasks = memoizedTasks;
+    if (projectFilter !== 'all') {
+      tasks = tasks.filter(task => task.projectId === projectFilter);
+    }
+    if (statusFilter === 'active') {
+      tasks = tasks.filter(task => !task.completed);
+    } else if (statusFilter === 'completed') {
+      tasks = tasks.filter(task => task.completed);
+    } else if (statusFilter === 'focused') {
+      tasks = tasks.filter(task => task.focus);
+    }
+    if (search.trim()) {
+      tasks = tasks.filter(task => task.title.toLowerCase().includes(search.toLowerCase()));
+    }
+    return tasks;
+  }, [memoizedTasks, projectFilter, statusFilter, search]);
 
+  // Sorting logic
+  const sortedTasks = useMemo(() => {
+    const tasks = [...filteredTasks];
+    tasks.sort((a, b) => {
+      let cmp = 0;
+      if (sortBy === 'createdAt') {
+        cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      } else if (sortBy === 'deadline') {
+        cmp = (a.deadline ? new Date(a.deadline).getTime() : 0) - (b.deadline ? new Date(b.deadline).getTime() : 0);
+      } else if (sortBy === 'title') {
+        cmp = a.title.localeCompare(b.title);
+      } else if (sortBy === 'project') {
+        cmp = (getProjectName(a.projectId) || '').localeCompare(getProjectName(b.projectId) || '');
+      } else if (sortBy === 'focus') {
+        cmp = (b.focus ? 1 : 0) - (a.focus ? 1 : 0);
+      }
+      return sortOrder === 'asc' ? cmp : -cmp;
+    });
+    return tasks;
+  }, [filteredTasks, sortBy, sortOrder]);
+
+  // Only paginate active (incomplete) tasks after filtering/sorting
+  const activeTasks = useMemo(() => sortedTasks.filter(task => !task.completed), [sortedTasks]);
+  const completedTasks = useMemo(() => sortedTasks.filter(task => task.completed), [sortedTasks]);
   const paginatedActiveTasks = useMemo(() =>
     activeTasks.slice(0, (currentPage + 1) * itemsPerPage),
     [activeTasks, currentPage, itemsPerPage]
@@ -297,11 +356,6 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     event('show_completed_tasks_toggled', { new_state: !showCompleted });
   }, [event, showCompleted]);
 
-  const handleSearchTermChange = useCallback((term: string) => {
-    setSearchTerm(term);
-    event('task_search', { search_term: term });
-  }, [event]);
-
   const loadMoreTasks = useCallback(() => {
     if ((currentPage + 1) * itemsPerPage < activeTasks.length) {
       setCurrentPage(prevPage => prevPage + 1);
@@ -329,11 +383,6 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
           {!showAddTaskForm && (
             <Button onClick={() => setShowAddTaskForm(true)} className="mr-2">
               Add Task
-            </Button>
-          )}
-          {!showSearchForm && (
-            <Button onClick={() => setShowSearchForm(true)} className="mr-2">
-              Search Tasks
             </Button>
           )}
           <Button onClick={() => setShowAIBreakdownModal(true)} className="ml-2 bg-indigo-600 text-white hover:bg-indigo-800">
@@ -382,22 +431,82 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
           </form>
         )}
 
-        {showSearchForm && (
-          <div className="flex items-center space-x-2 mb-4">
+        <hr />
+        <div className="flex items-center gap-2 mb-4">
+          <div className="relative w-full max-w-xs">
             <Input
               type="text"
-              value={searchTerm}
-              onChange={(e) => handleSearchTermChange(e.target.value)}
-              placeholder="Search tasks"
-              className="flex-grow"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search tasks..."
+              className="pl-9 w-full"
+              aria-label="Search tasks"
             />
-            <Button type="button" onClick={() => setShowSearchForm(false)} variant="outline">
-              Cancel
-            </Button>
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           </div>
-        )}
-
-        <hr />
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="min-w-[110px]">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              {sortOptions.map(opt => (
+                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="ml-1"
+            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+            aria-label="Toggle sort order"
+          >
+            {sortOrder === 'asc' ? <ArrowUpAZ className="w-4 h-4" /> : <ArrowDownAZ className="w-4 h-4" />}
+          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="icon" aria-label="Filter tasks" className="relative w-24 flex justify-center items-center">
+                <Filter className="w-4 h-4" />
+                {(projectFilter !== 'all' || statusFilter !== 'all') && (
+                  <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-4 flex flex-col gap-3">
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Project</label>
+                <Select value={projectFilter} onValueChange={setProjectFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Projects</SelectItem>
+                    {memoizedProjects.map(project => (
+                      <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Status</label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
         <ul className="space-y-2">
           {paginatedActiveTasks.map((task) => (
             <li key={task.id} className="flex items-center justify-between p-2 hover:bg-accent rounded-md transition-colors">
@@ -459,9 +568,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                     >
                       <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
                     </Button>
-                    <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
-                      {task.title}
-                    </span>
+                    <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
                     {task.projectId && <ProjectBadge projectId={task.projectId} />}
                     <span className="text-xs text-muted-foreground">
                       ({task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0})
