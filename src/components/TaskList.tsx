@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useTasks } from '../hooks/useTasks';
+import { useTasks, Task } from '../hooks/useTasks';
 import { useProjects } from '../hooks/useProjects';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MoreHorizontal, Plus, Pencil, Trash2, Star, Calendar } from 'lucide-react';
+import { MoreHorizontal, Plus, Pencil, Trash2, Star, Calendar, ChevronDown, ChevronRight } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/tooltip';
 import { Combobox } from './ui/combobox';
 import { AIBreakdownModal } from './AIBreakdownModal';
+import { Switch } from '@/components/ui/switch';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -32,6 +33,112 @@ interface PomodoroSettings {
 interface TaskListProps {
   settings: PomodoroSettings;
 }
+
+type AnalyticsEvent = (action: string, params: object) => void;
+
+// Collapsible Completed Tasks Section
+interface CompletedTasksSectionProps {
+  tasks: Task[];
+  onToggleTaskCompletion: (id: string, completed: boolean) => void;
+  onToggleTaskFocus: (id: string, focus: boolean) => void;
+  onEditTask: (task: Task) => void;
+  onEditDeadline: (task: { id: string; deadline: string }) => void;
+  onDeleteTask: (id: string) => void;
+  event: AnalyticsEvent;
+  ProjectBadge: React.FC<{ projectId: string }>;
+}
+
+const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
+  tasks,
+  onToggleTaskCompletion,
+  onToggleTaskFocus,
+  onEditTask,
+  onEditDeadline,
+  onDeleteTask,
+  event,
+  ProjectBadge,
+}) => {
+  const [open, setOpen] = useState(false);
+  if (!tasks.length) return null;
+  return (
+    <div className="mt-4">
+      <button
+        className="flex items-center text-sm text-gray-600 hover:text-gray-900 focus:outline-none mb-2"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        {open ? <ChevronDown className="w-4 h-4 mr-1" /> : <ChevronRight className="w-4 h-4 mr-1" />}
+        {tasks.length} completed task{tasks.length > 1 ? 's' : ''}
+      </button>
+      {open && (
+        <ul className="space-y-2">
+          {tasks.map((task) => (
+            <li key={task.id} className="flex items-center justify-between p-2 bg-muted rounded-md transition-colors">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  checked={task.completed}
+                  onCheckedChange={() => onToggleTaskCompletion(task.id, task.completed)}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onToggleTaskFocus(task.id, task.focus || false)}
+                  className={`p-1 ${task.focus ? 'text-yellow-500' : 'text-gray-400'}`}
+                >
+                  <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
+                </Button>
+                <span className="text-sm line-through text-muted-foreground">{task.title}</span>
+                {task.projectId && <ProjectBadge projectId={task.projectId} />}
+                <span className="text-xs text-muted-foreground">
+                  ({task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0})
+                </span>
+                {task.deadline && (
+                  <span className={`text-xs px-2 py-1 rounded ${
+                    new Date(task.deadline) < new Date() 
+                      ? 'bg-red-100 text-red-800' 
+                      : 'bg-blue-100 text-blue-800'
+                  }`}>
+                    {new Date(task.deadline).toLocaleDateString()}
+                    {new Date(task.deadline) < new Date() && ' (Overdue)'}
+                  </span>
+                )}
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <MoreHorizontal className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => {
+                    onEditTask(task);
+                    event('task_edit_started', { task_id: task.id });
+                  }}>
+                    <Pencil className="w-4 h-4 mr-2" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    onEditDeadline({
+                      id: task.id,
+                      deadline: task.deadline || ''
+                    });
+                  }}>
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Set Deadline
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onDeleteTask(task.id)}>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
 
 const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -146,17 +253,13 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     }
   }, [editingTask, event, updateTask]);
 
-  const filteredTasks = useMemo(() =>
-    memoizedTasks.filter(task =>
-      (showCompleted || !task.completed) &&
-      (searchTerm === '' || task.title.toLowerCase().includes(searchTerm.toLowerCase()))
-    ),
-    [memoizedTasks, showCompleted, searchTerm]
-  );
+  // Only paginate active (incomplete) tasks
+  const activeTasks = useMemo(() => memoizedTasks.filter(task => !task.completed), [memoizedTasks]);
+  const completedTasks = useMemo(() => memoizedTasks.filter(task => task.completed), [memoizedTasks]);
 
-  const displayedTasks = useMemo(() =>
-    filteredTasks.slice(0, (currentPage + 1) * itemsPerPage),
-    [filteredTasks, currentPage, itemsPerPage]
+  const paginatedActiveTasks = useMemo(() =>
+    activeTasks.slice(0, (currentPage + 1) * itemsPerPage),
+    [activeTasks, currentPage, itemsPerPage]
   );
 
   const handleToggleTaskCompletion = useCallback((taskId: string, currentCompletionState: boolean) => {
@@ -200,11 +303,11 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   }, [event]);
 
   const loadMoreTasks = useCallback(() => {
-    if ((currentPage + 1) * itemsPerPage < filteredTasks.length) {
+    if ((currentPage + 1) * itemsPerPage < activeTasks.length) {
       setCurrentPage(prevPage => prevPage + 1);
       event('load_more_tasks', { new_page: currentPage + 1 });
     }
-  }, [currentPage, event, filteredTasks.length, itemsPerPage]);
+  }, [currentPage, event, activeTasks.length, itemsPerPage]);
 
   const handleAIBreakdownSave = (tasks: { title: string; estimatedPomodoros: number }[]) => {
     tasks.forEach(task => {
@@ -294,17 +397,9 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
           </div>
         )}
 
-        <div className="flex items-center space-x-2 mb-4">
-          <Checkbox
-            id="showCompleted"
-            checked={showCompleted}
-            onCheckedChange={handleShowCompletedToggle}
-          />
-          <label htmlFor="showCompleted" className="text-sm">Show completed tasks</label>
-        </div>
         <hr />
         <ul className="space-y-2">
-          {displayedTasks.map((task) => (
+          {paginatedActiveTasks.map((task) => (
             <li key={task.id} className="flex items-center justify-between p-2 hover:bg-accent rounded-md transition-colors">
               {editingTask && editingTask.id === task.id ? (
                 <form onSubmit={handleUpdateTask} className="flex flex-col space-y-2 w-full">
@@ -387,7 +482,6 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                       <Button variant="ghost" size="sm">
                         <MoreHorizontal className="w-4 h-4" />
                       </Button>
-
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => {
@@ -422,12 +516,32 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
             </li>
           ))}
         </ul>
-        {displayedTasks.length < filteredTasks.length && (
+        {paginatedActiveTasks.length < activeTasks.length && (
           <div className="flex justify-center mt-4">
             <Button onClick={loadMoreTasks} variant="outline">
               Load More
             </Button>
           </div>
+        )}
+        <div className="flex items-center justify-end space-x-2 mt-4 mb-2">
+          <span id="show-completed-label" className="text-sm text-muted-foreground">Show completed tasks</span>
+          <Switch
+            checked={showCompleted}
+            onCheckedChange={handleShowCompletedToggle}
+            aria-labelledby="show-completed-label"
+          />
+        </div>
+        {showCompleted && (
+          <CompletedTasksSection
+            tasks={completedTasks}
+            onToggleTaskCompletion={handleToggleTaskCompletion}
+            onToggleTaskFocus={handleToggleTaskFocus}
+            onEditTask={setEditingTask}
+            onEditDeadline={setEditingDeadline}
+            onDeleteTask={handleDeleteTask}
+            event={event}
+            ProjectBadge={ProjectBadge}
+          />
         )}
       </CardContent>
       <AIBreakdownModal
