@@ -81,7 +81,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     <Combobox
       options={tasks
         .filter(task => !task.completed)
-        .map(task => ({ value: task.title, label: task.title }))}
+        .map(task => ({ value: task.id, label: task.title }))}
       value={selectedTaskId}
       onChange={handleTaskSelect}
       placeholder="Select a task"
