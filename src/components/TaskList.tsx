@@ -311,7 +311,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
       return sortOrder === 'asc' ? cmp : -cmp;
     });
     return tasks;
-  }, [filteredTasks, sortBy, sortOrder]);
+  }, [filteredTasks, sortBy, sortOrder, getProjectName]);
 
   // Only paginate active (incomplete) tasks after filtering/sorting
   const activeTasks = useMemo(() => sortedTasks.filter(task => !task.completed), [sortedTasks]);
