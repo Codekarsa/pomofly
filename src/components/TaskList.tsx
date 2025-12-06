@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MoreHorizontal, Plus, Pencil, Trash2, Star, Calendar, ChevronDown, ChevronRight, Search, ArrowUpAZ, ArrowDownAZ, Filter } from 'lucide-react';
+import { MoreHorizontal, Plus, Pencil, Trash2, Star, Calendar, ChevronDown, ChevronRight, Search, ArrowUpAZ, ArrowDownAZ, Filter, CheckCircle } from 'lucide-react';
+import BulkActionToolbar from './BulkActionToolbar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -77,10 +78,15 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
           {tasks.map((task) => (
             <li key={task.id} className="flex items-center justify-between p-2 bg-muted rounded-md transition-colors">
               <div className="flex items-center space-x-2">
-                <Checkbox
-                  checked={task.completed}
-                  onCheckedChange={() => onToggleTaskCompletion(task.id, task.completed)}
-                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onToggleTaskCompletion(task.id, task.completed)}
+                  className="p-1 text-green-500 hover:text-gray-400"
+                  aria-label="Mark as incomplete"
+                >
+                  <CheckCircle className="w-4 h-4" fill="currentColor" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -173,6 +179,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [sortBy, setSortBy] = useState<string>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [search, setSearch] = useState('');
+  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
 
   const { projects } = useProjects();
   const {
@@ -356,6 +363,73 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     event('show_completed_tasks_toggled', { new_state: !showCompleted });
   }, [event, showCompleted]);
 
+  // Selection handlers
+  const handleToggleSelection = useCallback((taskId: string) => {
+    setSelectedTasks(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(taskId)) {
+        newSet.delete(taskId);
+      } else {
+        newSet.add(taskId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    if (selectedTasks.size === activeTasks.length && activeTasks.length > 0) {
+      setSelectedTasks(new Set());
+    } else {
+      setSelectedTasks(new Set(activeTasks.map(t => t.id)));
+    }
+  }, [activeTasks, selectedTasks.size]);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedTasks(new Set());
+  }, []);
+
+  const handleBulkMarkDone = useCallback(async () => {
+    const tasksToComplete = Array.from(selectedTasks);
+    for (const taskId of tasksToComplete) {
+      const task = tasks.find(t => t.id === taskId);
+      if (task && !task.completed) {
+        await toggleTaskCompletion(taskId, false);
+      }
+    }
+    setSelectedTasks(new Set());
+    event('bulk_mark_done', { count: tasksToComplete.length });
+  }, [selectedTasks, tasks, toggleTaskCompletion, event]);
+
+  const handleBulkDelete = useCallback(async () => {
+    const tasksToDelete = Array.from(selectedTasks);
+    for (const taskId of tasksToDelete) {
+      await deleteTask(taskId);
+    }
+    setSelectedTasks(new Set());
+    event('bulk_delete', { count: tasksToDelete.length });
+  }, [selectedTasks, deleteTask, event]);
+
+  const handleBulkChangeProject = useCallback(async (projectId: string) => {
+    const tasksToUpdate = Array.from(selectedTasks);
+    for (const taskId of tasksToUpdate) {
+      await updateTask(taskId, { projectId });
+    }
+    setSelectedTasks(new Set());
+    event('bulk_change_project', { count: tasksToUpdate.length, project_id: projectId });
+  }, [selectedTasks, updateTask, event]);
+
+  const handleBulkSetFocus = useCallback(async (focus: boolean) => {
+    const tasksToUpdate = Array.from(selectedTasks);
+    for (const taskId of tasksToUpdate) {
+      const task = tasks.find(t => t.id === taskId);
+      if (task) {
+        await toggleTaskFocus(taskId, !focus);
+      }
+    }
+    setSelectedTasks(new Set());
+    event('bulk_set_focus', { count: tasksToUpdate.length, focus });
+  }, [selectedTasks, tasks, toggleTaskFocus, event]);
+
   const loadMoreTasks = useCallback(() => {
     if ((currentPage + 1) * itemsPerPage < activeTasks.length) {
       setCurrentPage(prevPage => prevPage + 1);
@@ -507,9 +581,23 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
             </PopoverContent>
           </Popover>
         </div>
+        {activeTasks.length > 0 && (
+          <div className="flex items-center space-x-2 mb-3 pb-2 border-b">
+            <Checkbox
+              checked={selectedTasks.size === activeTasks.length && activeTasks.length > 0}
+              onCheckedChange={handleSelectAll}
+              aria-label="Select all tasks"
+            />
+            <span className="text-sm text-muted-foreground">
+              {selectedTasks.size > 0
+                ? `${selectedTasks.size} task${selectedTasks.size !== 1 ? 's' : ''} selected`
+                : 'Select all'}
+            </span>
+          </div>
+        )}
         <ul className="space-y-2">
           {paginatedActiveTasks.map((task) => (
-            <li key={task.id} className="flex items-center justify-between p-2 hover:bg-accent rounded-md transition-colors">
+            <li key={task.id} className={`flex items-center justify-between p-2 rounded-md transition-colors ${selectedTasks.has(task.id) ? 'bg-blue-50' : 'hover:bg-accent'}`}>
               {editingTask && editingTask.id === task.id ? (
                 <form onSubmit={handleUpdateTask} className="flex flex-col space-y-2 w-full">
                   <div className="flex items-center space-x-2">
@@ -557,9 +645,19 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                 <>
                   <div className="flex items-center space-x-2">
                     <Checkbox
-                      checked={task.completed}
-                      onCheckedChange={() => handleToggleTaskCompletion(task.id, task.completed)}
+                      checked={selectedTasks.has(task.id)}
+                      onCheckedChange={() => handleToggleSelection(task.id)}
+                      aria-label={`Select task: ${task.title}`}
                     />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleToggleTaskCompletion(task.id, task.completed)}
+                      className={`p-1 ${task.completed ? 'text-green-500' : 'text-gray-400 hover:text-green-500'}`}
+                      aria-label={task.completed ? "Mark as incomplete" : "Mark as complete"}
+                    >
+                      <CheckCircle className="w-4 h-4" fill={task.completed ? 'currentColor' : 'none'} />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -648,6 +746,17 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
             onDeleteTask={handleDeleteTask}
             event={event}
             ProjectBadge={ProjectBadge}
+          />
+        )}
+        {selectedTasks.size > 0 && (
+          <BulkActionToolbar
+            selectedCount={selectedTasks.size}
+            onMarkDone={handleBulkMarkDone}
+            onDelete={handleBulkDelete}
+            onChangeProject={handleBulkChangeProject}
+            onSetFocus={handleBulkSetFocus}
+            onClearSelection={handleClearSelection}
+            projects={memoizedProjects}
           />
         )}
       </CardContent>
