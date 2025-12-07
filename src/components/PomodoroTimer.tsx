@@ -8,7 +8,7 @@ import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
-import TaskPicker from './TaskPicker';
+import SelectedTasksList from './SelectedTasksList';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -33,38 +33,67 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     stopAllTimeTracking
   } = useTasks();
   const { projects } = useProjects();
-  const { getElapsedTime } = useTimeTracking(tasks);
+  const { getElapsedTime, formatTime } = useTimeTracking(tasks);
 
   const [completedSessions, setCompletedSessions] = useState<{ date: string }[]>([]);
   const wasActiveRef = useRef(false);
 
-  // Get selected tasks for time tracking calculations
-  const selectedTasks = tasks.filter(t => selectedTaskIds.includes(t.id));
+  // Use refs to avoid callback dependency issues that cause timer to reset
+  const selectedTaskIdsRef = useRef<string[]>([]);
+  const tasksRef = useRef(tasks);
 
+  // Keep refs in sync with state
+  useEffect(() => {
+    selectedTaskIdsRef.current = selectedTaskIds;
+  }, [selectedTaskIds]);
+
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
+
+  // Stable callback that uses refs - won't cause usePomodoro to reset
   const handlePomodoroComplete = useCallback(() => {
-    if (user && selectedTaskIds.length > 0) {
-      // Stop time tracking and increment pomodoro for all selected tasks
+    const taskIds = selectedTaskIdsRef.current;
+    const currentTasks = tasksRef.current;
+
+    if (user && taskIds.length > 0) {
+      // Stop time tracking for all selected tasks
+      const selectedTasks = currentTasks.filter(t => taskIds.includes(t.id));
       const tasksToStop = selectedTasks
         .filter(task => task.trackingStartedAt != null)
-        .map(task => ({
-          taskId: task.id,
-          elapsedSeconds: getElapsedTime(task) - (task.manualTimeSpent ?? 0)
-        }));
+        .map(task => {
+          let elapsed = 0;
+          if (task.trackingStartedAt) {
+            let startTime: number;
+            if (task.trackingStartedAt instanceof Date) {
+              startTime = task.trackingStartedAt.getTime();
+            } else if (typeof (task.trackingStartedAt as { toDate?: () => Date }).toDate === 'function') {
+              startTime = (task.trackingStartedAt as { toDate: () => Date }).toDate().getTime();
+            } else {
+              startTime = new Date(task.trackingStartedAt as unknown as string).getTime();
+            }
+            elapsed = Math.floor((Date.now() - startTime) / 1000);
+          }
+          return {
+            taskId: task.id,
+            elapsedSeconds: Math.max(0, elapsed)
+          };
+        });
 
       if (tasksToStop.length > 0) {
         stopAllTimeTracking(tasksToStop);
       }
 
       // Increment pomodoro session for all selected tasks
-      selectedTaskIds.forEach(taskId => {
+      taskIds.forEach(taskId => {
         incrementPomodoroSession(taskId, settings.pomodoro);
       });
 
       setCompletedSessions(prev => [...prev, { date: new Date().toISOString() }]);
       event('pomodoro_session_completed', {
         duration: settings.pomodoro,
-        task_ids: selectedTaskIds,
-        task_count: selectedTaskIds.length,
+        task_ids: taskIds,
+        task_count: taskIds.length,
         phase: 'pomodoro'
       });
     } else {
@@ -73,7 +102,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
         phase: 'pomodoro'
       });
     }
-  }, [user, selectedTaskIds, selectedTasks, settings.pomodoro, incrementPomodoroSession, stopAllTimeTracking, getElapsedTime, event]);
+  }, [user, settings.pomodoro, incrementPomodoroSession, stopAllTimeTracking, event]);
 
   const {
     phase,
@@ -87,11 +116,14 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
 
   // Handle timer start/pause - manage time tracking
   useEffect(() => {
+    const taskIds = selectedTaskIdsRef.current;
+    const currentTasks = tasksRef.current;
+
     if (isActive && !wasActiveRef.current) {
       // Timer just started - start time tracking on all selected tasks
-      if (selectedTaskIds.length > 0 && phase === 'pomodoro') {
-        const taskIdsToStart = selectedTaskIds.filter(id => {
-          const task = tasks.find(t => t.id === id);
+      if (taskIds.length > 0 && phase === 'pomodoro') {
+        const taskIdsToStart = taskIds.filter(id => {
+          const task = currentTasks.find(t => t.id === id);
           return task && task.trackingStartedAt == null;
         });
         if (taskIdsToStart.length > 0) {
@@ -101,13 +133,28 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
       }
     } else if (!isActive && wasActiveRef.current) {
       // Timer just paused - stop time tracking on all selected tasks
-      if (selectedTaskIds.length > 0 && phase === 'pomodoro') {
+      if (taskIds.length > 0 && phase === 'pomodoro') {
+        const selectedTasks = currentTasks.filter(t => taskIds.includes(t.id));
         const tasksToStop = selectedTasks
           .filter(task => task.trackingStartedAt != null)
-          .map(task => ({
-            taskId: task.id,
-            elapsedSeconds: getElapsedTime(task) - (task.manualTimeSpent ?? 0)
-          }));
+          .map(task => {
+            let elapsed = 0;
+            if (task.trackingStartedAt) {
+              let startTime: number;
+              if (task.trackingStartedAt instanceof Date) {
+                startTime = task.trackingStartedAt.getTime();
+              } else if (typeof (task.trackingStartedAt as { toDate?: () => Date }).toDate === 'function') {
+                startTime = (task.trackingStartedAt as { toDate: () => Date }).toDate().getTime();
+              } else {
+                startTime = new Date(task.trackingStartedAt as unknown as string).getTime();
+              }
+              elapsed = Math.floor((Date.now() - startTime) / 1000);
+            }
+            return {
+              taskId: task.id,
+              elapsedSeconds: Math.max(0, elapsed)
+            };
+          });
 
         if (tasksToStop.length > 0) {
           stopAllTimeTracking(tasksToStop);
@@ -116,7 +163,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
       }
     }
     wasActiveRef.current = isActive;
-  }, [isActive, selectedTaskIds, selectedTasks, phase, tasks, startAllTimeTracking, stopAllTimeTracking, getElapsedTime, event]);
+  }, [isActive, phase, startAllTimeTracking, stopAllTimeTracking, event]);
 
   useEffect(() => {
     event('pomodoro_timer_view', { user_authenticated: !!user });
@@ -136,10 +183,33 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     event('pomodoro_phase_switched', { new_phase: phase === 'pomodoro' ? 'shortBreak' : 'pomodoro' });
   }, [handlePomodoroComplete, resetTimer, switchPhase, phase, event]);
 
-  const handleSelectionChange = useCallback((taskIds: string[]) => {
-    setSelectedTaskIds(taskIds);
-    event('tasks_selected_for_pomodoro', { task_count: taskIds.length });
-  }, [event]);
+  const handleAddTask = useCallback((taskId: string) => {
+    if (!selectedTaskIds.includes(taskId)) {
+      const newIds = [...selectedTaskIds, taskId];
+      setSelectedTaskIds(newIds);
+      event('task_added_to_pomodoro', { task_id: taskId });
+
+      // If timer is active and in pomodoro phase, start tracking the new task
+      if (isActive && phase === 'pomodoro') {
+        startAllTimeTracking([taskId]);
+      }
+    }
+  }, [selectedTaskIds, event, isActive, phase, startAllTimeTracking]);
+
+  const handleRemoveTask = useCallback((taskId: string) => {
+    const newIds = selectedTaskIds.filter(id => id !== taskId);
+    setSelectedTaskIds(newIds);
+    event('task_removed_from_pomodoro', { task_id: taskId });
+
+    // If timer is active, stop tracking the removed task
+    if (isActive && phase === 'pomodoro') {
+      const task = tasks.find(t => t.id === taskId);
+      if (task && task.trackingStartedAt != null) {
+        const elapsed = getElapsedTime(task) - (task.manualTimeSpent ?? 0);
+        stopAllTimeTracking([{ taskId, elapsedSeconds: elapsed }]);
+      }
+    }
+  }, [selectedTaskIds, event, isActive, phase, tasks, getElapsedTime, stopAllTimeTracking]);
 
   const handleToggleTimer = useCallback(() => {
     toggleTimer();
@@ -211,14 +281,16 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
           )}
         </div>
 
-        {/* Task Picker - only show for authenticated users */}
+        {/* Task Selection - available for authenticated users, always enabled */}
         {user && (
-          <TaskPicker
+          <SelectedTasksList
             tasks={tasks}
             projects={projects}
             selectedTaskIds={selectedTaskIds}
-            onSelectionChange={handleSelectionChange}
-            disabled={isActive}
+            onAddTask={handleAddTask}
+            onRemoveTask={handleRemoveTask}
+            getElapsedTime={getElapsedTime}
+            formatTime={formatTime}
           />
         )}
       </CardContent>
