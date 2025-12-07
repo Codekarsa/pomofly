@@ -17,13 +17,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'yarn'
       
       - name: Install dependencies
-        run: npm ci
+        run: yarn install --frozen-lockfile
       
       - name: Build
-        run: npm run build
+        run: yarn build
       
       - name: Deploy to Firebase Hosting (Preview)
         if: github.event_name == 'pull_request'
@@ -45,7 +45,7 @@ jobs:
           channelId: live
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks
-
+      
       - name: Deploy Firestore Rules & Indexes
         if: github.ref == 'refs/heads/main'
         uses: w9jds/firebase-action@master
