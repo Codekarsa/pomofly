@@ -2,11 +2,14 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTasks, Task } from '../hooks/useTasks';
 import { useProjects } from '../hooks/useProjects';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
+import { useTimeTracking } from '@/hooks/useTimeTracking';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { MoreHorizontal, Plus, Pencil, Trash2, Star, Calendar, ChevronDown, ChevronRight, Search, ArrowUpAZ, ArrowDownAZ, Filter, CheckCircle } from 'lucide-react';
+import TaskTimeTracker from './TaskTimeTracker';
+import TimeTrackingControls from './TimeTrackingControls';
 import BulkActionToolbar from './BulkActionToolbar';
 import {
   DropdownMenu,
@@ -191,12 +194,19 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     toggleTaskCompletion,
     deleteTask,
     toggleTaskFocus,
-    setTaskDeadline
+    setTaskDeadline,
+    startTimeTracking,
+    stopTimeTracking,
+    startAllTimeTracking,
+    stopAllTimeTracking
   } = useTasks(selectedProjectId);
   const { event } = useGoogleAnalytics();
 
   const memoizedProjects = useMemo(() => projects, [projects]);
   const memoizedTasks = useMemo(() => tasks, [tasks]);
+
+  // Time tracking hook
+  const { activelyTrackedTasks, hasActiveTracking, getElapsedTime, formatTime } = useTimeTracking(memoizedTasks);
 
   // Helper function to get project name by ID
   const getProjectName = useCallback((projectId: string) => {
@@ -444,6 +454,51 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     setShowAIBreakdownModal(false);
   };
 
+  // Time tracking handlers
+  const handleStartTracking = useCallback(async (taskId: string) => {
+    try {
+      await startTimeTracking(taskId);
+      event('time_tracking_started', { task_id: taskId });
+    } catch (error) {
+      console.error('Failed to start time tracking:', error);
+    }
+  }, [startTimeTracking, event]);
+
+  const handleStopTracking = useCallback(async (task: Task) => {
+    try {
+      const elapsed = getElapsedTime(task) - (task.manualTimeSpent ?? 0);
+      await stopTimeTracking(task.id, elapsed);
+      event('time_tracking_stopped', { task_id: task.id, elapsed_seconds: elapsed });
+    } catch (error) {
+      console.error('Failed to stop time tracking:', error);
+    }
+  }, [stopTimeTracking, getElapsedTime, event]);
+
+  const handleStartAllTracking = useCallback(async () => {
+    const taskIds = activeTasks.filter(t => t.trackingStartedAt == null).map(t => t.id);
+    if (taskIds.length === 0) return;
+    try {
+      await startAllTimeTracking(taskIds);
+      event('time_tracking_start_all', { count: taskIds.length });
+    } catch (error) {
+      console.error('Failed to start all time tracking:', error);
+    }
+  }, [activeTasks, startAllTimeTracking, event]);
+
+  const handleStopAllTracking = useCallback(async () => {
+    const tasksToStop = activelyTrackedTasks.map(task => ({
+      taskId: task.id,
+      elapsedSeconds: getElapsedTime(task) - (task.manualTimeSpent ?? 0)
+    }));
+    if (tasksToStop.length === 0) return;
+    try {
+      await stopAllTimeTracking(tasksToStop);
+      event('time_tracking_stop_all', { count: tasksToStop.length });
+    } catch (error) {
+      console.error('Failed to stop all time tracking:', error);
+    }
+  }, [activelyTrackedTasks, getElapsedTime, stopAllTimeTracking, event]);
+
   if (tasksLoading) return <div>Loading tasks...</div>;
   if (tasksError) return <div>Error loading tasks: {tasksError.message}</div>;
 
@@ -580,6 +635,13 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
               </div>
             </PopoverContent>
           </Popover>
+          <TimeTrackingControls
+            hasActiveTracking={hasActiveTracking}
+            activeCount={activelyTrackedTasks.length}
+            onStartAll={handleStartAllTracking}
+            onStopAll={handleStopAllTracking}
+            disabled={activeTasks.length === 0}
+          />
         </div>
         {activeTasks.length > 0 && (
           <div className="flex items-center space-x-2 mb-3 pb-2 border-b">
@@ -673,14 +735,22 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                     </span>
                     {task.deadline && (
                       <span className={`text-xs px-2 py-1 rounded ${
-                        new Date(task.deadline) < new Date() 
-                          ? 'bg-red-100 text-red-800' 
+                        new Date(task.deadline) < new Date()
+                          ? 'bg-red-100 text-red-800'
                           : 'bg-blue-100 text-blue-800'
                       }`}>
                         {new Date(task.deadline).toLocaleDateString()}
                         {new Date(task.deadline) < new Date() && ' (Overdue)'}
                       </span>
                     )}
+                    <TaskTimeTracker
+                      formattedTime={formatTime(getElapsedTime(task))}
+                      elapsedTime={getElapsedTime(task)}
+                      isTracking={task.trackingStartedAt != null}
+                      onStart={() => handleStartTracking(task.id)}
+                      onStop={() => handleStopTracking(task)}
+                      disabled={task.completed}
+                    />
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

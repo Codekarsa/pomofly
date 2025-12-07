@@ -1,11 +1,14 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { useTasks } from '../hooks/useTasks';
+import { useTasks, Task } from '../hooks/useTasks';
 import { useProjects } from '../hooks/useProjects';
+import { useTimeTracking } from '@/hooks/useTimeTracking';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { MoreHorizontal, Trash2, Star, Calendar, CheckCircle } from 'lucide-react';
 import BulkActionToolbar from './BulkActionToolbar';
+import TaskTimeTracker from './TaskTimeTracker';
+import TimeTrackingControls from './TimeTrackingControls';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,13 +34,29 @@ interface TodayFocusSectionProps {
 }
 
 const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
-  const { tasks, loading, error, toggleTaskCompletion, toggleTaskFocus, setTaskDeadline, deleteTask, updateTask } = useTasks();
+  const {
+    tasks,
+    loading,
+    error,
+    toggleTaskCompletion,
+    toggleTaskFocus,
+    setTaskDeadline,
+    deleteTask,
+    updateTask,
+    startTimeTracking,
+    stopTimeTracking,
+    startAllTimeTracking,
+    stopAllTimeTracking
+  } = useTasks();
   const { projects } = useProjects();
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
 
   const focusedTasks = useMemo(() => {
     return tasks.filter(task => task.focus && !task.completed);
   }, [tasks]);
+
+  // Time tracking hook
+  const { activelyTrackedTasks, hasActiveTracking, getElapsedTime, formatTime } = useTimeTracking(focusedTasks);
 
   // Selection handlers
   const handleToggleSelection = useCallback((taskId: string) => {
@@ -102,6 +121,47 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
     setSelectedTasks(new Set());
   }, [selectedTasks, tasks, toggleTaskFocus]);
 
+  // Time tracking handlers
+  const handleStartTracking = useCallback(async (taskId: string) => {
+    try {
+      await startTimeTracking(taskId);
+    } catch (error) {
+      console.error('Failed to start time tracking:', error);
+    }
+  }, [startTimeTracking]);
+
+  const handleStopTracking = useCallback(async (task: Task) => {
+    try {
+      const elapsed = getElapsedTime(task) - (task.manualTimeSpent ?? 0);
+      await stopTimeTracking(task.id, elapsed);
+    } catch (error) {
+      console.error('Failed to stop time tracking:', error);
+    }
+  }, [stopTimeTracking, getElapsedTime]);
+
+  const handleStartAllTracking = useCallback(async () => {
+    const taskIds = focusedTasks.filter(t => t.trackingStartedAt == null).map(t => t.id);
+    if (taskIds.length === 0) return;
+    try {
+      await startAllTimeTracking(taskIds);
+    } catch (error) {
+      console.error('Failed to start all time tracking:', error);
+    }
+  }, [focusedTasks, startAllTimeTracking]);
+
+  const handleStopAllTracking = useCallback(async () => {
+    const tasksToStop = activelyTrackedTasks.map(task => ({
+      taskId: task.id,
+      elapsedSeconds: getElapsedTime(task) - (task.manualTimeSpent ?? 0)
+    }));
+    if (tasksToStop.length === 0) return;
+    try {
+      await stopAllTimeTracking(tasksToStop);
+    } catch (error) {
+      console.error('Failed to stop all time tracking:', error);
+    }
+  }, [activelyTrackedTasks, getElapsedTime, stopAllTimeTracking]);
+
   // Helper function to get project name by ID
   const getProjectName = (projectId: string) => {
     const project = projects.find(p => p.id === projectId);
@@ -154,13 +214,23 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
   return (
     <Card className="w-full mb-6 border-2 border-yellow-200 bg-yellow-50">
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center text-lg">
-          <Star className="w-5 h-5 mr-2 text-yellow-500" fill="currentColor" />
-          Today&apos;s Focus
-          <span className="ml-2 text-sm text-muted-foreground">
-            ({focusedTasks.length} task{focusedTasks.length !== 1 ? 's' : ''})
-          </span>
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center text-lg">
+            <Star className="w-5 h-5 mr-2 text-yellow-500" fill="currentColor" />
+            Today&apos;s Focus
+            <span className="ml-2 text-sm text-muted-foreground">
+              ({focusedTasks.length} task{focusedTasks.length !== 1 ? 's' : ''})
+            </span>
+          </CardTitle>
+          {focusedTasks.length > 0 && (
+            <TimeTrackingControls
+              hasActiveTracking={hasActiveTracking}
+              activeCount={activelyTrackedTasks.length}
+              onStartAll={handleStartAllTracking}
+              onStopAll={handleStopAllTracking}
+            />
+          )}
+        </div>
       </CardHeader>
       <CardContent className="pt-0">
         {focusedTasks.length === 0 ? (
@@ -225,6 +295,14 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
                         {new Date(task.deadline) < new Date() && ' (Overdue)'}
                       </span>
                     )}
+                    <TaskTimeTracker
+                      formattedTime={formatTime(getElapsedTime(task))}
+                      elapsedTime={getElapsedTime(task)}
+                      isTracking={task.trackingStartedAt != null}
+                      onStart={() => handleStartTracking(task.id)}
+                      onStop={() => handleStopTracking(task)}
+                      disabled={task.completed}
+                    />
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

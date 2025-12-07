@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, increment } from "firebase/firestore";
+import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, increment, writeBatch } from "firebase/firestore";
 import { db, auth } from '../lib/firebase';
 
 export interface Task {
@@ -15,6 +15,8 @@ export interface Task {
   archived?: boolean;
   focus: boolean;
   deadline: string | null;
+  manualTimeSpent: number;
+  trackingStartedAt: Date | null;
 }
 
 export function useTasks(projectId?: string) {
@@ -71,7 +73,9 @@ export function useTasks(projectId?: string) {
         createdAt: new Date(),
         estimatedPomodoros,
         focus: false,
-        deadline: null
+        deadline: null,
+        manualTimeSpent: 0,
+        trackingStartedAt: null
       };
       const docRef = await addDoc(collection(db, "tasks"), newTask);
       return docRef.id;
@@ -154,17 +158,78 @@ export function useTasks(projectId?: string) {
     }
   }, []);
 
-  return { 
-    tasks, 
-    loading, 
-    error, 
-    addTask, 
-    updateTask, 
-    deleteTask, 
-    toggleTaskCompletion, 
-    incrementPomodoroSession, 
-    archiveTask, 
+  const startTimeTracking = useCallback(async (taskId: string) => {
+    try {
+      await updateDoc(doc(db, "tasks", taskId), {
+        trackingStartedAt: new Date()
+      });
+    } catch (err) {
+      console.error("Error starting time tracking:", err);
+      throw err;
+    }
+  }, []);
+
+  const stopTimeTracking = useCallback(async (taskId: string, elapsedSeconds: number) => {
+    try {
+      await updateDoc(doc(db, "tasks", taskId), {
+        trackingStartedAt: null,
+        manualTimeSpent: increment(elapsedSeconds)
+      });
+    } catch (err) {
+      console.error("Error stopping time tracking:", err);
+      throw err;
+    }
+  }, []);
+
+  const startAllTimeTracking = useCallback(async (taskIds: string[]) => {
+    if (taskIds.length === 0) return;
+    const now = new Date();
+    const batch = writeBatch(db);
+    taskIds.forEach(taskId => {
+      const taskRef = doc(db, "tasks", taskId);
+      batch.update(taskRef, { trackingStartedAt: now });
+    });
+    try {
+      await batch.commit();
+    } catch (err) {
+      console.error("Error starting all time tracking:", err);
+      throw err;
+    }
+  }, []);
+
+  const stopAllTimeTracking = useCallback(async (tasksToStop: Array<{ taskId: string; elapsedSeconds: number }>) => {
+    if (tasksToStop.length === 0) return;
+    const batch = writeBatch(db);
+    tasksToStop.forEach(({ taskId, elapsedSeconds }) => {
+      const taskRef = doc(db, "tasks", taskId);
+      batch.update(taskRef, {
+        trackingStartedAt: null,
+        manualTimeSpent: increment(elapsedSeconds)
+      });
+    });
+    try {
+      await batch.commit();
+    } catch (err) {
+      console.error("Error stopping all time tracking:", err);
+      throw err;
+    }
+  }, []);
+
+  return {
+    tasks,
+    loading,
+    error,
+    addTask,
+    updateTask,
+    deleteTask,
+    toggleTaskCompletion,
+    incrementPomodoroSession,
+    archiveTask,
     toggleTaskFocus,
-    setTaskDeadline
+    setTaskDeadline,
+    startTimeTracking,
+    stopTimeTracking,
+    startAllTimeTracking,
+    stopAllTimeTracking
   };
 }
