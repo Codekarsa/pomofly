@@ -152,7 +152,7 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
                 Add Task
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80 p-0" align="start">
+            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="center">
               {/* Search Input */}
               <div className="p-3 border-b">
                 <div className="relative">

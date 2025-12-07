@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 type PomodoroPhase = 'pomodoro' | 'shortBreak' | 'longBreak';
 
@@ -24,6 +24,12 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
   const [settings, setSettings] = useState(initialSettings);
 
+  // Use ref for onComplete to prevent dependency changes from resetting timer
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
   const handlePhaseComplete = useCallback(() => {
     if (phase === 'pomodoro') {
       setSessionsCompleted(prev => prev + 1);
@@ -39,10 +45,8 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
       setMinutes(settings.pomodoro);
     }
     setSeconds(0);
-    if (onComplete) {
-      onComplete();
-    }
-  }, [phase, sessionsCompleted, settings, onComplete]);
+    onCompleteRef.current?.();
+  }, [phase, sessionsCompleted, settings]);
 
   const updateSettings = useCallback((newSettings: PomodoroSettings) => {
     setSettings(newSettings);
