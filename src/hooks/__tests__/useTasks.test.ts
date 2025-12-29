@@ -27,27 +27,27 @@ jest.mock('@/lib/firebase', () => ({
 }))
 
 describe('useTasks', () => {
-  const mockOnSnapshot = onSnapshot as jest.MockedFunction<typeof onSnapshot>
-  const mockAddDoc = addDoc as jest.MockedFunction<typeof addDoc>
-  const mockUpdateDoc = updateDoc as jest.MockedFunction<typeof updateDoc>
-  const mockDeleteDoc = deleteDoc as jest.MockedFunction<typeof deleteDoc>
-  const mockIncrement = increment as jest.MockedFunction<typeof increment>
+  const mockOnSnapshot = onSnapshot as jest.Mock
+  const mockAddDoc = addDoc as jest.Mock
+  const mockUpdateDoc = updateDoc as jest.Mock
+  const mockDeleteDoc = deleteDoc as jest.Mock
+  const mockIncrement = increment as jest.Mock
 
   beforeEach(() => {
     jest.clearAllMocks()
-    
+
     // Mock successful Firebase operations
-    mockAddDoc.mockResolvedValue({ id: 'new-task-id' } as { id: string })
+    mockAddDoc.mockResolvedValue({ id: 'new-task-id' })
     mockUpdateDoc.mockResolvedValue(undefined)
     mockDeleteDoc.mockResolvedValue(undefined)
-    mockIncrement.mockReturnValue('increment-value' as unknown)
+    mockIncrement.mockReturnValue('increment-value')
   })
 
   it('should initialize with empty tasks array', () => {
     const mockSnapshot = {
       forEach: jest.fn(),
     }
-    mockOnSnapshot.mockImplementation((query, onNext) => {
+    mockOnSnapshot.mockImplementation((_query: unknown, onNext: (snapshot: typeof mockSnapshot) => void) => {
       onNext(mockSnapshot)
       return jest.fn() // unsubscribe function
     })
@@ -94,7 +94,7 @@ describe('useTasks', () => {
       }),
     }
 
-    mockOnSnapshot.mockImplementation((query, onNext) => {
+    mockOnSnapshot.mockImplementation((_query: unknown, onNext: (snapshot: typeof mockSnapshot) => void) => {
       onNext(mockSnapshot)
       return jest.fn() // unsubscribe function
     })
@@ -114,7 +114,7 @@ describe('useTasks', () => {
     const mockSnapshot = {
       forEach: jest.fn(),
     }
-    mockOnSnapshot.mockImplementation((query, onNext) => {
+    mockOnSnapshot.mockImplementation((_query: unknown, onNext: (snapshot: typeof mockSnapshot) => void) => {
       onNext(mockSnapshot)
       return jest.fn()
     })
@@ -146,7 +146,7 @@ describe('useTasks', () => {
     const mockSnapshot = {
       forEach: jest.fn(),
     }
-    mockOnSnapshot.mockImplementation((query, onNext) => {
+    mockOnSnapshot.mockImplementation((_query: unknown, onNext: (snapshot: typeof mockSnapshot) => void) => {
       onNext(mockSnapshot)
       return jest.fn()
     })
@@ -173,7 +173,7 @@ describe('useTasks', () => {
     const mockSnapshot = {
       forEach: jest.fn(),
     }
-    mockOnSnapshot.mockImplementation((query, onNext) => {
+    mockOnSnapshot.mockImplementation((_query: unknown, onNext: (snapshot: typeof mockSnapshot) => void) => {
       onNext(mockSnapshot)
       return jest.fn()
     })
@@ -191,7 +191,7 @@ describe('useTasks', () => {
     const mockSnapshot = {
       forEach: jest.fn(),
     }
-    mockOnSnapshot.mockImplementation((query, onNext) => {
+    mockOnSnapshot.mockImplementation((_query: unknown, onNext: (snapshot: typeof mockSnapshot) => void) => {
       onNext(mockSnapshot)
       return jest.fn()
     })
@@ -214,7 +214,7 @@ describe('useTasks', () => {
     const mockSnapshot = {
       forEach: jest.fn(),
     }
-    mockOnSnapshot.mockImplementation((query, onNext) => {
+    mockOnSnapshot.mockImplementation((_query: unknown, onNext: (snapshot: typeof mockSnapshot) => void) => {
       onNext(mockSnapshot)
       return jest.fn()
     })
@@ -238,7 +238,7 @@ describe('useTasks', () => {
     const mockSnapshot = {
       forEach: jest.fn(),
     }
-    mockOnSnapshot.mockImplementation((query, onNext) => {
+    mockOnSnapshot.mockImplementation((_query: unknown, onNext: (snapshot: typeof mockSnapshot) => void) => {
       onNext(mockSnapshot)
       return jest.fn()
     })
@@ -261,7 +261,7 @@ describe('useTasks', () => {
     const mockSnapshot = {
       forEach: jest.fn(),
     }
-    mockOnSnapshot.mockImplementation((query, onNext) => {
+    mockOnSnapshot.mockImplementation((_query: unknown, onNext: (snapshot: typeof mockSnapshot) => void) => {
       onNext(mockSnapshot)
       return jest.fn()
     })
@@ -282,7 +282,7 @@ describe('useTasks', () => {
 
   it('should handle Firebase errors', async () => {
     const mockError = new Error('Firebase error')
-    mockOnSnapshot.mockImplementation((query, onNext, onError) => {
+    mockOnSnapshot.mockImplementation((_query: unknown, _onNext: unknown, onError: (error: Error) => void) => {
       onError(mockError)
       return jest.fn()
     })
