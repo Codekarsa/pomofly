@@ -5,10 +5,19 @@ import { useTimeTracking } from '@/hooks/useTimeTracking';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MoreHorizontal, Trash2, Star, Calendar, CheckCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import {
+  MoreHorizontal,
+  Trash2,
+  Star,
+  Calendar,
+  CheckCircle,
+  FolderOpen
+} from 'lucide-react';
 import BulkActionToolbar from './BulkActionToolbar';
 import TaskTimeTracker from './TaskTimeTracker';
 import TimeTrackingControls from './TimeTrackingControls';
+import PomodoroProgressBar from './PomodoroProgressBar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,7 +64,6 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
     return tasks.filter(task => task.focus && !task.completed);
   }, [tasks]);
 
-  // Time tracking hook
   const { activelyTrackedTasks, hasActiveTracking, getElapsedTime, formatTime } = useTimeTracking(focusedTasks);
 
   // Selection handlers
@@ -171,21 +179,14 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
   // Project Badge Component
   const ProjectBadge = ({ projectId }: { projectId: string }) => {
     const projectName = getProjectName(projectId);
-    const displayName = projectName.length > 8 ? projectName.substring(0, 8) + '...' : projectName;
-    
-    // Debug logging
-    console.log('TodayFocusSection ProjectBadge Debug:', {
-      projectId,
-      projectName,
-      availableProjects: projects.map(p => ({ id: p.id, name: p.name })),
-      foundProject: projects.find(p => p.id === projectId)
-    });
-    
+    const displayName = projectName.length > 12 ? projectName.substring(0, 12) + '...' : projectName;
+
     return (
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 max-w-24 overflow-hidden">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-secondary text-secondary-foreground transition-colors duration-150 hover:bg-secondary/80">
+              <FolderOpen className="w-3 h-3" />
               {displayName}
             </span>
           </TooltipTrigger>
@@ -197,31 +198,93 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
     );
   };
 
-  // Debug logging
-  console.log('TodayFocusSection Debug:', {
-    totalTasks: tasks.length,
-    focusedTasks: focusedTasks.length,
-    loading,
-    error,
-    tasksWithFocus: tasks.filter(task => task.focus).length,
-    allTasks: tasks.map(task => ({ id: task.id, title: task.title, focus: task.focus, completed: task.completed }))
-  });
+  // Deadline Badge Component
+  const DeadlineBadge = ({ deadline }: { deadline: string }) => {
+    const deadlineDate = new Date(deadline);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const deadlineDateOnly = new Date(deadlineDate);
+    deadlineDateOnly.setHours(0, 0, 0, 0);
 
-  if (loading) return <div>Loading focus section...</div>;
-  if (error) return <div>Error loading focus section: {error.message}</div>;
-  
-  // Temporarily show even when no focused tasks for debugging
-  return (
-    <Card className="w-full mb-6 border-2 border-yellow-200 bg-yellow-50">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center text-lg">
-            <Star className="w-5 h-5 mr-2 text-yellow-500" fill="currentColor" />
-            Today&apos;s Focus
-            <span className="ml-2 text-sm text-muted-foreground">
-              ({focusedTasks.length} task{focusedTasks.length !== 1 ? 's' : ''})
+    const isOverdue = deadlineDateOnly < today;
+    const isToday = deadlineDateOnly.getTime() === today.getTime();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const isTomorrow = deadlineDateOnly.getTime() === tomorrow.getTime();
+
+    const getLabel = () => {
+      if (isOverdue) return 'Overdue';
+      if (isToday) return 'Today';
+      if (isTomorrow) return 'Tomorrow';
+      return deadlineDate.toLocaleDateString();
+    };
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className={cn(
+              "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium transition-colors duration-150",
+              isOverdue && "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+              isToday && !isOverdue && "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+              isTomorrow && !isOverdue && "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+              !isOverdue && !isToday && !isTomorrow && "bg-muted text-muted-foreground"
+            )}>
+              <Calendar className="w-3 h-3" />
+              {getLabel()}
             </span>
-          </CardTitle>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{deadlineDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
+  if (loading) {
+    return (
+      <Card className="w-full mb-6 border border-border/50 bg-card shadow-sm rounded-xl">
+        <CardContent className="py-8">
+          <div className="flex flex-col items-center justify-center">
+            <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-muted-foreground mt-3">Loading focus tasks...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="w-full mb-6 border border-red-200 bg-red-50 dark:bg-red-900/10 rounded-xl">
+        <CardContent className="py-6">
+          <p className="text-sm text-red-600 dark:text-red-400 text-center">
+            Error loading focus section: {error.message}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="w-full mb-6 border border-border/50 bg-card shadow-sm rounded-xl">
+      {/* Header */}
+      <CardHeader className="pb-4 pt-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+              <Star className="w-4 h-4 text-amber-600 dark:text-amber-400" fill="currentColor" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-semibold tracking-tight">
+                Today&apos;s Focus
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {focusedTasks.length} task{focusedTasks.length !== 1 ? 's' : ''} to complete
+              </p>
+            </div>
+          </div>
           {focusedTasks.length > 0 && (
             <TimeTrackingControls
               hasActiveTracking={hasActiveTracking}
@@ -232,19 +295,28 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
           )}
         </div>
       </CardHeader>
-      <CardContent className="pt-0">
+
+      <CardContent className="pt-0 pb-5">
         {focusedTasks.length === 0 ? (
-          <div className="text-center py-4 text-gray-500">
-            <p>No tasks marked as &quot;Today&apos;s focus&quot; yet.</p>
-            <p className="text-sm mt-1">Click the star button next to any task to mark it as focus.</p>
+          /* Empty State */
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
+              <Star className="w-6 h-6 text-muted-foreground" />
+            </div>
+            <p className="text-sm font-medium text-muted-foreground">No focused tasks</p>
+            <p className="text-xs text-muted-foreground/70 mt-1">
+              Star a task to add it here
+            </p>
           </div>
         ) : (
           <>
-            <div className="flex items-center space-x-2 mb-3 pb-2 border-b border-yellow-200">
+            {/* Select All Bar */}
+            <div className="flex items-center gap-3 mb-4 pb-3 border-b border-border/50">
               <Checkbox
                 checked={selectedTasks.size === focusedTasks.length && focusedTasks.length > 0}
                 onCheckedChange={handleSelectAll}
                 aria-label="Select all tasks"
+                className="transition-transform duration-150 hover:scale-110"
               />
               <span className="text-sm text-muted-foreground">
                 {selectedTasks.size > 0
@@ -252,93 +324,142 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
                   : 'Select all'}
               </span>
             </div>
-            <ul className="space-y-2">
+
+            {/* Task List */}
+            <ul className="space-y-3">
               {focusedTasks.map((task) => (
-                <li key={task.id} className={`flex items-center justify-between p-3 rounded-md border border-yellow-200 transition-colors ${selectedTasks.has(task.id) ? 'bg-blue-50' : 'bg-white hover:bg-yellow-100'}`}>
-                  <div className="flex items-center space-x-2">
+                <li
+                  key={task.id}
+                  data-selected={selectedTasks.has(task.id)}
+                  className={cn(
+                    "group p-4 rounded-xl border bg-card transition-all duration-200 ease-out",
+                    "hover:shadow-md hover:-translate-y-0.5",
+                    selectedTasks.has(task.id)
+                      ? "border-primary/40 ring-2 ring-primary/20"
+                      : "border-border/40 hover:border-border"
+                  )}
+                >
+                  {/* Row 1: Checkbox, Actions, Title */}
+                  <div className="flex items-start gap-3">
                     <Checkbox
                       checked={selectedTasks.has(task.id)}
                       onCheckedChange={() => handleToggleSelection(task.id)}
                       aria-label={`Select task: ${task.title}`}
+                      className="mt-0.5 transition-transform duration-150 hover:scale-110"
                     />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleTaskCompletion(task.id, task.completed)}
-                      className={`p-1 ${task.completed ? 'text-green-500' : 'text-gray-400 hover:text-green-500'}`}
-                      aria-label={task.completed ? "Mark as incomplete" : "Mark as complete"}
-                    >
-                      <CheckCircle className="w-4 h-4" fill={task.completed ? 'currentColor' : 'none'} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleTaskFocus(task.id, task.focus || false)}
-                      className="p-1 text-yellow-500"
-                    >
-                      <Star className="w-4 h-4" fill="currentColor" />
-                    </Button>
-                    <span className={`text-sm font-medium ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
-                      {task.title}
-                    </span>
-                    {task.projectId && <ProjectBadge projectId={task.projectId} />}
-                    <span className="text-xs text-muted-foreground">
-                      ({task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0})
-                    </span>
-                    {task.deadline && (
-                      <span className={`text-xs px-2 py-1 rounded font-medium ${
-                        new Date(task.deadline) < new Date()
-                          ? 'bg-red-100 text-red-800 border border-red-200'
-                          : 'bg-blue-100 text-blue-800 border border-blue-200'
-                      }`}>
-                        {new Date(task.deadline).toLocaleDateString()}
-                        {new Date(task.deadline) < new Date() && ' (Overdue)'}
-                      </span>
-                    )}
-                    <TaskTimeTracker
-                      formattedTime={formatTime(getElapsedTime(task))}
-                      elapsedTime={getElapsedTime(task)}
-                      isTracking={task.trackingStartedAt != null}
-                      onStart={() => handleStartTracking(task.id)}
-                      onStop={() => handleStopTracking(task)}
-                      disabled={task.completed}
-                    />
+
+                    <div className="flex-1 min-w-0">
+                      {/* Task Title Row */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => toggleTaskCompletion(task.id, task.completed)}
+                          className={cn(
+                            "h-5 w-5 p-0 transition-colors duration-150",
+                            task.completed
+                              ? "text-green-500"
+                              : "text-muted-foreground hover:text-green-500"
+                          )}
+                          aria-label={task.completed ? "Mark as incomplete" : "Mark as complete"}
+                        >
+                          <CheckCircle className="w-4 h-4" fill={task.completed ? 'currentColor' : 'none'} />
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => toggleTaskFocus(task.id, task.focus || false)}
+                          className="h-5 w-5 p-0 text-amber-500 hover:text-amber-600 transition-colors duration-150"
+                          aria-label="Remove from focus"
+                        >
+                          <Star className="w-4 h-4" fill="currentColor" />
+                        </Button>
+
+                        <span className={cn(
+                          "text-sm font-medium transition-all duration-200",
+                          task.completed && "line-through text-muted-foreground"
+                        )}>
+                          {task.title}
+                        </span>
+
+                        {task.projectId && <ProjectBadge projectId={task.projectId} />}
+                      </div>
+
+                      {/* Row 2: Metadata */}
+                      <div className="flex items-center flex-wrap gap-2 mt-2">
+                        {task.deadline && <DeadlineBadge deadline={task.deadline} />}
+                        <TaskTimeTracker
+                          formattedTime={formatTime(getElapsedTime(task))}
+                          elapsedTime={getElapsedTime(task)}
+                          isTracking={task.trackingStartedAt != null}
+                          onStart={() => handleStartTracking(task.id)}
+                          onStop={() => handleStopTracking(task)}
+                          disabled={task.completed}
+                        />
+                      </div>
+
+                      {/* Row 3: Progress Bar */}
+                      <div className="mt-3 pt-3 border-t border-border/30">
+                        <PomodoroProgressBar
+                          completed={task.totalPomodoroSessions || 0}
+                          estimated={task.estimatedPomodoros || 0}
+                          size="sm"
+                          showLabel={true}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Action Menu - Shows on hover */}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          >
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => {
+                            const newDeadline = prompt('Enter deadline (YYYY-MM-DD) or leave empty to remove:', task.deadline || '');
+                            if (newDeadline !== null) {
+                              setTaskDeadline(task.id, newDeadline || null);
+                            }
+                          }}>
+                            <Calendar className="w-4 h-4 mr-2" />
+                            Set Deadline
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => deleteTask(task.id)}
+                            className="text-red-600 focus:text-red-600 dark:text-red-400"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => {
-                        const newDeadline = prompt('Enter deadline (YYYY-MM-DD) or leave empty to remove:', task.deadline || '');
-                        if (newDeadline !== null) {
-                          setTaskDeadline(task.id, newDeadline || null);
-                        }
-                      }}>
-                        <Calendar className="w-4 h-4 mr-2" />
-                        Set Deadline
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => deleteTask(task.id)}>
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </li>
               ))}
             </ul>
+
+            {/* Bulk Action Toolbar */}
             {selectedTasks.size > 0 && (
-              <BulkActionToolbar
-                selectedCount={selectedTasks.size}
-                onMarkDone={handleBulkMarkDone}
-                onDelete={handleBulkDelete}
-                onChangeProject={handleBulkChangeProject}
-                onSetFocus={handleBulkSetFocus}
-                onClearSelection={handleClearSelection}
-                projects={projects}
-              />
+              <div className="mt-4">
+                <BulkActionToolbar
+                  selectedCount={selectedTasks.size}
+                  onMarkDone={handleBulkMarkDone}
+                  onDelete={handleBulkDelete}
+                  onChangeProject={handleBulkChangeProject}
+                  onSetFocus={handleBulkSetFocus}
+                  onClearSelection={handleClearSelection}
+                  projects={projects}
+                />
+              </div>
             )}
           </>
         )}
@@ -347,4 +468,4 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
   );
 };
 
-export default TodayFocusSection; 
+export default TodayFocusSection;
