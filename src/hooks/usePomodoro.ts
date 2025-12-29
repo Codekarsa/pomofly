@@ -24,11 +24,33 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
   const [settings, setSettings] = useState(initialSettings);
 
+  // Timestamp-based timing state
+  const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null);
+  const [pausedTimeRemaining, setPausedTimeRemaining] = useState<number | null>(null);
+
   // Use ref for onComplete to prevent dependency changes from resetting timer
   const onCompleteRef = useRef(onComplete);
   useEffect(() => {
     onCompleteRef.current = onComplete;
   }, [onComplete]);
+
+  // Calculate remaining time from timestamp (accurate, no drift)
+  const getRemainingTime = useCallback((): number => {
+    if (pausedTimeRemaining !== null) {
+      return pausedTimeRemaining;
+    }
+
+    if (!timerStartedAt) {
+      // Not started - return full duration
+      return settings[phase] * 60; // in seconds
+    }
+
+    const totalDuration = settings[phase] * 60; // in seconds
+    const elapsed = Math.floor((Date.now() - timerStartedAt) / 1000);
+    const remaining = totalDuration - elapsed;
+
+    return Math.max(0, remaining);
+  }, [timerStartedAt, pausedTimeRemaining, settings, phase]);
 
   const handlePhaseComplete = useCallback(() => {
     if (phase === 'pomodoro') {
@@ -45,6 +67,8 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
       setMinutes(settings.pomodoro);
     }
     setSeconds(0);
+    setTimerStartedAt(null);
+    setPausedTimeRemaining(null);
     onCompleteRef.current?.();
   }, [phase, sessionsCompleted, settings]);
 
@@ -53,55 +77,88 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     localStorage.setItem('pomodoroSettings', JSON.stringify(newSettings));
   }, []);
 
+  // Timer display update effect - uses timestamp for accuracy
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    if (isActive) {
-      interval = setInterval(() => {
-        if (seconds > 0) {
-          setSeconds(seconds - 1);
-        } else if (minutes > 0) {
-          setMinutes(minutes - 1);
-          setSeconds(59);
-        } else {
-          clearInterval(interval!);
-          setIsActive(false);
-          handlePhaseComplete();
-        }
-      }, 1000);
-    } else if (!isActive && seconds !== 0) {
-      clearInterval(interval!);
-    }
-    return () => clearInterval(interval!);
-  }, [isActive, minutes, seconds, settings, handlePhaseComplete]);
+    if (!isActive) return;
+
+    const updateDisplay = () => {
+      const remaining = getRemainingTime();
+      const mins = Math.floor(remaining / 60);
+      const secs = remaining % 60;
+
+      setMinutes(mins);
+      setSeconds(secs);
+
+      if (remaining <= 0) {
+        setIsActive(false);
+        setTimerStartedAt(null);
+        setPausedTimeRemaining(null);
+        handlePhaseComplete();
+      }
+    };
+
+    // Update immediately
+    updateDisplay();
+
+    // Then update every 100ms for smooth display
+    const interval = setInterval(updateDisplay, 100);
+
+    return () => clearInterval(interval);
+  }, [isActive, getRemainingTime, handlePhaseComplete]);
 
   const toggleTimer = useCallback(() => {
+    if (!isActive) {
+      // Starting timer
+      if (pausedTimeRemaining !== null) {
+        // Resuming - calculate new start time based on remaining time
+        const elapsedBeforePause = settings[phase] * 60 - pausedTimeRemaining;
+        const newStartTime = Date.now() - (elapsedBeforePause * 1000);
+        setTimerStartedAt(newStartTime);
+        setPausedTimeRemaining(null);
+      } else {
+        // Fresh start
+        setTimerStartedAt(Date.now());
+      }
+    } else {
+      // Pausing - save remaining time
+      const remaining = getRemainingTime();
+      setPausedTimeRemaining(remaining);
+      setTimerStartedAt(null);
+    }
     setIsActive(!isActive);
-  }, [isActive]);
+  }, [isActive, pausedTimeRemaining, settings, phase, getRemainingTime]);
 
   const resetTimer = useCallback(() => {
     setIsActive(false);
+    setTimerStartedAt(null);
+    setPausedTimeRemaining(null);
     setMinutes(settings[phase]);
     setSeconds(0);
   }, [phase, settings]);
 
   const switchPhase = useCallback((newPhase: PomodoroPhase) => {
     setPhase(newPhase);
+    setTimerStartedAt(null);
+    setPausedTimeRemaining(null);
     setMinutes(settings[newPhase]);
     setSeconds(0);
     setIsActive(false);
   }, [settings]);
 
   useEffect(() => {
-    setMinutes(settings[phase]);
-    setSeconds(0);
-  }, [settings, phase]);
+    // Only reset display when settings change and timer is not active
+    if (!isActive && timerStartedAt === null && pausedTimeRemaining === null) {
+      setMinutes(settings[phase]);
+      setSeconds(0);
+    }
+  }, [settings, phase, isActive, timerStartedAt, pausedTimeRemaining]);
 
-  return { 
+  return {
     phase,
-    minutes, 
-    seconds, 
-    isActive, 
-    toggleTimer, 
+    minutes,
+    seconds,
+    isActive,
+    toggleTimer,
     resetTimer,
     switchPhase,
     settings,
