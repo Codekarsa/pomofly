@@ -24,7 +24,13 @@ interface PomodoroTimerProps {
 const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) => {
   const { user } = useAuth();
   const { event } = useGoogleAnalytics();
-  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('selectedTaskIds');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
   const {
     tasks,
     loading,
@@ -50,6 +56,25 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
+
+  // Persist selectedTaskIds to localStorage
+  useEffect(() => {
+    localStorage.setItem('selectedTaskIds', JSON.stringify(selectedTaskIds));
+  }, [selectedTaskIds]);
+
+  // Filter out invalid/stale task IDs (deleted or completed tasks)
+  useEffect(() => {
+    if (!loading && tasks.length > 0 && selectedTaskIds.length > 0) {
+      const validTaskIds = selectedTaskIds.filter(id => {
+        const task = tasks.find(t => t.id === id);
+        return task && !task.completed;
+      });
+      if (validTaskIds.length !== selectedTaskIds.length) {
+        setSelectedTaskIds(validTaskIds);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, tasks]);
 
   // Stable callback that uses refs - won't cause usePomodoro to reset
   const handlePomodoroComplete = useCallback(() => {
