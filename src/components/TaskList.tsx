@@ -28,6 +28,16 @@ import { AIBreakdownModal } from './AIBreakdownModal';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -183,6 +193,8 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [search, setSearch] = useState('');
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
 
   const { projects } = useProjects();
   const {
@@ -347,9 +359,18 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   }, [event, toggleTaskCompletion]);
 
   const handleDeleteTask = useCallback((taskId: string) => {
-    deleteTask(taskId);
-    event('task_deleted', { task_id: taskId });
-  }, [deleteTask, event]);
+    setTaskToDelete(taskId);
+    setShowDeleteConfirm(true);
+  }, []);
+
+  const confirmDeleteTask = useCallback(async () => {
+    if (taskToDelete) {
+      await deleteTask(taskToDelete);
+      event('task_deleted', { task_id: taskToDelete });
+      setTaskToDelete(null);
+      setShowDeleteConfirm(false);
+    }
+  }, [taskToDelete, deleteTask, event]);
 
   const handleToggleTaskFocus = useCallback((taskId: string, currentFocusState: boolean) => {
     toggleTaskFocus(taskId, currentFocusState);
@@ -514,7 +535,11 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
               Add Task
             </Button>
           )}
-          <Button onClick={() => setShowAIBreakdownModal(true)} className="ml-2 bg-indigo-600 text-white hover:bg-indigo-800">
+          <Button
+            disabled
+            className="ml-2 bg-indigo-600 text-white opacity-50 cursor-not-allowed"
+            title="Coming soon"
+          >
             Task Breakdown with AI
           </Button>
         </div>
@@ -830,6 +855,25 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
           />
         )}
       </CardContent>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This task will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setTaskToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteTask} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AIBreakdownModal
         isOpen={showAIBreakdownModal}
         onClose={() => setShowAIBreakdownModal(false)}
