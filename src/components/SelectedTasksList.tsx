@@ -9,7 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Plus, X, Search, Clock } from 'lucide-react';
+import { Plus, X, Search, Clock, Star } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -50,13 +50,21 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
     return tasks.filter(task => !task.completed && !selectedTaskIds.includes(task.id));
   }, [tasks, selectedTaskIds]);
 
-  // Filter by search
+  // Filter by search and sort focused tasks first
   const filteredTasks = useMemo(() => {
-    if (!search.trim()) return availableTasks;
-    const searchLower = search.toLowerCase();
-    return availableTasks.filter(task =>
-      task.title.toLowerCase().includes(searchLower)
-    );
+    let filtered = availableTasks;
+    if (search.trim()) {
+      const searchLower = search.toLowerCase();
+      filtered = availableTasks.filter(task =>
+        task.title.toLowerCase().includes(searchLower)
+      );
+    }
+    // Sort: focused tasks first
+    return [...filtered].sort((a, b) => {
+      if (a.focus && !b.focus) return -1;
+      if (!a.focus && b.focus) return 1;
+      return 0;
+    });
   }, [availableTasks, search]);
 
   const getProjectName = (projectId: string) => {
@@ -96,10 +104,13 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
                   className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20"
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <span className="text-sm font-medium truncate">
                         {task.title}
                       </span>
+                      {task.focus && (
+                        <Star className="w-3 h-3 text-amber-500 flex-shrink-0" fill="currentColor" />
+                      )}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
                       {projectName && (
@@ -185,8 +196,11 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
                           className="w-full flex items-center gap-3 p-3 rounded-md hover:bg-accent text-left transition-colors"
                         >
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium truncate">
+                            <div className="flex items-center gap-1.5 text-sm font-medium truncate">
                               {task.title}
+                              {task.focus && (
+                                <Star className="w-3 h-3 text-amber-500 flex-shrink-0" fill="currentColor" />
+                              )}
                             </div>
                             <div className="flex items-center gap-2 mt-0.5">
                               {projectName && (
