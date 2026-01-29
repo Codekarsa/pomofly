@@ -245,7 +245,28 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     });
   }, [toggleTimer, isActive, phase, selectedTaskIds.length, event]);
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <Card className="w-full mx-auto">
+        <CardHeader>
+          <CardTitle>Pomodoro Timer</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center py-8">
+            {/* Timer circle skeleton with pulse animation */}
+            <div className="relative w-48 h-48 mb-6">
+              <div className="absolute inset-0 rounded-full border-8 border-gray-200"></div>
+              <div className="absolute inset-0 rounded-full border-8 border-t-red-500 border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-4xl font-mono text-gray-300 animate-pulse">--:--</div>
+              </div>
+            </div>
+            <p className="text-muted-foreground animate-pulse">Loading timer...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full mx-auto">
