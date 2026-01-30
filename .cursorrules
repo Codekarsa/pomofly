@@ -1,0 +1,38 @@
+# Pomofly - Cursor Rules
+
+## Project
+Pomofly is a Pomodoro timer app with task management.
+
+## Tech Stack
+- Next.js 14 (App Router, static export)
+- React 18, TypeScript 5
+- Tailwind CSS 3.4, shadcn/ui
+- Firebase (Auth, Firestore)
+
+## Commands
+- `yarn dev` - Development
+- `yarn build` - Build
+- `yarn test` - Tests
+
+## Code Style
+- Use TypeScript strict mode
+- Use `useCallback` for callbacks
+- Use `React.memo` for expensive components
+- Always filter Firestore queries by userId
+- Add `'use client'` for client components
+
+## Structure
+- `src/app/` - Pages (App Router)
+- `src/components/` - React components
+- `src/components/ui/` - shadcn/ui
+- `src/hooks/` - Custom hooks
+- `src/lib/` - Firebase, utilities
+
+## Key Files
+- `src/hooks/usePomodoro.ts` - Timer logic
+- `src/hooks/useTasks.ts` - Task CRUD
+- `src/lib/firebase.ts` - Firebase config
+- `src/components/PomodoroTimer.tsx` - Main timer
+
+## Issue Tracking
+Uses Beads (bd CLI). Run `bd ready` for available work.
