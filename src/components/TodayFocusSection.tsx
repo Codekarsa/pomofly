@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { useTasks, Task } from '../hooks/useTasks';
 import { useProjects } from '../hooks/useProjects';
 import { useTimeTracking } from '@/hooks/useTimeTracking';
@@ -12,7 +13,8 @@ import {
   Star,
   Calendar,
   CheckCircle,
-  FolderOpen
+  FolderOpen,
+  Eye
 } from 'lucide-react';
 import BulkActionToolbar from './BulkActionToolbar';
 import TaskTimeTracker from './TaskTimeTracker';
@@ -423,6 +425,12 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/tasks/${task.id}`} className="flex items-center">
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Detail
+                            </Link>
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => {
                             const newDeadline = prompt('Enter deadline (YYYY-MM-DD) or leave empty to remove:', task.deadline || '');
                             if (newDeadline !== null) {
