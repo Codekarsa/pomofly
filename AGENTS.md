@@ -1,5 +1,20 @@
 # Agent Instructions
 
+## Project: Pomofly
+Pomodoro timer app with task management. Built with Next.js 14, Firebase, shadcn/ui.
+
+**See [CLAUDE.md](./CLAUDE.md) for detailed documentation.**
+
+## Quick Start
+```bash
+yarn dev          # Dev server
+yarn build        # Build
+yarn test         # Tests
+bd ready          # Find work
+```
+
+---
+
 This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
 
 ## Quick Reference
