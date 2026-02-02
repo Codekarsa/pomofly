@@ -91,7 +91,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <Sidebar onSettingsClick={handleSettingsOpen} isGuest={isGuest} onSignIn={handleSignIn} />
+      <Sidebar onSettingsClick={handleSettingsOpen} onSignIn={handleSignIn} />
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Guest Banner */}
         {isGuest && showGuestBanner && (
