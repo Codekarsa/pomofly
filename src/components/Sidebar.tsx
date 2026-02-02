@@ -8,11 +8,10 @@ import { Settings, Timer, CheckSquare, FolderOpen, LogIn, User } from 'lucide-re
 
 interface SidebarProps {
   onSettingsClick: () => void;
-  isGuest?: boolean;
   onSignIn?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ onSettingsClick, isGuest, onSignIn }) => {
+const Sidebar: React.FC<SidebarProps> = ({ onSettingsClick, onSignIn }) => {
   const pathname = usePathname();
   const { user } = useAuth();
 
