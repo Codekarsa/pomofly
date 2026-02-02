@@ -1,11 +1,9 @@
 import TaskDetailClient from './TaskDetailClient';
 
-// Required for static export with dynamic routes
-export const dynamicParams = false;
-
+// Generate a placeholder page for static export
+// Cloudflare _redirects will rewrite all /tasks/* to this page
 export function generateStaticParams() {
-  // Return empty array - all pages rendered client-side
-  return [];
+  return [{ id: '_' }];
 }
 
 export default function TaskDetailPage() {
