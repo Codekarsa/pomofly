@@ -1,14 +1,17 @@
 'use client'
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import Sidebar from './Sidebar';
 import SettingsModal from './SettingsModal';
+import GuestBanner from './GuestBanner';
+import DataMigrationModal from './DataMigrationModal';
 import { usePomodoro, defaultSettings } from '@/hooks/usePomodoro';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { Button } from "@/components/ui/button";
 import { Github } from 'lucide-react';
 import { signInWithPopup, signOut } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
+import { hasGuestData, getGuestDataSummary } from '@/lib/guestStorage';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -18,9 +21,21 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const { user, loading } = useAuth();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settings, setSettings] = useState(defaultSettings);
+  const [showGuestBanner, setShowGuestBanner] = useState(true);
+  const [showMigrationModal, setShowMigrationModal] = useState(false);
+  const [guestDataSummary, setGuestDataSummary] = useState({ taskCount: 0, projectCount: 0 });
   const { event } = useGoogleAnalytics();
 
   const { updateSettings } = usePomodoro(settings);
+
+  // Check for guest data when user signs in
+  useEffect(() => {
+    if (user && hasGuestData()) {
+      const summary = getGuestDataSummary();
+      setGuestDataSummary(summary);
+      setShowMigrationModal(true);
+    }
+  }, [user]);
 
   const handleSettingsOpen = useCallback(() => {
     setIsSettingsOpen(true);
@@ -62,26 +77,26 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     }
   };
 
+  const handleDismissGuestBanner = useCallback(() => {
+    setShowGuestBanner(false);
+  }, []);
+
+  const handleCloseMigrationModal = useCallback(() => {
+    setShowMigrationModal(false);
+  }, []);
+
   if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
 
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="bg-white p-8 rounded-lg shadow-md text-center max-w-md">
-          <h1 className="text-3xl font-bold mb-4">Welcome to Pomofly</h1>
-          <p className="text-gray-600 mb-6">An elegant and minimal Pomodoro timer for productive focus.</p>
-          <Button onClick={handleSignIn} className="w-full">
-            Sign in with Google
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const isGuest = !user;
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <Sidebar onSettingsClick={handleSettingsOpen} />
+      <Sidebar onSettingsClick={handleSettingsOpen} onSignIn={handleSignIn} />
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Guest Banner */}
+        {isGuest && showGuestBanner && (
+          <GuestBanner onSignIn={handleSignIn} onDismiss={handleDismissGuestBanner} />
+        )}
         {/* Top Header */}
         <header className="bg-white border-b border-gray-200 px-6 py-3">
           <div className="flex justify-between items-center">
@@ -98,9 +113,13 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                   <span className="hidden sm:inline">Star on GitHub</span>
                 </a>
               </Button>
-              {user && (
+              {user ? (
                 <Button variant="ghost" size="sm" onClick={handleSignOut}>
                   Sign Out
+                </Button>
+              ) : (
+                <Button variant="default" size="sm" onClick={handleSignIn}>
+                  Sign In
                 </Button>
               )}
             </div>
@@ -117,8 +136,14 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         onSave={handleSettingsSave}
         event={event}
       />
+      <DataMigrationModal
+        isOpen={showMigrationModal}
+        onClose={handleCloseMigrationModal}
+        taskCount={guestDataSummary.taskCount}
+        projectCount={guestDataSummary.projectCount}
+      />
     </div>
   );
 };
 
-export default AppLayout; 
+export default AppLayout;
