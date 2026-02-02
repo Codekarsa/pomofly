@@ -54,7 +54,7 @@ export default function TaskDetailPage() {
 
   const task = useMemo(() => tasks.find(t => t.id === taskId), [tasks, taskId]);
   const taskArray = useMemo(() => task ? [task] : [], [task]);
-  const { getElapsedTime, formatTime } = useTimeTracking(taskArray);
+  const { getElapsedTime } = useTimeTracking(taskArray);
 
   const project = useMemo(() => {
     if (!task?.projectId) return null;
