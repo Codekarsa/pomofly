@@ -386,9 +386,15 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
                         {task.projectId && <ProjectBadge projectId={task.projectId} />}
                       </div>
 
-                      {/* Row 2: Metadata */}
-                      <div className="flex items-center flex-wrap gap-2 mt-1.5">
-                        {task.deadline && <DeadlineBadge deadline={task.deadline} />}
+                      {/* Row 2: Deadline badge */}
+                      {task.deadline && (
+                        <div className="mt-1">
+                          <DeadlineBadge deadline={task.deadline} />
+                        </div>
+                      )}
+
+                      {/* Row 3: Timer + Progress Bar in one line */}
+                      <div className="flex items-center gap-3 mt-1.5">
                         <TaskTimeTracker
                           formattedTime={formatTime(getElapsedTime(task))}
                           elapsedTime={getElapsedTime(task)}
@@ -397,16 +403,14 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
                           onStop={() => handleStopTracking(task)}
                           disabled={task.completed}
                         />
-                      </div>
-
-                      {/* Row 3: Progress Bar */}
-                      <div className="mt-1.5 pt-2 border-t border-border/30">
-                        <PomodoroProgressBar
-                          completed={task.totalPomodoroSessions || 0}
-                          estimated={task.estimatedPomodoros || 0}
-                          size="sm"
-                          showLabel={true}
-                        />
+                        <div className="flex-1">
+                          <PomodoroProgressBar
+                            completed={task.totalPomodoroSessions || 0}
+                            estimated={task.estimatedPomodoros || 0}
+                            size="sm"
+                            showLabel={true}
+                          />
+                        </div>
                       </div>
                     </div>
 
