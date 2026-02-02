@@ -1,0 +1,2 @@
+# Handle dynamic task detail route - rewrite to placeholder page
+/tasks/* /tasks/_.html 200
