@@ -1,8 +1,10 @@
 import TaskDetailClient from './TaskDetailClient';
 
 // Required for static export with dynamic routes
-// Returns empty array since task IDs come from Firebase at runtime
+export const dynamicParams = false;
+
 export function generateStaticParams() {
+  // Return empty array - all pages rendered client-side
   return [];
 }
 
