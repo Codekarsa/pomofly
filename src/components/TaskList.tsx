@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import { useTasks, Task } from '../hooks/useTasks';
 import { useProjects } from '../hooks/useProjects';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
@@ -7,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MoreHorizontal, Plus, Pencil, Trash2, Star, Calendar, ChevronDown, ChevronRight, Search, ArrowUpAZ, ArrowDownAZ, Filter, CheckCircle } from 'lucide-react';
+import { MoreHorizontal, Plus, Pencil, Trash2, Star, Calendar, ChevronDown, ChevronRight, Search, ArrowUpAZ, ArrowDownAZ, Filter, CheckCircle, Eye } from 'lucide-react';
 import TaskTimeTracker from './TaskTimeTracker';
 import TimeTrackingControls from './TimeTrackingControls';
 import BulkActionToolbar from './BulkActionToolbar';
@@ -131,6 +132,12 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link href={`/tasks/${task.id}`} className="flex items-center">
+                      <Eye className="w-4 h-4 mr-2" />
+                      View Detail
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => {
                     onEditTask(task);
                     event('task_edit_started', { task_id: task.id });
@@ -784,6 +791,12 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild>
+                        <Link href={`/tasks/${task.id}`} className="flex items-center">
+                          <Eye className="w-4 h-4 mr-2" />
+                          View Detail
+                        </Link>
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => {
                         setEditingTask({
                           id: task.id,
