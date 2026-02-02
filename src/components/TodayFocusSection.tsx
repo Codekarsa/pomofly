@@ -386,15 +386,9 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
                         {task.projectId && <ProjectBadge projectId={task.projectId} />}
                       </div>
 
-                      {/* Row 2: Deadline badge */}
-                      {task.deadline && (
-                        <div className="mt-1">
-                          <DeadlineBadge deadline={task.deadline} />
-                        </div>
-                      )}
-
-                      {/* Row 3: Timer + Progress Bar in one line */}
-                      <div className="flex items-center gap-3 mt-1.5">
+                      {/* Row 2: Deadline + Timer + Progress Bar in one line */}
+                      <div className="flex items-center gap-2 mt-1.5">
+                        {task.deadline && <DeadlineBadge deadline={task.deadline} />}
                         <TaskTimeTracker
                           formattedTime={formatTime(getElapsedTime(task))}
                           elapsedTime={getElapsedTime(task)}
@@ -403,12 +397,12 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
                           onStop={() => handleStopTracking(task)}
                           disabled={task.completed}
                         />
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <PomodoroProgressBar
                             completed={task.totalPomodoroSessions || 0}
                             estimated={task.estimatedPomodoros || 0}
                             size="sm"
-                            showLabel={true}
+                            showLabel={false}
                           />
                         </div>
                       </div>
