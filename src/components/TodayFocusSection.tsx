@@ -1,3 +1,5 @@
+'use client'
+
 import React, { useMemo, useState, useCallback } from 'react';
 import { useTasks, Task } from '../hooks/useTasks';
 import { useProjects } from '../hooks/useProjects';
