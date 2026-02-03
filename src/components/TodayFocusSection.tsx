@@ -1,3 +1,5 @@
+'use client'
+
 import React, { useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useTasks, Task } from '../hooks/useTasks';
@@ -272,7 +274,7 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
   return (
     <Card className="w-full mb-6 border border-border/50 bg-card shadow-sm rounded-xl">
       {/* Header */}
-      <CardHeader className="pb-4 pt-5">
+      <CardHeader className="pb-3 pt-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30">
@@ -328,13 +330,13 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
             </div>
 
             {/* Task List */}
-            <ul className="space-y-3">
+            <ul className="space-y-1.5">
               {focusedTasks.map((task) => (
                 <li
                   key={task.id}
                   data-selected={selectedTasks.has(task.id)}
                   className={cn(
-                    "group p-4 rounded-xl border bg-card transition-all duration-200 ease-out",
+                    "group p-2.5 rounded-xl border bg-card transition-all duration-200 ease-out",
                     "hover:shadow-md hover:-translate-y-0.5",
                     selectedTasks.has(task.id)
                       ? "border-primary/40 ring-2 ring-primary/20"
@@ -388,8 +390,8 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
                         {task.projectId && <ProjectBadge projectId={task.projectId} />}
                       </div>
 
-                      {/* Row 2: Metadata */}
-                      <div className="flex items-center flex-wrap gap-2 mt-2">
+                      {/* Row 2: Deadline + Timer + Progress Bar in one line */}
+                      <div className="flex items-center gap-2 mt-1.5">
                         {task.deadline && <DeadlineBadge deadline={task.deadline} />}
                         <TaskTimeTracker
                           formattedTime={formatTime(getElapsedTime(task))}
@@ -399,16 +401,14 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
                           onStop={() => handleStopTracking(task)}
                           disabled={task.completed}
                         />
-                      </div>
-
-                      {/* Row 3: Progress Bar */}
-                      <div className="mt-3 pt-3 border-t border-border/30">
-                        <PomodoroProgressBar
-                          completed={task.totalPomodoroSessions || 0}
-                          estimated={task.estimatedPomodoros || 0}
-                          size="sm"
-                          showLabel={true}
-                        />
+                        <div className="flex-1 min-w-0">
+                          <PomodoroProgressBar
+                            completed={task.totalPomodoroSessions || 0}
+                            estimated={task.estimatedPomodoros || 0}
+                            size="sm"
+                            showLabel={false}
+                          />
+                        </div>
                       </div>
                     </div>
 
