@@ -42,8 +42,8 @@ push_to_github() {
     echo -e "${YELLOW}Pushing Beads issues to GitHub...${NC}"
     echo ""
 
-    # Get all open beads issues
-    bd list --json | jq -c '.[]' | while read -r issue; do
+    # Get all beads issues (including closed for syncing status)
+    bd list --all --json | jq -c '.[]' | while read -r issue; do
         id=$(echo "$issue" | jq -r '.id')
         title=$(echo "$issue" | jq -r '.title')
         description=$(echo "$issue" | jq -r '.description // ""')
@@ -51,14 +51,26 @@ push_to_github() {
         issue_type=$(echo "$issue" | jq -r '.issue_type // "task"')
         priority=$(echo "$issue" | jq -r '.priority // 2')
 
-        # Skip closed issues
+        # Check if issue already exists on GitHub (search by beads ID in body)
+        existing=$(gh issue list --state all --search "\"Beads ID: \`$id\`\" in:body" --json number,state -q '.[0]' 2>/dev/null || echo "")
+        existing_number=$(echo "$existing" | jq -r '.number // empty' 2>/dev/null || echo "")
+        existing_state=$(echo "$existing" | jq -r '.state // empty' 2>/dev/null || echo "")
+
+        # Handle closed issues - close on GitHub if open there
         if [ "$status" = "closed" ]; then
-            echo -e "  ${BLUE}Skipping${NC} $id (closed)"
+            if [ -n "$existing_number" ] && [ "$existing_state" = "OPEN" ]; then
+                echo -e "  ${YELLOW}Closing${NC} #$existing_number: $title ($id)"
+                gh issue close "$existing_number" 2>/dev/null || true
+            else
+                echo -e "  ${BLUE}Skipping${NC} $id (already closed or not on GitHub)"
+            fi
             continue
         fi
 
-        # Check if issue already exists on GitHub (search by beads ID in body)
-        existing=$(gh issue list --search "\"Beads ID: \`$id\`\" in:body" --json number -q '.[0].number' 2>/dev/null || echo "")
+        # Re-query for open issues only (for create/update logic)
+        if [ -z "$existing_number" ]; then
+            existing_number=""
+        fi
 
         # Prepare body with beads metadata
         body="$description
@@ -77,9 +89,9 @@ push_to_github() {
             *) label_arg="" ;;
         esac
 
-        if [ -n "$existing" ]; then
-            echo -e "  ${YELLOW}Updating${NC} #$existing: $title ($id)"
-            gh issue edit "$existing" --title "$title" --body "$body" 2>/dev/null || true
+        if [ -n "$existing_number" ]; then
+            echo -e "  ${YELLOW}Updating${NC} #$existing_number: $title ($id)"
+            gh issue edit "$existing_number" --title "$title" --body "$body" 2>/dev/null || true
         else
             echo -e "  ${GREEN}Creating${NC}: $title ($id)"
             gh issue create --title "$title" --body "$body" $label_arg 2>/dev/null || true
