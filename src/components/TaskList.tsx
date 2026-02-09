@@ -188,6 +188,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [estimatedPomodoros, setEstimatedPomodoros] = useState<number | undefined>(undefined);
   const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [newTaskFocus, setNewTaskFocus] = useState(false);
   const [editingTask, setEditingTask] = useState<{ id: string, title: string, estimatedPomodoros?: number, projectId?: string } | null>(null);
   const [editingDeadline, setEditingDeadline] = useState<{ id: string, deadline: string } | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
@@ -264,19 +265,21 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     e.preventDefault();
     if (newTaskTitle.trim() && selectedProjectId) {
       try {
-        await addTask(newTaskTitle, selectedProjectId, estimatedPomodoros);
+        await addTask(newTaskTitle, selectedProjectId, estimatedPomodoros, newTaskFocus);
         event('task_added', {
           project_id: selectedProjectId,
-          estimated_pomodoros: estimatedPomodoros
+          estimated_pomodoros: estimatedPomodoros,
+          focus: newTaskFocus
         });
         setNewTaskTitle('');
         setEstimatedPomodoros(0);
+        setNewTaskFocus(false);
       } catch (error) {
         console.error("Failed to add task:", error);
         event('task_add_error', { error_message: (error as Error).message });
       }
     }
-  }, [addTask, event, estimatedPomodoros, newTaskTitle, selectedProjectId]);
+  }, [addTask, event, estimatedPomodoros, newTaskTitle, selectedProjectId, newTaskFocus]);
 
   const handleUpdateTask = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -573,6 +576,21 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                 />
               </div>
 
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setNewTaskFocus(!newTaskFocus)}
+                className={cn("p-1", newTaskFocus ? "text-yellow-500" : "text-gray-400")}
+                aria-label={newTaskFocus ? "Remove from Today's Focus" : "Add to Today's Focus"}
+              >
+                <Star className="w-4 h-4" fill={newTaskFocus ? "currentColor" : "none"} />
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {newTaskFocus ? "Added to Today's Focus" : "Add to Today's Focus"}
+              </span>
             </div>
             <div className="flex items-center space-x-2">
               <Button type="submit" className="w-1/2">
