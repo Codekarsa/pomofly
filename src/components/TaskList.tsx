@@ -203,6 +203,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [showAddTaskForm, setShowAddTaskForm] = useState(false);
   const [showAIBreakdownModal, setShowAIBreakdownModal] = useState(false);
   const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [labelFilter, setLabelFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -360,6 +361,9 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     if (projectFilter !== 'all') {
       tasks = tasks.filter(task => task.projectId === projectFilter);
     }
+    if (labelFilter !== 'all') {
+      tasks = tasks.filter(task => task.labelIds?.includes(labelFilter));
+    }
     if (statusFilter === 'active') {
       tasks = tasks.filter(task => !task.completed);
     } else if (statusFilter === 'completed') {
@@ -371,7 +375,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
       tasks = tasks.filter(task => task.title.toLowerCase().includes(search.toLowerCase()));
     }
     return tasks;
-  }, [memoizedTasks, projectFilter, statusFilter, search]);
+  }, [memoizedTasks, projectFilter, labelFilter, statusFilter, search]);
 
   // Sorting logic
   const sortedTasks = useMemo(() => {
@@ -696,7 +700,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
             <PopoverTrigger asChild>
               <Button variant="outline" size="icon" aria-label="Filter tasks" className="relative w-24 flex justify-center items-center">
                 <Filter className="w-4 h-4" />
-                {(projectFilter !== 'all' || statusFilter !== 'all') && (
+                {(projectFilter !== 'all' || labelFilter !== 'all' || statusFilter !== 'all') && (
                   <span className="absolute -top-1 -right-1 flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
@@ -715,6 +719,25 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                     <SelectItem value="all">All Projects</SelectItem>
                     {memoizedProjects.map(project => (
                       <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Label</label>
+                <Select value={labelFilter} onValueChange={setLabelFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Label" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Labels</SelectItem>
+                    {labels.map(label => (
+                      <SelectItem key={label.id} value={label.id}>
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: label.color }} />
+                          {label.name}
+                        </span>
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
