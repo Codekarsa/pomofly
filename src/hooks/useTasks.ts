@@ -24,6 +24,7 @@ export interface Task {
   deadline: string | null;
   manualTimeSpent: number;
   trackingStartedAt: Date | null;
+  labelIds?: string[];
 }
 
 export function useTasks(projectId?: string) {
