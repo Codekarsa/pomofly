@@ -1,8 +1,10 @@
 import { Task } from '@/hooks/useTasks';
 import { Project } from '@/hooks/useProjects';
+import { Label } from '@/hooks/useLabels';
 
 const GUEST_TASKS_KEY = 'pomofly_guest_tasks';
 const GUEST_PROJECTS_KEY = 'pomofly_guest_projects';
+const GUEST_LABELS_KEY = 'pomofly_guest_labels';
 
 // Helper to generate unique IDs for guest data
 export function generateGuestId(): string {
@@ -112,6 +114,60 @@ export function deleteGuestProject(projectId: string): void {
   const projects = getGuestProjects();
   const filtered = projects.filter(p => p.id !== projectId);
   saveGuestProjects(filtered);
+}
+
+// Labels
+export function getGuestLabels(): Label[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const data = localStorage.getItem(GUEST_LABELS_KEY);
+    if (!data) return [];
+    const labels = JSON.parse(data);
+    return labels.map((label: Label) => ({
+      ...label,
+      createdAt: new Date(label.createdAt),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export function saveGuestLabels(labels: Label[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(GUEST_LABELS_KEY, JSON.stringify(labels));
+  } catch (error) {
+    console.error('Error saving guest labels:', error);
+  }
+}
+
+export function addGuestLabel(name: string, color: string): Label {
+  const labels = getGuestLabels();
+  const newLabel: Label = {
+    id: generateGuestId(),
+    name,
+    color,
+    userId: 'guest',
+    createdAt: new Date(),
+  };
+  labels.push(newLabel);
+  saveGuestLabels(labels);
+  return newLabel;
+}
+
+export function updateGuestLabel(labelId: string, updates: { name?: string; color?: string }): void {
+  const labels = getGuestLabels();
+  const index = labels.findIndex(l => l.id === labelId);
+  if (index !== -1) {
+    labels[index] = { ...labels[index], ...updates };
+    saveGuestLabels(labels);
+  }
+}
+
+export function deleteGuestLabel(labelId: string): void {
+  const labels = getGuestLabels();
+  const filtered = labels.filter(l => l.id !== labelId);
+  saveGuestLabels(filtered);
 }
 
 // Data migration helpers
