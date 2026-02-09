@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/tooltip';
 import { Combobox } from './ui/combobox';
 import { cn } from '@/lib/utils';
+import LabelPicker from './LabelPicker';
 import { AIBreakdownModal } from './AIBreakdownModal';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -189,7 +190,8 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [estimatedPomodoros, setEstimatedPomodoros] = useState<number | undefined>(undefined);
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [newTaskFocus, setNewTaskFocus] = useState(false);
-  const [editingTask, setEditingTask] = useState<{ id: string, title: string, estimatedPomodoros?: number, projectId?: string } | null>(null);
+  const [newTaskLabelIds, setNewTaskLabelIds] = useState<string[]>([]);
+  const [editingTask, setEditingTask] = useState<{ id: string, title: string, estimatedPomodoros?: number, projectId?: string, labelIds?: string[] } | null>(null);
   const [editingDeadline, setEditingDeadline] = useState<{ id: string, deadline: string } | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
@@ -289,21 +291,23 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     e.preventDefault();
     if (newTaskTitle.trim() && selectedProjectId) {
       try {
-        await addTask(newTaskTitle, selectedProjectId, estimatedPomodoros, newTaskFocus);
+        await addTask(newTaskTitle, selectedProjectId, estimatedPomodoros, newTaskFocus, newTaskLabelIds);
         event('task_added', {
           project_id: selectedProjectId,
           estimated_pomodoros: estimatedPomodoros,
-          focus: newTaskFocus
+          focus: newTaskFocus,
+          label_count: newTaskLabelIds.length
         });
         setNewTaskTitle('');
         setEstimatedPomodoros(0);
         setNewTaskFocus(false);
+        setNewTaskLabelIds([]);
       } catch (error) {
         console.error("Failed to add task:", error);
         event('task_add_error', { error_message: (error as Error).message });
       }
     }
-  }, [addTask, event, estimatedPomodoros, newTaskTitle, selectedProjectId, newTaskFocus]);
+  }, [addTask, event, estimatedPomodoros, newTaskTitle, selectedProjectId, newTaskFocus, newTaskLabelIds]);
 
   const handleUpdateTask = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -312,7 +316,8 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
         await updateTask(editingTask.id, {
           title: editingTask.title,
           estimatedPomodoros: editingTask.estimatedPomodoros,
-          projectId: editingTask.projectId
+          projectId: editingTask.projectId,
+          labelIds: editingTask.labelIds
         });
         event('task_updated', {
           task_id: editingTask.id,
@@ -616,6 +621,12 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
               <span className="text-sm text-muted-foreground">
                 {newTaskFocus ? "Added to Today's Focus" : "Add to Today's Focus"}
               </span>
+              <div className="border-l pl-2 ml-1">
+                <LabelPicker
+                  selectedLabelIds={newTaskLabelIds}
+                  onChange={setNewTaskLabelIds}
+                />
+              </div>
             </div>
             <div className="flex items-center space-x-2">
               <Button type="submit" className="w-1/2">
@@ -755,6 +766,10 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                       placeholder="Select a project"
                       onCreateNew={handleCreateProjectForEdit}
                     />
+                    <LabelPicker
+                      selectedLabelIds={editingTask.labelIds || []}
+                      onChange={(labelIds) => setEditingTask({ ...editingTask, labelIds })}
+                    />
                     <Button type="submit" size="sm" variant="outline">Save</Button>
                     <Button type="button" size="sm" variant="ghost" onClick={() => setEditingTask(null)}>Cancel</Button>
                   </div>
@@ -840,7 +855,8 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                           id: task.id,
                           title: task.title,
                           estimatedPomodoros: task.estimatedPomodoros,
-                          projectId: task.projectId
+                          projectId: task.projectId,
+                          labelIds: task.labelIds
                         });
                         event('task_edit_started', { task_id: task.id });
                       }}>
