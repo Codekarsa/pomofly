@@ -26,7 +26,8 @@ import {
 } from '@/components/ui/tooltip';
 import { Combobox } from './ui/combobox';
 import { cn } from '@/lib/utils';
-import LabelPicker from './LabelPicker';
+import LabelPicker, { LabelBadge } from './LabelPicker';
+import { useLabels } from '@/hooks/useLabels';
 import { AIBreakdownModal } from './AIBreakdownModal';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -65,6 +66,7 @@ interface CompletedTasksSectionProps {
   onDeleteTask: (id: string) => void;
   event: AnalyticsEvent;
   ProjectBadge: React.FC<{ projectId: string }>;
+  TaskLabels: React.FC<{ labelIds?: string[] }>;
 }
 
 const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
@@ -76,6 +78,7 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
   onDeleteTask,
   event,
   ProjectBadge,
+  TaskLabels,
 }) => {
   const [open, setOpen] = useState(false);
   if (!tasks.length) return null;
@@ -113,6 +116,7 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
                 </Button>
                 <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
                 {task.projectId && <ProjectBadge projectId={task.projectId} />}
+                <TaskLabels labelIds={task.labelIds} />
                 <span className="text-xs text-muted-foreground">
                   ({task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0})
                 </span>
@@ -208,6 +212,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
 
   const { projects, addProject } = useProjects();
+  const { labels } = useLabels();
   const {
     tasks,
     loading: tasksLoading,
@@ -280,6 +285,20 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
+    );
+  };
+
+  // Task Labels Component
+  const TaskLabels = ({ labelIds }: { labelIds?: string[] }) => {
+    if (!labelIds || labelIds.length === 0) return null;
+    const taskLabels = labels.filter(l => labelIds.includes(l.id));
+    if (taskLabels.length === 0) return null;
+    return (
+      <span className="inline-flex items-center gap-1">
+        {taskLabels.map(label => (
+          <LabelBadge key={label.id} label={label} size="sm" />
+        ))}
+      </span>
     );
   };
 
@@ -815,6 +834,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                     </Button>
                     <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
                     {task.projectId && <ProjectBadge projectId={task.projectId} />}
+                    <TaskLabels labelIds={task.labelIds} />
                     <span className="text-xs text-muted-foreground">
                       ({task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0})
                     </span>
@@ -908,6 +928,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
             onDeleteTask={handleDeleteTask}
             event={event}
             ProjectBadge={ProjectBadge}
+            TaskLabels={TaskLabels}
           />
         )}
         {selectedTasks.size > 0 && (
