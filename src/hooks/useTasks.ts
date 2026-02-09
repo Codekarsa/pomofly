@@ -86,7 +86,7 @@ export function useTasks(projectId?: string) {
     }
   }, [isGuest, projectId]);
 
-  const addTask = useCallback(async (title: string, taskProjectId: string, estimatedPomodoros?: number) => {
+  const addTask = useCallback(async (title: string, taskProjectId: string, estimatedPomodoros?: number, focus?: boolean) => {
     const user = auth.currentUser;
 
     const newTaskData = {
@@ -98,7 +98,7 @@ export function useTasks(projectId?: string) {
       totalTimeSpent: 0,
       createdAt: new Date(),
       estimatedPomodoros,
-      focus: false,
+      focus: focus ?? false,
       deadline: null,
       manualTimeSpent: 0,
       trackingStartedAt: null
