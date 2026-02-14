@@ -17,7 +17,7 @@ const LabelPicker: React.FC<LabelPickerProps> = ({ selectedLabelIds, onChange })
   const { labels, addLabel } = useLabels();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
-  const [newLabelColor, setNewLabelColor] = useState(LABEL_COLORS[0]);
+  const [newLabelColor, setNewLabelColor] = useState<typeof LABEL_COLORS[number]>(LABEL_COLORS[0]);
 
   const handleToggleLabel = useCallback((labelId: string) => {
     if (selectedLabelIds.includes(labelId)) {
