@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useTasks } from '@/hooks/useTasks';
@@ -40,8 +40,20 @@ import { cn } from '@/lib/utils';
 export default function TaskDetailClient() {
   const params = useParams();
   const router = useRouter();
-  const taskId = params.id as string;
   const { event } = useGoogleAnalytics();
+  
+  // Extract task ID from the actual browser URL instead of params
+  // This works around the redirect issue where params.id becomes '_'
+  const [taskId, setTaskId] = useState<string>('');
+  
+  useEffect(() => {
+    // Get the actual URL path from the browser
+    const path = window.location.pathname;
+    const taskIdFromUrl = path.split('/tasks/')[1];
+    if (taskIdFromUrl && taskIdFromUrl !== '_') {
+      setTaskId(taskIdFromUrl);
+    }
+  }, []);
 
   const { tasks, loading, error, toggleTaskCompletion, toggleTaskFocus, deleteTask, updateTask, setTaskDeadline } = useTasks();
   const { projects } = useProjects();
@@ -52,7 +64,10 @@ export default function TaskDetailClient() {
   const [editDeadline, setEditDeadline] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const task = useMemo(() => tasks.find(t => t.id === taskId), [tasks, taskId]);
+  const task = useMemo(() => {
+    if (!taskId) return undefined;
+    return tasks.find(t => t.id === taskId);
+  }, [tasks, taskId]);
   const taskArray = useMemo(() => task ? [task] : [], [task]);
   const { getElapsedTime } = useTimeTracking(taskArray);
 
@@ -131,7 +146,7 @@ export default function TaskDetailClient() {
     return `${minutes}m`;
   };
 
-  if (loading) {
+  if (loading || !taskId) {
     return (
       <AppLayout>
         <div className="container mx-auto px-4 py-8">

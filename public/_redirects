@@ -1,2 +1,3 @@
 # Handle dynamic task detail route - rewrite to placeholder page
-/tasks/* /tasks/_ 200
+# This preserves the original URL in the browser while serving the fallback page
+/tasks/* /tasks/_.html 200
