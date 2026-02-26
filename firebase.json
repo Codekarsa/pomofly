@@ -1,11 +1,17 @@
 {
   "hosting": {
-    "public": "out",
+    "source": ".",
+    "use": "@firebase/next@latest",
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/coverage/**",
+      "**/.nyc_output/**"
     ],
-    "cleanUrls": true
+    "frameworksBackend": {
+      "region": "us-central1"
+    }
   }
 }
