@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAuth } from '@/app/contexts/AuthContext';
 
 interface BreakdownResult {
   tasks: {
@@ -10,6 +11,7 @@ interface BreakdownResult {
 export const useClaudeAI = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
   const getTaskBreakdown = async (
     description: string,
@@ -23,10 +25,19 @@ export const useClaudeAI = () => {
     setError(null);
 
     try {
+      // Check if user is authenticated
+      if (!user) {
+        throw new Error('User must be authenticated to use AI features');
+      }
+
+      // Get ID token for authentication
+      const idToken = await user.getIdToken();
+      
       const response = await fetch('/api/claude-breakdown', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
         },
         body: JSON.stringify({
           description,
@@ -39,7 +50,17 @@ export const useClaudeAI = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to get task breakdown');
+        const errorData = await response.json().catch(() => ({}));
+        
+        if (response.status === 401) {
+          throw new Error('Authentication required. Please log in to use AI features.');
+        } else if (response.status === 429) {
+          throw new Error('Too many requests. Please wait a moment before trying again.');
+        } else if (response.status === 400) {
+          throw new Error(errorData.details || 'Invalid request. Please check your input.');
+        } else {
+          throw new Error(errorData.details || 'Failed to get task breakdown');
+        }
       }
 
       const result: BreakdownResult = await response.json();
