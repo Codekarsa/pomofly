@@ -25,7 +25,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Combobox } from './ui/combobox';
-import { cn } from '@/lib/utils';
 import { AIBreakdownModal } from './AIBreakdownModal';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
