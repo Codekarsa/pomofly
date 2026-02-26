@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useTasks } from '@/hooks/useTasks';
 import { useProjects } from '@/hooks/useProjects';
@@ -38,7 +38,6 @@ import {
 import { cn } from '@/lib/utils';
 
 export default function TaskDetailClient() {
-  const params = useParams();
   const router = useRouter();
   const { event } = useGoogleAnalytics();
   
