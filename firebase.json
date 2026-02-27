@@ -1,7 +1,7 @@
 {
   "hosting": {
     "source": ".",
-    "use": "@firebase/next@latest",
+    "use": "@firebase/next",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -9,9 +9,6 @@
       "**/.git/**",
       "**/coverage/**",
       "**/.nyc_output/**"
-    ],
-    "frameworksBackend": {
-      "region": "us-central1"
-    }
+    ]
   }
 }
