@@ -19,9 +19,8 @@ export async function validateAuth(request: NextRequest) {
       return { isAuthenticated: false, error: 'No token provided' };
     }
 
-    // For now, we'll do a basic token validation
-    // In a production environment, you would use firebase-admin to verify the token
-    // const decodedToken = await admin.auth().verifyIdToken(token);
+    // Basic token validation - client-side Firebase tokens
+    // Note: In production, implement proper server-side token verification
     
     // Basic validation - check if token looks like a JWT
     const tokenParts = token.split('.');
