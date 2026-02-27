@@ -8,23 +8,17 @@ import {
   deleteGuestTask,
   saveGuestTasks,
 } from '../lib/guestStorage';
+import { 
+  transformFirebaseTask, 
+  validateTaskCreate, 
+  validateTaskUpdate,
+  safeValidateTask,
+  type Task,
+  type TaskCreate,
+  type TaskUpdate 
+} from '../lib/validation';
 
-export interface Task {
-  id: string;
-  title: string;
-  projectId: string;
-  userId: string;
-  completed: boolean;
-  totalPomodoroSessions: number;
-  totalTimeSpent: number;
-  createdAt: Date;
-  estimatedPomodoros?: number;
-  archived?: boolean;
-  focus: boolean;
-  deadline: string | null;
-  manualTimeSpent: number;
-  trackingStartedAt: Date | null;
-}
+// Task interface now imported from validation.ts
 
 export function useTasks(projectId?: string) {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -60,7 +54,13 @@ export function useTasks(projectId?: string) {
       (querySnapshot) => {
         const taskList: Task[] = [];
         querySnapshot.forEach((doc) => {
-          taskList.push({ id: doc.id, ...doc.data() } as Task);
+          try {
+            const validatedTask = transformFirebaseTask({ id: doc.id, ...doc.data() });
+            taskList.push(validatedTask);
+          } catch (validationError) {
+            console.error(`Invalid task data for document ${doc.id}:`, validationError);
+            // Skip invalid tasks but continue processing others
+          }
         });
         setTasks(taskList);
         setLoading(false);
@@ -89,20 +89,16 @@ export function useTasks(projectId?: string) {
   const addTask = useCallback(async (title: string, taskProjectId: string, estimatedPomodoros?: number) => {
     const user = auth.currentUser;
 
-    const newTaskData = {
-      title,
-      projectId: taskProjectId,
-      userId: user?.uid || 'guest',
-      completed: false,
-      totalPomodoroSessions: 0,
-      totalTimeSpent: 0,
-      createdAt: new Date(),
-      estimatedPomodoros,
-      focus: false,
-      deadline: null,
-      manualTimeSpent: 0,
-      trackingStartedAt: null
-    };
+    try {
+      const newTaskData = validateTaskCreate({
+        title,
+        projectId: taskProjectId,
+        userId: user?.uid || 'guest',
+        completed: false,
+        estimatedPomodoros,
+        focus: false,
+        deadline: null,
+      });
 
     if (!user) {
       // Guest mode
@@ -111,7 +107,6 @@ export function useTasks(projectId?: string) {
       return newTask.id;
     }
 
-    try {
       const docRef = await addDoc(collection(db, "tasks"), newTaskData);
       return docRef.id;
     } catch (err) {
@@ -123,16 +118,21 @@ export function useTasks(projectId?: string) {
   const updateTask = useCallback(async (taskId: string, updates: Partial<Task>) => {
     const user = auth.currentUser;
 
-    if (!user) {
-      // Guest mode
-      updateGuestTask(taskId, updates);
+    try {
+      // Validate the updates
+      const validatedUpdates = validateTaskUpdate({ id: taskId, ...updates });
+      // Remove the id from updates since we don't want to update the document ID
+      const { id, ...updateData } = validatedUpdates;
+
+      if (!user) {
+        // Guest mode
+        updateGuestTask(taskId, updateData);
       setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
       return;
     }
 
-    const taskRef = doc(db, "tasks", taskId);
-    try {
-      await updateDoc(taskRef, updates);
+      const taskRef = doc(db, "tasks", taskId);
+      await updateDoc(taskRef, updateData);
     } catch (error) {
       console.error("Error updating task:", error);
       throw error;
