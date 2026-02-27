@@ -5,6 +5,7 @@ import { useProjects } from '../hooks/useProjects';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { useTimeTracking } from '@/hooks/useTimeTracking';
 import { Button } from '@/components/ui/button';
+import { MobileButton } from '@/components/ui/mobile-button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -92,20 +93,20 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
           {tasks.map((task) => (
             <li key={task.id} className="flex items-center justify-between p-2 bg-muted rounded-md transition-colors">
               <div className="flex items-center space-x-2">
-                <Button
+                <MobileButton
                   variant="ghost"
-                  size="sm"
+                  size="icon"
                   onClick={() => onToggleTaskCompletion(task.id, task.completed)}
-                  className="p-1 text-green-500 hover:text-gray-400"
+                  className="text-green-500 hover:text-gray-400"
                   aria-label="Mark as incomplete"
                 >
                   <CheckCircle className="w-4 h-4" fill="currentColor" />
                 </Button>
-                <Button
+                <MobileButton
                   variant="ghost"
-                  size="sm"
+                  size="icon"
                   onClick={() => onToggleTaskFocus(task.id, task.focus || false)}
-                  className={`p-1 ${task.focus ? 'text-yellow-500' : 'text-gray-400'}`}
+                  className={`${task.focus ? 'text-yellow-500' : 'text-gray-400'}`}
                 >
                   <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
                 </Button>
@@ -127,9 +128,9 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm">
+                  <MobileButton variant="ghost" size="icon">
                     <MoreHorizontal className="w-4 h-4" />
-                  </Button>
+                  </MobileButton>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
@@ -717,8 +718,8 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                       onChange={(value) => setEditingTask({ ...editingTask, projectId: value })}
                       placeholder="Select a project"
                     />
-                    <Button type="submit" size="sm" variant="outline">Save</Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setEditingTask(null)}>Cancel</Button>
+                    <MobileButton type="submit" size="sm" variant="outline">Save</MobileButton>
+                    <MobileButton type="button" size="sm" variant="ghost" onClick={() => setEditingTask(null)}>Cancel</MobileButton>
                   </div>
                 </form>
               ) : editingDeadline && editingDeadline.id === task.id ? (
@@ -732,8 +733,8 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                     onChange={(e) => setEditingDeadline({ ...editingDeadline, deadline: e.target.value })}
                     className="flex-grow"
                   />
-                  <Button type="submit" size="sm" variant="outline">Save</Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => setEditingDeadline(null)}>Cancel</Button>
+                  <MobileButton type="submit" size="sm" variant="outline">Save</MobileButton>
+                  <MobileButton type="button" size="sm" variant="ghost" onClick={() => setEditingDeadline(null)}>Cancel</MobileButton>
                 </form>
               ) : (
                 <>
@@ -743,20 +744,20 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                       onCheckedChange={() => handleToggleSelection(task.id)}
                       aria-label={`Select task: ${task.title}`}
                     />
-                    <Button
+                    <MobileButton
                       variant="ghost"
-                      size="sm"
+                      size="icon"
                       onClick={() => handleToggleTaskCompletion(task.id, task.completed)}
-                      className={`p-1 ${task.completed ? 'text-green-500' : 'text-gray-400 hover:text-green-500'}`}
+                      className={`${task.completed ? 'text-green-500' : 'text-gray-400 hover:text-green-500'}`}
                       aria-label={task.completed ? "Mark as incomplete" : "Mark as complete"}
                     >
                       <CheckCircle className="w-4 h-4" fill={task.completed ? 'currentColor' : 'none'} />
                     </Button>
-                    <Button
+                    <MobileButton
                       variant="ghost"
-                      size="sm"
+                      size="icon"
                       onClick={() => handleToggleTaskFocus(task.id, task.focus || false)}
-                      className={`p-1 ${task.focus ? 'text-yellow-500' : 'text-gray-400'}`}
+                      className={`${task.focus ? 'text-yellow-500' : 'text-gray-400'}`}
                     >
                       <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
                     </Button>
@@ -786,9 +787,9 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
+                      <MobileButton variant="ghost" size="icon">
                         <MoreHorizontal className="w-4 h-4" />
-                      </Button>
+                      </MobileButton>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem asChild>
