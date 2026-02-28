@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import Link from 'next/link';
 import { useTasks, Task } from '../hooks/useTasks';
 import { useProjects } from '../hooks/useProjects';
@@ -25,7 +25,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Combobox } from './ui/combobox';
-import { AIBreakdownModal } from './AIBreakdownModal';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -39,6 +38,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+
+// Lazy load the heavy AI Breakdown Modal
+const AIBreakdownModal = lazy(() => import('./AIBreakdownModal').then(module => ({ default: module.AIBreakdownModal })));
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -887,13 +889,15 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AIBreakdownModal
-        isOpen={showAIBreakdownModal}
-        onClose={() => setShowAIBreakdownModal(false)}
-        onSave={handleAIBreakdownSave}
-        settings={settings}
-        projects={projects}
-      />
+      <Suspense fallback={null}>
+        <AIBreakdownModal
+          isOpen={showAIBreakdownModal}
+          onClose={() => setShowAIBreakdownModal(false)}
+          onSave={handleAIBreakdownSave}
+          settings={settings}
+          projects={projects}
+        />
+      </Suspense>
     </Card>
   );
 });
