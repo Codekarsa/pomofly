@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useApiMonitoring } from '@/hooks/useMonitoring';
 
 interface BreakdownResult {
   tasks: {
@@ -10,6 +11,7 @@ interface BreakdownResult {
 export const useClaudeAI = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { monitorApiCall } = useApiMonitoring();
 
   const getTaskBreakdown = async (
     description: string,
@@ -23,26 +25,29 @@ export const useClaudeAI = () => {
     setError(null);
 
     try {
-      const response = await fetch('/api/claude-breakdown', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          description,
-          startDate,
-          endDate,
-          pomodoroDuration,
-          shortBreakDuration,
-          longBreakDuration,
-        }),
+      const result = await monitorApiCall('/api/claude-breakdown', 'POST', async () => {
+        const response = await fetch('/api/claude-breakdown', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            description,
+            startDate,
+            endDate,
+            pomodoroDuration,
+            shortBreakDuration,
+            longBreakDuration,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to get task breakdown');
+        }
+
+        return await response.json();
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to get task breakdown');
-      }
-
-      const result: BreakdownResult = await response.json();
       return result;
     } catch (err) {
       setError((err as Error).message);
