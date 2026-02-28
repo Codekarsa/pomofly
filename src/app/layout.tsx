@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from './contexts/AuthContext'
 import GoogleAnalytics from '@/components/GoogleAnalytics'
+import ErrorBoundary from '@/components/ErrorBoundary'
 import { Suspense } from 'react'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -20,12 +21,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} bg-gray-100`}>
-        <AuthProvider>
-          <Suspense fallback={<div>Loading...</div>}>
-            <GoogleAnalytics GA_MEASUREMENT_ID={process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!} />
-          </Suspense>
-          {children}
-        </AuthProvider>
+        <ErrorBoundary name="RootLayout" showDetails={process.env.NODE_ENV === 'development'}>
+          <AuthProvider>
+            <Suspense fallback={<div>Loading...</div>}>
+              <GoogleAnalytics GA_MEASUREMENT_ID={process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!} />
+            </Suspense>
+            {children}
+          </AuthProvider>
+        </ErrorBoundary>
       </body>
     </html>
   )
