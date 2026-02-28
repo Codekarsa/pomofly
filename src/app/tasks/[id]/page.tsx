@@ -1,4 +1,7 @@
-import TaskDetailClient from './TaskDetailClient';
+import { Suspense, lazy } from 'react';
+import { TaskDetailLoader } from '@/components/ui/loading';
+
+const TaskDetailClient = lazy(() => import('./TaskDetailClient'));
 
 // Generate a placeholder page for static export
 // Cloudflare _redirects will rewrite all /tasks/* to this page
@@ -7,5 +10,9 @@ export function generateStaticParams() {
 }
 
 export default function TaskDetailPage() {
-  return <TaskDetailClient />;
+  return (
+    <Suspense fallback={<TaskDetailLoader />}>
+      <TaskDetailClient />
+    </Suspense>
+  );
 }
