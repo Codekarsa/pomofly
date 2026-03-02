@@ -3,37 +3,73 @@ import { getAuth, GoogleAuthProvider, Auth } from "firebase/auth";
 import { getFirestore, Firestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyD7ud8TN_pJ0b1x2ZPro9cvwKWd8y7Andc",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "pomofly-63fc9.firebaseapp.com",
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "pomofly-63fc9",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "pomofly-63fc9.appspot.com",
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "531162182130",
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:531162182130:web:67108b2c84cdd3e0fbfb6b"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
 // Skip Firebase initialization during static site generation (SSG) when env vars aren't available
 // Firebase will be properly initialized at runtime in the browser
 const isServer = typeof window === 'undefined';
-const hasConfig = !!firebaseConfig.apiKey;
+const hasRequiredConfig = !!(
+  firebaseConfig.apiKey &&
+  firebaseConfig.authDomain &&
+  firebaseConfig.projectId
+);
 
 let app: FirebaseApp | undefined;
 let _auth: Auth | undefined;
 let _db: Firestore | undefined;
 let _googleProvider: GoogleAuthProvider | undefined;
 
-if (hasConfig) {
+if (hasRequiredConfig) {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
   _auth = getAuth(app);
   _db = getFirestore(app);
   _googleProvider = new GoogleAuthProvider();
 } else if (!isServer) {
   // Only throw error in browser if config is missing
-  throw new Error('No Firebase API Key found in environment variables');
+  console.warn(
+    'Firebase configuration missing. Please set the following environment variables:\n' +
+    '- NEXT_PUBLIC_FIREBASE_API_KEY\n' +
+    '- NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN\n' +
+    '- NEXT_PUBLIC_FIREBASE_PROJECT_ID\n' +
+    '- NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET\n' +
+    '- NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID\n' +
+    '- NEXT_PUBLIC_FIREBASE_APP_ID\n' +
+    'Firebase features will be disabled.'
+  );
 }
 
-// Export with type assertions - these are only used in client components where they will be defined
-const auth = _auth as Auth;
-const db = _db as Firestore;
-const googleProvider = _googleProvider as GoogleAuthProvider;
+// Safe getters with runtime validation
+export function getAuth(): Auth {
+  if (!_auth) {
+    throw new Error('Firebase Auth not initialized. Please check your Firebase configuration.');
+  }
+  return _auth;
+}
 
-export { auth, db, googleProvider };
+export function getDB(): Firestore {
+  if (!_db) {
+    throw new Error('Firebase Firestore not initialized. Please check your Firebase configuration.');
+  }
+  return _db;
+}
+
+export function getGoogleProvider(): GoogleAuthProvider {
+  if (!_googleProvider) {
+    throw new Error('Google Auth Provider not initialized. Please check your Firebase configuration.');
+  }
+  return _googleProvider;
+}
+
+// Export boolean to check if Firebase is available
+export const isFirebaseAvailable = hasRequiredConfig && !isServer;
+
+// Legacy exports for backward compatibility (deprecated)
+export const auth = _auth as Auth;
+export const db = _db as Firestore;
+export const googleProvider = _googleProvider as GoogleAuthProvider;
