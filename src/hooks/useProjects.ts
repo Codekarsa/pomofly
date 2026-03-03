@@ -69,9 +69,18 @@ export function useProjects() {
 
     if (!user) {
       // Guest mode
-      const newProject = addGuestProject(name);
-      setProjects(prev => [...prev, newProject]);
-      return newProject.id;
+      try {
+        const newProject = await addGuestProject(name);
+        if (newProject) {
+          setProjects(prev => [...prev, newProject]);
+          return newProject.id;
+        } else {
+          throw new Error('Failed to save project to storage');
+        }
+      } catch (err) {
+        console.error("Error adding guest project:", err);
+        throw new Error('Failed to save project. Storage may be full or unavailable.');
+      }
     }
 
     try {
@@ -93,8 +102,17 @@ export function useProjects() {
 
     if (!user) {
       // Guest mode
-      updateGuestProject(id, name);
-      setProjects(prev => prev.map(p => p.id === id ? { ...p, name } : p));
+      try {
+        const success = await updateGuestProject(id, name);
+        if (success) {
+          setProjects(prev => prev.map(p => p.id === id ? { ...p, name } : p));
+        } else {
+          throw new Error('Failed to update project in storage');
+        }
+      } catch (err) {
+        console.error("Error updating guest project:", err);
+        throw new Error('Failed to update project. Storage may be unavailable.');
+      }
       return;
     }
 
@@ -111,8 +129,17 @@ export function useProjects() {
 
     if (!user) {
       // Guest mode
-      deleteGuestProject(id);
-      setProjects(prev => prev.filter(p => p.id !== id));
+      try {
+        const success = await deleteGuestProject(id);
+        if (success) {
+          setProjects(prev => prev.filter(p => p.id !== id));
+        } else {
+          throw new Error('Failed to delete project from storage');
+        }
+      } catch (err) {
+        console.error("Error deleting guest project:", err);
+        throw new Error('Failed to delete project. Storage may be unavailable.');
+      }
       return;
     }
 

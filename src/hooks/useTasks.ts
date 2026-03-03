@@ -106,9 +106,18 @@ export function useTasks(projectId?: string) {
 
     if (!user) {
       // Guest mode
-      const newTask = addGuestTask(newTaskData);
-      setTasks(prev => [...prev, newTask]);
-      return newTask.id;
+      try {
+        const newTask = await addGuestTask(newTaskData);
+        if (newTask) {
+          setTasks(prev => [...prev, newTask]);
+          return newTask.id;
+        } else {
+          throw new Error('Failed to save task to storage');
+        }
+      } catch (err) {
+        console.error("Error adding guest task:", err);
+        throw new Error('Failed to save task. Storage may be full or unavailable.');
+      }
     }
 
     try {
@@ -125,8 +134,17 @@ export function useTasks(projectId?: string) {
 
     if (!user) {
       // Guest mode
-      updateGuestTask(taskId, updates);
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+      try {
+        const success = await updateGuestTask(taskId, updates);
+        if (success) {
+          setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+        } else {
+          throw new Error('Failed to update task in storage');
+        }
+      } catch (error) {
+        console.error("Error updating guest task:", error);
+        throw new Error('Failed to update task. Storage may be unavailable.');
+      }
       return;
     }
 
@@ -144,8 +162,17 @@ export function useTasks(projectId?: string) {
 
     if (!user) {
       // Guest mode
-      deleteGuestTask(id);
-      setTasks(prev => prev.filter(t => t.id !== id));
+      try {
+        const success = await deleteGuestTask(id);
+        if (success) {
+          setTasks(prev => prev.filter(t => t.id !== id));
+        } else {
+          throw new Error('Failed to delete task from storage');
+        }
+      } catch (err) {
+        console.error("Error deleting guest task:", err);
+        throw new Error('Failed to delete task. Storage may be unavailable.');
+      }
       return;
     }
 
@@ -162,8 +189,17 @@ export function useTasks(projectId?: string) {
 
     if (!user) {
       // Guest mode
-      updateGuestTask(id, { completed: !currentCompletionState });
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !currentCompletionState } : t));
+      try {
+        const success = await updateGuestTask(id, { completed: !currentCompletionState });
+        if (success) {
+          setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !currentCompletionState } : t));
+        } else {
+          throw new Error('Failed to toggle task completion');
+        }
+      } catch (err) {
+        console.error("Error toggling guest task completion:", err);
+        throw new Error('Failed to update task. Storage may be unavailable.');
+      }
       return;
     }
 
@@ -188,8 +224,17 @@ export function useTasks(projectId?: string) {
           totalPomodoroSessions: task.totalPomodoroSessions + 1,
           totalTimeSpent: task.totalTimeSpent + duration
         };
-        updateGuestTask(id, updates);
-        setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+        try {
+          const success = await updateGuestTask(id, updates);
+          if (success) {
+            setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+          } else {
+            throw new Error('Failed to save pomodoro session');
+          }
+        } catch (err) {
+          console.error("Error incrementing guest pomodoro session:", err);
+          throw new Error('Failed to save your progress. Storage may be unavailable.');
+        }
       }
       return;
     }
@@ -319,14 +364,23 @@ export function useTasks(projectId?: string) {
 
     if (!user) {
       // Guest mode
-      const allTasks = getGuestTasks();
-      const updatedTasks = allTasks.map(t =>
-        taskIds.includes(t.id) ? { ...t, trackingStartedAt: now } : t
-      );
-      saveGuestTasks(updatedTasks);
-      setTasks(prev => prev.map(t =>
-        taskIds.includes(t.id) ? { ...t, trackingStartedAt: now } : t
-      ));
+      try {
+        const allTasks = getGuestTasks();
+        const updatedTasks = allTasks.map(t =>
+          taskIds.includes(t.id) ? { ...t, trackingStartedAt: now } : t
+        );
+        const success = await saveGuestTasks(updatedTasks);
+        if (success) {
+          setTasks(prev => prev.map(t =>
+            taskIds.includes(t.id) ? { ...t, trackingStartedAt: now } : t
+          ));
+        } else {
+          throw new Error('Failed to save time tracking data');
+        }
+      } catch (err) {
+        console.error("Error starting guest time tracking:", err);
+        throw new Error('Failed to start time tracking. Storage may be unavailable.');
+      }
       return;
     }
 
@@ -349,30 +403,39 @@ export function useTasks(projectId?: string) {
 
     if (!user) {
       // Guest mode
-      const allTasks = getGuestTasks();
-      const updatedTasks = allTasks.map(t => {
-        const stopInfo = tasksToStop.find(s => s.taskId === t.id);
-        if (stopInfo) {
-          return {
-            ...t,
-            trackingStartedAt: null,
-            manualTimeSpent: t.manualTimeSpent + stopInfo.elapsedSeconds
-          };
+      try {
+        const allTasks = getGuestTasks();
+        const updatedTasks = allTasks.map(t => {
+          const stopInfo = tasksToStop.find(s => s.taskId === t.id);
+          if (stopInfo) {
+            return {
+              ...t,
+              trackingStartedAt: null,
+              manualTimeSpent: t.manualTimeSpent + stopInfo.elapsedSeconds
+            };
+          }
+          return t;
+        });
+        const success = await saveGuestTasks(updatedTasks);
+        if (success) {
+          setTasks(prev => prev.map(t => {
+            const stopInfo = tasksToStop.find(s => s.taskId === t.id);
+            if (stopInfo) {
+              return {
+                ...t,
+                trackingStartedAt: null,
+                manualTimeSpent: t.manualTimeSpent + stopInfo.elapsedSeconds
+              };
+            }
+            return t;
+          }));
+        } else {
+          throw new Error('Failed to save time tracking data');
         }
-        return t;
-      });
-      saveGuestTasks(updatedTasks);
-      setTasks(prev => prev.map(t => {
-        const stopInfo = tasksToStop.find(s => s.taskId === t.id);
-        if (stopInfo) {
-          return {
-            ...t,
-            trackingStartedAt: null,
-            manualTimeSpent: t.manualTimeSpent + stopInfo.elapsedSeconds
-          };
-        }
-        return t;
-      }));
+      } catch (err) {
+        console.error("Error stopping guest time tracking:", err);
+        throw new Error('Failed to save time tracking. Storage may be unavailable.');
+      }
       return;
     }
 
