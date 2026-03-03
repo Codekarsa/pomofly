@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    // Removed 'output: export' to enable API routes support
-    // Firebase Hosting with web frameworks can handle dynamic features
+    // Keep static export for simpler deployment
+    output: 'export',
     
     async headers() {
         return [
@@ -50,9 +50,8 @@ function generateCSP() {
         // Firebase domains + Claude API (Anthropic)
         "connect-src 'self' *.googleapis.com *.firebase.com *.firebaseapp.com *.cloudfunctions.net wss://*.firebaseio.com https://api.anthropic.com",
         // Service Worker
-        "worker-src 'self'",
-        // CSP violation reporting
-        "report-uri /api/csp-report"
+        "worker-src 'self'"
+        // Note: CSP violation reporting removed since API routes not available in static export
     ];
     
     return csp.join('; ');
