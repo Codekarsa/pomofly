@@ -31,7 +31,7 @@ import { cn } from '@/lib/utils';
 import LabelPicker, { LabelBadge } from './LabelPicker';
 import { useLabels } from '@/hooks/useLabels';
 import { AIBreakdownModal } from './AIBreakdownModal';
-import EstimationHint from './EstimationHint';
+import { EstimationHint } from './EstimationHint';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -706,11 +706,9 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                   <div className="mt-2">
                     <EstimationHint
                       suggestion={estimation.suggestedPomodoros}
-                      confidence={estimation.confidence}
+                      confidence={estimation.confidence as 'high' | 'medium' | 'low'}
                       onApply={handleApplyEstimation}
                       similarTasksCount={estimation.similarTasksCount}
-                      reasoning={estimation.reasoning}
-                      className="text-xs"
                     />
                   </div>
                 )}
