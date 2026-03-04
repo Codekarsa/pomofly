@@ -1,12 +1,8 @@
 'use client'
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import Header from './Header';
 import PomodoroTimer from './PomodoroTimer';
-import TaskList from './TaskList';
-import ProjectList from './ProjectList';
-import SettingsModal from './SettingsModal';
-import TodayFocusSection from './TodayFocusSection';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { Github } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -14,6 +10,14 @@ import { Separator } from "@/components/ui/separator";
 import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
 import { usePomodoro, defaultSettings } from '@/hooks/usePomodoro';
+
+// Lazy load heavy components that are only used when authenticated
+const TaskList = lazy(() => import('./TaskList'));
+const ProjectList = lazy(() => import('./ProjectList'));
+const TodayFocusSection = lazy(() => import('./TodayFocusSection'));
+const SettingsModal = lazy(() => import('./SettingsModal'));
+
+import { TaskListLoader, ProjectListLoader, TodayFocusLoader } from '@/components/ui/loading';
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
@@ -96,13 +100,21 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="space-y-8">
               <PomodoroTimer settings={memoizedSettings} />
-              {user && <ProjectList />}
+              {user && (
+                <Suspense fallback={<ProjectListLoader />}>
+                  <ProjectList />
+                </Suspense>
+              )}
             </div>
             <div className="space-y-8">
               {user ? (
                 <>
-                  <TodayFocusSection settings={settings} />
-                  <TaskList settings={settings} />
+                  <Suspense fallback={<TodayFocusLoader />}>
+                    <TodayFocusSection settings={settings} />
+                  </Suspense>
+                  <Suspense fallback={<TaskListLoader />}>
+                    <TaskList settings={settings} />
+                  </Suspense>
                 </>
               ) : (
                 <div className="bg-white p-6 rounded-lg shadow-md">
@@ -116,13 +128,15 @@ export default function Dashboard() {
             </div>
           </div>
         </main>
-        <SettingsModal
-          isOpen={isSettingsOpen}
-          onClose={handleSettingsClose}
-          settings={settings}
-          onSave={handleSettingsSave}
-          event={memoizedEvent}
-        />
+        <Suspense fallback={null}>
+          <SettingsModal
+            isOpen={isSettingsOpen}
+            onClose={handleSettingsClose}
+            settings={settings}
+            onSave={handleSettingsSave}
+            event={memoizedEvent}
+          />
+        </Suspense>
         <Footer />
       </div>
       <AutoBacklink />
