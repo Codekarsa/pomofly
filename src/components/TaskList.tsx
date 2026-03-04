@@ -204,7 +204,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
 
-  const { projects } = useProjects();
+  const { projects, addProject } = useProjects();
   const {
     tasks,
     loading: tasksLoading,
@@ -227,6 +227,30 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
 
   // Time tracking hook
   const { activelyTrackedTasks, hasActiveTracking, getElapsedTime, formatTime } = useTimeTracking(memoizedTasks);
+
+  const handleCreateProject = useCallback(async (name: string) => {
+    try {
+      const newProjectId = await addProject(name);
+      if (newProjectId) {
+        setSelectedProjectId(newProjectId);
+        event('project_created_from_task_form', { project_name: name });
+      }
+    } catch (error) {
+      console.error("Failed to create project:", error);
+    }
+  }, [addProject, event]);
+
+  const handleCreateProjectForEdit = useCallback(async (name: string) => {
+    try {
+      const newProjectId = await addProject(name);
+      if (newProjectId) {
+        setEditingTask(prev => prev ? { ...prev, projectId: newProjectId } : prev);
+        event('project_created_from_task_form', { project_name: name });
+      }
+    } catch (error) {
+      console.error("Failed to create project:", error);
+    }
+  }, [addProject, event]);
 
   // Helper function to get project name by ID
   const getProjectName = useCallback((projectId: string) => {
@@ -572,6 +596,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                   value={selectedProjectId}
                   onChange={(value) => setSelectedProjectId(value)}
                   placeholder="Select a project"
+                  onCreateNew={handleCreateProject}
                 />
               </div>
 
@@ -727,6 +752,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                       value={editingTask.projectId || ''}
                       onChange={(value) => setEditingTask({ ...editingTask, projectId: value })}
                       placeholder="Select a project"
+                      onCreateNew={handleCreateProjectForEdit}
                     />
                     <Button type="submit" size="sm" variant="outline">Save</Button>
                     <Button type="button" size="sm" variant="ghost" onClick={() => setEditingTask(null)}>Cancel</Button>
