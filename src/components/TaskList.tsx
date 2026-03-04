@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MoreHorizontal, Plus, Pencil, Trash2, Star, Calendar, ChevronDown, ChevronRight, Search, ArrowUpAZ, ArrowDownAZ, Filter, CheckCircle, Eye } from 'lucide-react';
+import { MoreHorizontal, Plus, Pencil, Trash2, Star, Calendar, ChevronDown, ChevronRight, Search, ArrowUpAZ, ArrowDownAZ, Filter, CheckCircle, Eye, FolderOpen } from 'lucide-react';
 import TaskTimeTracker from './TaskTimeTracker';
 import TimeTrackingControls from './TimeTrackingControls';
 import BulkActionToolbar from './BulkActionToolbar';
@@ -236,21 +236,14 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   // Project Badge Component
   const ProjectBadge = ({ projectId }: { projectId: string }) => {
     const projectName = getProjectName(projectId);
-    const displayName = projectName.length > 8 ? projectName.substring(0, 8) + '...' : projectName;
-    
-    // Debug logging
-    console.log('ProjectBadge Debug:', {
-      projectId,
-      projectName,
-      availableProjects: memoizedProjects.map(p => ({ id: p.id, name: p.name })),
-      foundProject: memoizedProjects.find(p => p.id === projectId)
-    });
-    
+    const displayName = projectName.length > 12 ? projectName.substring(0, 12) + '...' : projectName;
+
     return (
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 max-w-24 overflow-hidden">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-secondary text-secondary-foreground transition-colors duration-150 hover:bg-secondary/80">
+              <FolderOpen className="w-3 h-3" />
               {displayName}
             </span>
           </TooltipTrigger>
