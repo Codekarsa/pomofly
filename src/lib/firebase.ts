@@ -1,5 +1,5 @@
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, Auth } from "firebase/auth";
+import { getAuth as initAuth, GoogleAuthProvider, Auth } from "firebase/auth";
 import { getFirestore, Firestore } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -27,7 +27,7 @@ let _googleProvider: GoogleAuthProvider | undefined;
 
 if (hasRequiredConfig) {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-  _auth = getAuth(app);
+  _auth = initAuth(app);
   _db = getFirestore(app);
   _googleProvider = new GoogleAuthProvider();
 } else if (!isServer) {
