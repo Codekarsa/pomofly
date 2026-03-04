@@ -38,6 +38,7 @@ export function EstimationHint({
         💡 {suggestion} suggested
       </span>
       <Button 
+        type="button"
         variant="ghost" 
         size="sm" 
         onClick={onApply}
