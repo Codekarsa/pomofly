@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
+import { useApiMonitoring } from '@/hooks/useMonitoring';
 
 interface BreakdownResult {
   tasks: {
@@ -20,6 +21,7 @@ export const useClaudeAI = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const { monitorApiCall } = useApiMonitoring();
 
   const getTaskBreakdown = async (
     description: string,
@@ -41,61 +43,65 @@ export const useClaudeAI = () => {
       // Get ID token for authentication
       const idToken = await user.getIdToken();
       
-      // Create an AbortController for timeout handling
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
-      const response = await fetch('/api/claude-breakdown', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({
-          description,
-          startDate,
-          endDate,
-          pomodoroDuration,
-          shortBreakDuration,
-          longBreakDuration,
-        }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorData: ErrorResponse = await response.json();
+      // Monitor the API call with comprehensive error handling
+      const result = await monitorApiCall('/api/claude-breakdown', 'POST', async () => {
+        // Create an AbortController for timeout handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
         
-        // Handle specific error types with user-friendly messages
-        let errorMessage = errorData.message || 'Failed to get task breakdown';
-        
-        switch (response.status) {
-          case 400:
-            errorMessage = errorData.details || 'Please provide a valid task description';
-            break;
-          case 401:
-            errorMessage = 'Authentication required. Please log in to use AI features.';
-            break;
-          case 408:
-            errorMessage = 'Request timed out. Please try again with a shorter description.';
-            break;
-          case 429:
-            errorMessage = 'Too many requests. Please wait a moment before trying again.';
-            break;
-          case 503:
-            errorMessage = 'Service temporarily unavailable. Please try again later.';
-            break;
-          case 502:
-            errorMessage = 'AI service error. Please try again or simplify your request.';
-            break;
-          default:
-            errorMessage = errorData.message || errorData.details || 'An unexpected error occurred';
+        const response = await fetch('/api/claude-breakdown', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            description,
+            startDate,
+            endDate,
+            pomodoroDuration,
+            shortBreakDuration,
+            longBreakDuration,
+          }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorData: ErrorResponse = await response.json();
+          
+          // Handle specific error types with user-friendly messages
+          let errorMessage = errorData.message || 'Failed to get task breakdown';
+          
+          switch (response.status) {
+            case 400:
+              errorMessage = errorData.details || 'Please provide a valid task description';
+              break;
+            case 401:
+              errorMessage = 'Authentication required. Please log in to use AI features.';
+              break;
+            case 408:
+              errorMessage = 'Request timed out. Please try again with a shorter description.';
+              break;
+            case 429:
+              errorMessage = 'Too many requests. Please wait a moment before trying again.';
+              break;
+            case 503:
+              errorMessage = 'Service temporarily unavailable. Please try again later.';
+              break;
+            case 502:
+              errorMessage = 'AI service error. Please try again or simplify your request.';
+              break;
+            default:
+              errorMessage = errorData.message || errorData.details || 'An unexpected error occurred';
+          }
+          
+          throw new Error(errorMessage);
         }
-        
-        throw new Error(errorMessage);
-      }
 
-      const result: BreakdownResult = await response.json();
+        return await response.json();
+      });
       return result;
     } catch (err) {
       let errorMessage: string;
