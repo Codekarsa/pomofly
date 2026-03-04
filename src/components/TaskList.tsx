@@ -432,7 +432,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
         clearTimeout(estimationDebounceTimer);
       }
     };
-  }, [newTaskTitle, selectedProjectId, estimatedPomodoros, getEstimate]);
+  }, [newTaskTitle, selectedProjectId, getEstimate, estimatedPomodoros]);
 
   // Filtering logic
   const filteredTasks = useMemo(() => {
