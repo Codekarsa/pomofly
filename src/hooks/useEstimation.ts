@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
-import { auth } from '../lib/firebase';
-import { getEstimationHistory, getProjectEstimationHistory } from '../lib/firebase';
-import { extractKeywords, type EstimationRecord } from '../lib/validation';
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useAuth } from '@/app/contexts/AuthContext';
 
-export interface EstimationResult {
+interface EstimationResult {
   suggestedPomodoros: number;
   confidence: 'high' | 'medium' | 'low' | 'none';
   reasoning: string;
@@ -11,254 +11,121 @@ export interface EstimationResult {
   userAccuracyRatio: number;
 }
 
-export interface EstimationOptions {
-  title: string;
-  projectId?: string;
-  userEstimate?: number;
+interface EstimationRecord {
+  taskTitle: string;
+  projectId: string | null;
+  estimatedPomodoros: number;
+  actualPomodoros: number;
+  accuracy: number;
+  keywords: string[];
 }
 
-/**
- * Hook for intelligent time estimation based on user history
- */
+function extractKeywords(title: string): string[] {
+  const stopWords = ['the', 'a', 'an', 'to', 'for', 'of', 'and', 'in', 'on', 'with', 'is', 'it'];
+  return title
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(word => word.length > 2 && !stopWords.includes(word));
+}
+
+function calculateSimilarity(
+  newKeywords: string[],
+  newProjectId: string | undefined,
+  record: EstimationRecord
+): number {
+  let score = 0;
+  
+  // Keyword overlap (0-50 points)
+  const overlap = newKeywords.filter(k => record.keywords.includes(k));
+  score += (overlap.length / Math.max(newKeywords.length, 1)) * 50;
+  
+  // Same project (30 points)
+  if (newProjectId && newProjectId === record.projectId) {
+    score += 30;
+  }
+  
+  return score;
+}
+
+function determineConfidence(count: number): 'high' | 'medium' | 'low' | 'none' {
+  if (count >= 10) return 'high';
+  if (count >= 5) return 'medium';
+  if (count >= 2) return 'low';
+  return 'none';
+}
+
 export function useEstimation() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  /**
-   * Calculate similarity between new task and historical task
-   * Returns score from 0-100
-   */
-  const calculateSimilarity = useCallback((
-    newTask: { title: string; projectId?: string },
-    historicalTask: EstimationRecord
-  ): number => {
-    let score = 0;
+  const getEstimate = useCallback(async (
+    title: string,
+    projectId?: string,
+    userEstimate?: number
+  ): Promise<EstimationResult | null> => {
+    if (!user) return null;
     
-    // Keyword overlap (0-50 points)
-    const newKeywords = extractKeywords(newTask.title);
-    const historicalKeywords = historicalTask.keywords;
-    
-    if (newKeywords.length > 0) {
-      const overlap = newKeywords.filter(k => historicalKeywords.includes(k));
-      score += (overlap.length / newKeywords.length) * 50;
-    }
-    
-    // Same project (30 points)
-    if (newTask.projectId && newTask.projectId === historicalTask.projectId) {
-      score += 30;
-    }
-    
-    // Similar title length (20 points) - proxy for complexity
-    const lengthRatio = Math.min(
-      newTask.title.length / historicalTask.taskTitle.length,
-      historicalTask.taskTitle.length / newTask.title.length
-    );
-    score += lengthRatio * 20;
-    
-    return score; // 0-100
-  }, []);
-
-  /**
-   * Determine confidence level based on number of similar tasks
-   */
-  const determineConfidence = useCallback((similarTasks: number): 'high' | 'medium' | 'low' | 'none' => {
-    if (similarTasks >= 10) return 'high';
-    if (similarTasks >= 5) return 'medium';
-    if (similarTasks >= 2) return 'low';
-    return 'none';
-  }, []);
-
-  /**
-   * Calculate weighted average of similar tasks
-   */
-  const calculateWeightedEstimate = useCallback((
-    similarTasks: Array<{ task: EstimationRecord; similarity: number }>
-  ): number => {
-    if (similarTasks.length === 0) return 1;
-
-    // Weight by similarity score and recency
-    let weightedSum = 0;
-    let totalWeight = 0;
-
-    similarTasks.forEach(({ task, similarity }) => {
-      // Recency weight: more recent tasks get higher weight
-      const daysSinceCompletion = Math.max(1, 
-        (Date.now() - task.completedAt.getTime()) / (1000 * 60 * 60 * 24)
-      );
-      const recencyWeight = Math.max(0.1, 1 / Math.sqrt(daysSinceCompletion));
-      
-      // Combined weight: similarity × recency
-      const weight = (similarity / 100) * recencyWeight;
-      
-      weightedSum += task.actualPomodoros * weight;
-      totalWeight += weight;
-    });
-
-    return Math.round(weightedSum / totalWeight);
-  }, []);
-
-  /**
-   * Calculate user's overall estimation accuracy
-   */
-  const calculateUserAccuracy = useCallback((history: EstimationRecord[]): number => {
-    if (history.length === 0) return 1.0;
-
-    const accuracySum = history.reduce((sum, record) => sum + record.accuracy, 0);
-    return accuracySum / history.length;
-  }, []);
-
-  /**
-   * Get estimation for a new task
-   */
-  const getEstimate = useCallback(async (options: EstimationOptions): Promise<EstimationResult | null> => {
-    const user = auth.currentUser;
-    
-    if (!user) {
-      // Guest mode - no estimation available
-      return null;
-    }
-
-    if (options.title.length < 5) {
-      // Too short to provide meaningful estimation
-      return null;
-    }
-
     setLoading(true);
     setError(null);
-
+    
     try {
       // Fetch user's estimation history
-      const history = await getEstimationHistory(user.uid, 100);
+      const historyRef = collection(db, 'estimation_history');
+      const q = query(
+        historyRef,
+        where('userId', '==', user.uid),
+        orderBy('completedAt', 'desc'),
+        limit(100)
+      );
       
-      if (history.length < 2) {
-        // Not enough history for estimation
-        setLoading(false);
-        return {
-          suggestedPomodoros: 1,
-          confidence: 'none',
-          reasoning: 'Not enough completed tasks for estimation',
-          similarTasksCount: 0,
-          userAccuracyRatio: 1.0
-        };
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) {
+        return { suggestedPomodoros: userEstimate || 1, confidence: 'none', reasoning: 'No history yet', similarTasksCount: 0, userAccuracyRatio: 1 };
       }
-
+      
+      const records: EstimationRecord[] = snapshot.docs.map(doc => doc.data() as EstimationRecord);
+      const newKeywords = extractKeywords(title);
+      
       // Find similar tasks
-      const similarTasks = history
-        .map(task => ({
-          task,
-          similarity: calculateSimilarity(options, task)
-        }))
-        .filter(({ similarity }) => similarity > 20) // Minimum similarity threshold
-        .sort((a, b) => b.similarity - a.similarity)
-        .slice(0, 20); // Top 20 most similar tasks
-
-      const similarTasksCount = similarTasks.length;
-      const confidence = determineConfidence(similarTasksCount);
-
-      if (confidence === 'none') {
-        setLoading(false);
+      const similarities = records.map(record => ({
+        record,
+        score: calculateSimilarity(newKeywords, projectId, record)
+      })).filter(s => s.score > 20).sort((a, b) => b.score - a.score);
+      
+      const similarTasks = similarities.slice(0, 10);
+      
+      if (similarTasks.length === 0) {
+        // Use global average
+        const avgAccuracy = records.reduce((sum, r) => sum + r.accuracy, 0) / records.length;
+        const suggestion = Math.round((userEstimate || 1) / avgAccuracy);
         return {
-          suggestedPomodoros: Math.round(history.reduce((sum, task) => sum + task.actualPomodoros, 0) / history.length),
-          confidence: 'none',
-          reasoning: 'No similar tasks found, using your average',
-          similarTasksCount,
-          userAccuracyRatio: calculateUserAccuracy(history)
+          suggestedPomodoros: Math.max(1, suggestion),
+          confidence: 'low',
+          reasoning: 'Based on your overall patterns',
+          similarTasksCount: 0,
+          userAccuracyRatio: avgAccuracy
         };
       }
-
-      // Calculate weighted estimate
-      const suggestedPomodoros = Math.max(1, calculateWeightedEstimate(similarTasks));
-      const userAccuracyRatio = calculateUserAccuracy(history);
-
-      // Adjust for user's historical bias
-      const adjustedEstimate = Math.round(suggestedPomodoros * userAccuracyRatio);
       
-      // Generate reasoning
-      let reasoning = `Based on ${similarTasksCount} similar tasks`;
-      if (options.projectId && similarTasks.some(({ task }) => task.projectId === options.projectId)) {
-        reasoning += ' in this project';
-      }
+      // Calculate weighted average of actual pomodoros from similar tasks
+      const avgActual = similarTasks.reduce((sum, s) => sum + s.record.actualPomodoros, 0) / similarTasks.length;
+      const avgAccuracy = similarTasks.reduce((sum, s) => sum + s.record.accuracy, 0) / similarTasks.length;
       
-      setLoading(false);
       return {
-        suggestedPomodoros: Math.max(1, adjustedEstimate),
-        confidence,
-        reasoning,
-        similarTasksCount,
-        userAccuracyRatio
+        suggestedPomodoros: Math.max(1, Math.round(avgActual)),
+        confidence: determineConfidence(similarTasks.length),
+        reasoning: `Based on ${similarTasks.length} similar tasks`,
+        similarTasksCount: similarTasks.length,
+        userAccuracyRatio: avgAccuracy
       };
-
     } catch (err) {
-      console.error('Error getting estimation:', err);
-      setError(err as Error);
-      setLoading(false);
+      setError((err as Error).message);
       return null;
-    }
-  }, [calculateSimilarity, determineConfidence, calculateWeightedEstimate, calculateUserAccuracy]);
-
-  /**
-   * Get project-specific estimation
-   */
-  const getProjectEstimate = useCallback(async (options: EstimationOptions): Promise<EstimationResult | null> => {
-    if (!options.projectId) {
-      return getEstimate(options);
-    }
-
-    const user = auth.currentUser;
-    
-    if (!user) {
-      return null;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Get project-specific history first
-      const projectHistory = await getProjectEstimationHistory(user.uid, options.projectId, 50);
-      
-      if (projectHistory.length >= 5) {
-        // Use project-specific estimation if we have enough data
-        const similarTasks = projectHistory
-          .map(task => ({
-            task,
-            similarity: calculateSimilarity(options, task)
-          }))
-          .filter(({ similarity }) => similarity > 15) // Lower threshold for project tasks
-          .sort((a, b) => b.similarity - a.similarity)
-          .slice(0, 10);
-
-        if (similarTasks.length >= 2) {
-          const suggestedPomodoros = Math.max(1, calculateWeightedEstimate(similarTasks));
-          const confidence = determineConfidence(similarTasks.length);
-          
-          setLoading(false);
-          return {
-            suggestedPomodoros,
-            confidence,
-            reasoning: `Based on ${similarTasks.length} similar tasks in this project`,
-            similarTasksCount: similarTasks.length,
-            userAccuracyRatio: calculateUserAccuracy(projectHistory)
-          };
-        }
-      }
-
-      // Fall back to general estimation
+    } finally {
       setLoading(false);
-      return getEstimate(options);
-
-    } catch (err) {
-      console.error('Error getting project estimation:', err);
-      setError(err as Error);
-      setLoading(false);
-      return null;
     }
-  }, [getEstimate, calculateSimilarity, calculateWeightedEstimate, calculateUserAccuracy, determineConfidence]);
+  }, [user]);
 
-  return {
-    getEstimate,
-    getProjectEstimate,
-    loading,
-    error
-  };
+  return { getEstimate, loading, error };
 }
