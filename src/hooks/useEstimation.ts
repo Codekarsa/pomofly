@@ -18,6 +18,7 @@ interface EstimationRecord {
   actualPomodoros: number;
   accuracy: number;
   keywords: string[];
+  completedAt: Date;
 }
 
 function extractKeywords(title: string): string[] {
@@ -54,6 +55,26 @@ function determineConfidence(count: number): 'high' | 'medium' | 'low' | 'none' 
   return 'none';
 }
 
+function calculateWeightedEstimate(
+  similarTasks: Array<{ record: EstimationRecord; score: number; completedAt: Date }>
+): number {
+  if (similarTasks.length === 0) return 1;
+
+  let weightedSum = 0;
+  let totalWeight = 0;
+
+  similarTasks.forEach(({ record, score, completedAt }) => {
+    const daysSince = Math.max(1, (Date.now() - completedAt.getTime()) / (1000 * 60 * 60 * 24));
+    const recencyWeight = Math.max(0.1, 1 / Math.sqrt(daysSince));
+    const weight = (score / 100) * recencyWeight;
+    
+    weightedSum += record.actualPomodoros * weight;
+    totalWeight += weight;
+  });
+
+  return Math.round(weightedSum / totalWeight);
+}
+
 export function useEstimation() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -84,7 +105,13 @@ export function useEstimation() {
         return { suggestedPomodoros: userEstimate || 1, confidence: 'none', reasoning: 'No history yet', similarTasksCount: 0, userAccuracyRatio: 1 };
       }
       
-      const records: EstimationRecord[] = snapshot.docs.map(doc => doc.data() as EstimationRecord);
+      const records: EstimationRecord[] = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          ...data,
+          completedAt: data.completedAt?.toDate?.() || new Date(data.completedAt)
+        } as EstimationRecord;
+      });
       const newKeywords = extractKeywords(title);
       
       // Find similar tasks
@@ -108,12 +135,14 @@ export function useEstimation() {
         };
       }
       
-      // Calculate weighted average of actual pomodoros from similar tasks
-      const avgActual = similarTasks.reduce((sum, s) => sum + s.record.actualPomodoros, 0) / similarTasks.length;
+      // Calculate weighted estimate of actual pomodoros from similar tasks
+      const suggestedPomodoros = calculateWeightedEstimate(
+        similarTasks.map(s => ({ ...s, completedAt: s.record.completedAt }))
+      );
       const avgAccuracy = similarTasks.reduce((sum, s) => sum + s.record.accuracy, 0) / similarTasks.length;
       
       return {
-        suggestedPomodoros: Math.max(1, Math.round(avgActual)),
+        suggestedPomodoros: Math.max(1, suggestedPomodoros),
         confidence: determineConfidence(similarTasks.length),
         reasoning: `Based on ${similarTasks.length} similar tasks`,
         similarTasksCount: similarTasks.length,
