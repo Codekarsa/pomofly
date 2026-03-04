@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
 import SelectedTasksList from './SelectedTasksList';
+import { TimerPerformanceMonitor } from './TimerPerformanceMonitor';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -137,6 +138,9 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     toggleTimer,
     resetTimer,
     switchPhase,
+    timeJumpDetected,
+    isVisible,
+    timerStartedAt
   } = usePomodoro(settings, handlePomodoroComplete);
 
   // Handle timer start/pause - manage time tracking
@@ -340,6 +344,18 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
           />
         )}
       </CardContent>
+      
+      {/* Performance Monitor for Development */}
+      {process.env.NODE_ENV === 'development' && (
+        <TimerPerformanceMonitor
+          timerStartedAt={timerStartedAt}
+          isActive={isActive}
+          timeJumpDetected={timeJumpDetected}
+          isVisible={isVisible}
+          phase={phase}
+          totalDuration={settings[phase] * 60}
+        />
+      )}
     </Card>
   );
 });
