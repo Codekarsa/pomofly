@@ -3,7 +3,7 @@
  */
 
 import { useEffect, useCallback } from 'react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { storageManager, type StorageError } from '@/lib/storageManager';
 
 interface StorageNotificationOptions {
