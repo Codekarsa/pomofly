@@ -3,38 +3,46 @@ const nextConfig = {
     // Keep static export for simpler deployment
     output: 'export',
     
-    async headers() {
-        return [
-            {
-                // Apply CSP to all routes
-                source: '/(.*)',
-                headers: [
-                    {
-                        key: 'Content-Security-Policy',
-                        value: generateCSP()
-                    },
-                    {
-                        key: 'X-Frame-Options',
-                        value: 'DENY'
-                    },
-                    {
-                        key: 'X-Content-Type-Options',
-                        value: 'nosniff'
-                    },
-                    {
-                        key: 'Referrer-Policy',
-                        value: 'origin-when-cross-origin'
-                    },
-                    {
-                        key: 'Permissions-Policy',
-                        value: 'camera=(), microphone=(), geolocation=()'
-                    }
-                ]
-            }
-        ];
-    }
+    // Note: Custom headers (including CSP) are not supported with static export
+    // For CSP implementation with static export, consider:
+    // 1. Setting headers at the CDN/server level (Cloudflare, Nginx, etc.)
+    // 2. Using a meta tag approach (limited CSP support)
+    // 3. Switching to server-side rendering if comprehensive CSP is required
+    
+    // If you need to enable CSP, remove 'output: export' and uncomment the headers() function below:
+    
+    // async headers() {
+    //     return [
+    //         {
+    //             source: '/(.*)',
+    //             headers: [
+    //                 {
+    //                     key: 'Content-Security-Policy',
+    //                     value: generateCSP()
+    //                 },
+    //                 {
+    //                     key: 'X-Frame-Options',
+    //                     value: 'DENY'
+    //                 },
+    //                 {
+    //                     key: 'X-Content-Type-Options',
+    //                     value: 'nosniff'
+    //                 },
+    //                 {
+    //                     key: 'Referrer-Policy',
+    //                     value: 'origin-when-cross-origin'
+    //                 },
+    //                 {
+    //                     key: 'Permissions-Policy',
+    //                     value: 'camera=(), microphone=(), geolocation=()'
+    //                 }
+    //             ]
+    //         }
+    //     ];
+    // }
 };
 
+// CSP configuration for server-side deployment
 function generateCSP() {
     const csp = [
         "default-src 'self'",
@@ -51,7 +59,6 @@ function generateCSP() {
         "connect-src 'self' *.googleapis.com *.firebase.com *.firebaseapp.com *.cloudfunctions.net wss://*.firebaseio.com https://api.anthropic.com",
         // Service Worker
         "worker-src 'self'"
-        // Note: CSP violation reporting removed since API routes not available in static export
     ];
     
     return csp.join('; ');
