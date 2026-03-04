@@ -87,3 +87,125 @@ export const isFirebaseAvailable = hasRequiredConfig && !isServer;
 export const auth = _auth as Auth;
 export const db = _db as Firestore;
 export const googleProvider = _googleProvider as GoogleAuthProvider;
+
+/**
+ * Estimation History Collection Helpers
+ */
+import { 
+  collection, 
+  addDoc, 
+  query, 
+  where, 
+  getDocs, 
+  orderBy, 
+  limit 
+} from "firebase/firestore";
+import { 
+  EstimationRecordCreate, 
+  EstimationRecord,
+  transformFirebaseEstimationRecord,
+  extractKeywords 
+} from "./validation";
+
+/**
+ * Add a new estimation record to the history collection
+ */
+export async function addEstimationRecord(data: {
+  userId: string;
+  taskId: string;
+  taskTitle: string;
+  projectId?: string;
+  estimatedPomodoros: number;
+  actualPomodoros: number;
+  completedAt: Date;
+}): Promise<string> {
+  if (!_db) {
+    throw new Error('Firebase not initialized');
+  }
+
+  const keywords = extractKeywords(data.taskTitle);
+  const accuracy = data.actualPomodoros > 0 ? data.estimatedPomodoros / data.actualPomodoros : 1;
+
+  const recordData: EstimationRecordCreate = {
+    userId: data.userId,
+    taskId: data.taskId,
+    taskTitle: data.taskTitle,
+    projectId: data.projectId,
+    estimatedPomodoros: data.estimatedPomodoros,
+    actualPomodoros: data.actualPomodoros,
+    accuracy,
+    completedAt: data.completedAt,
+    keywords,
+  };
+
+  const docRef = await addDoc(collection(_db, 'estimation_history'), recordData);
+  return docRef.id;
+}
+
+/**
+ * Get estimation history for a user
+ */
+export async function getEstimationHistory(
+  userId: string, 
+  limitCount: number = 50
+): Promise<EstimationRecord[]> {
+  if (!_db) {
+    throw new Error('Firebase not initialized');
+  }
+
+  const q = query(
+    collection(_db, 'estimation_history'),
+    where('userId', '==', userId),
+    orderBy('completedAt', 'desc'),
+    limit(limitCount)
+  );
+
+  const querySnapshot = await getDocs(q);
+  const records: EstimationRecord[] = [];
+
+  querySnapshot.forEach((doc) => {
+    try {
+      const record = transformFirebaseEstimationRecord({ id: doc.id, ...doc.data() });
+      records.push(record);
+    } catch (error) {
+      console.error(`Invalid estimation record data for document ${doc.id}:`, error);
+    }
+  });
+
+  return records;
+}
+
+/**
+ * Get estimation history for a specific project
+ */
+export async function getProjectEstimationHistory(
+  userId: string,
+  projectId: string,
+  limitCount: number = 20
+): Promise<EstimationRecord[]> {
+  if (!_db) {
+    throw new Error('Firebase not initialized');
+  }
+
+  const q = query(
+    collection(_db, 'estimation_history'),
+    where('userId', '==', userId),
+    where('projectId', '==', projectId),
+    orderBy('completedAt', 'desc'),
+    limit(limitCount)
+  );
+
+  const querySnapshot = await getDocs(q);
+  const records: EstimationRecord[] = [];
+
+  querySnapshot.forEach((doc) => {
+    try {
+      const record = transformFirebaseEstimationRecord({ id: doc.id, ...doc.data() });
+      records.push(record);
+    } catch (error) {
+      console.error(`Invalid estimation record data for document ${doc.id}:`, error);
+    }
+  });
+
+  return records;
+}
