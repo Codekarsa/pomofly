@@ -4,6 +4,7 @@ import { useTasks, Task } from '../hooks/useTasks';
 import { useProjects } from '../hooks/useProjects';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { useTimeTracking } from '@/hooks/useTimeTracking';
+import { useEstimation, type EstimationResult } from '@/hooks/useEstimation';
 import { Button } from '@/components/ui/button';
 import { MobileButton } from '@/components/ui/mobile-button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +31,7 @@ import { cn } from '@/lib/utils';
 import LabelPicker, { LabelBadge } from './LabelPicker';
 import { useLabels } from '@/hooks/useLabels';
 import { AIBreakdownModal } from './AIBreakdownModal';
+import EstimationHint from './EstimationHint';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -215,8 +217,13 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
+  
+  // Estimation state
+  const [estimation, setEstimation] = useState<EstimationResult | null>(null);
+  const [estimationDebounceTimer, setEstimationDebounceTimer] = useState<NodeJS.Timeout | null>(null);
 
   const { projects, addProject } = useProjects();
+  const { getEstimate, loading: estimationLoading } = useEstimation();
   const { labels } = useLabels();
   const {
     tasks,
@@ -264,6 +271,22 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
       console.error("Failed to create project:", error);
     }
   }, [addProject, event]);
+
+  // Handle applying estimation suggestion
+  const handleApplyEstimation = useCallback(() => {
+    if (estimation) {
+      setEstimatedPomodoros(estimation.suggestedPomodoros);
+      // Track the source of the estimate
+      event('estimation_applied', {
+        suggested_pomodoros: estimation.suggestedPomodoros,
+        confidence: estimation.confidence,
+        similar_tasks_count: estimation.similarTasksCount,
+        task_title: newTaskTitle
+      });
+      // Clear the estimation after applying
+      setEstimation(null);
+    }
+  }, [estimation, event, newTaskTitle]);
 
   // Helper function to get project name by ID
   const getProjectName = useCallback((projectId: string) => {
@@ -316,22 +339,31 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     if (newTaskTitle.trim() && selectedProjectId) {
       try {
         await addTask(newTaskTitle, selectedProjectId, estimatedPomodoros, newTaskFocus, newTaskLabelIds);
+        
+        // Track estimation source analytics
+        const estimationSource = estimation ? 'ai-suggested' : 'manual';
         event('task_added', {
           project_id: selectedProjectId,
           estimated_pomodoros: estimatedPomodoros,
           focus: newTaskFocus,
-          label_count: newTaskLabelIds.length
+          label_count: newTaskLabelIds.length,
+          estimation_source: estimationSource,
+          ai_suggested_estimate: estimation?.suggestedPomodoros,
+          ai_confidence: estimation?.confidence
         });
+        
+        // Reset form
         setNewTaskTitle('');
         setEstimatedPomodoros(0);
         setNewTaskFocus(false);
         setNewTaskLabelIds([]);
+        setEstimation(null); // Clear estimation
       } catch (error) {
         console.error("Failed to add task:", error);
         event('task_add_error', { error_message: (error as Error).message });
       }
     }
-  }, [addTask, event, estimatedPomodoros, newTaskTitle, selectedProjectId, newTaskFocus, newTaskLabelIds]);
+  }, [addTask, event, estimatedPomodoros, newTaskTitle, selectedProjectId, newTaskFocus, newTaskLabelIds, estimation]);
 
   const handleUpdateTask = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -358,6 +390,49 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
       }
     }
   }, [editingTask, event, updateTask]);
+
+  // Debounced estimation effect
+  useEffect(() => {
+    // Clear existing timer
+    if (estimationDebounceTimer) {
+      clearTimeout(estimationDebounceTimer);
+    }
+
+    // Only estimate if title is long enough and user hasn't entered an estimate yet
+    if (newTaskTitle.length >= 5) {
+      const timer = setTimeout(async () => {
+        try {
+          const result = await getEstimate({
+            title: newTaskTitle,
+            projectId: selectedProjectId,
+            userEstimate: estimatedPomodoros
+          });
+          
+          // Only show suggestion if user estimate doesn't match
+          if (result && result.confidence !== 'none' && 
+              (!estimatedPomodoros || estimatedPomodoros !== result.suggestedPomodoros)) {
+            setEstimation(result);
+          } else {
+            setEstimation(null);
+          }
+        } catch (error) {
+          console.error('Error getting estimation:', error);
+          setEstimation(null);
+        }
+      }, 500); // 500ms debounce
+
+      setEstimationDebounceTimer(timer);
+    } else {
+      setEstimation(null);
+    }
+
+    // Cleanup function
+    return () => {
+      if (estimationDebounceTimer) {
+        clearTimeout(estimationDebounceTimer);
+      }
+    };
+  }, [newTaskTitle, selectedProjectId, estimatedPomodoros, getEstimate]);
 
   // Filtering logic
   const filteredTasks = useMemo(() => {
@@ -616,13 +691,30 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
               />
             </div>
             <div className="flex items-center space-x-2">
-              <Input
-                type="number"
-                value={estimatedPomodoros}
-                onChange={(e) => setEstimatedPomodoros(e.target.value ? parseInt(e.target.value) : undefined)}
-                placeholder="Estimated Pomodoros"
-                className="w-1/2"
-              />
+              <div className="w-1/2">
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    value={estimatedPomodoros}
+                    onChange={(e) => setEstimatedPomodoros(e.target.value ? parseInt(e.target.value) : undefined)}
+                    placeholder="Estimated Pomodoros"
+                    className="flex-1"
+                  />
+                  <span className="text-sm text-muted-foreground">🍅</span>
+                </div>
+                {estimation && estimation.confidence !== 'none' && (
+                  <div className="mt-2">
+                    <EstimationHint
+                      suggestion={estimation.suggestedPomodoros}
+                      confidence={estimation.confidence}
+                      onApply={handleApplyEstimation}
+                      similarTasksCount={estimation.similarTasksCount}
+                      reasoning={estimation.reasoning}
+                      className="text-xs"
+                    />
+                  </div>
+                )}
+              </div>
               <div className="w-1/2">
                 <Combobox
                   options={memoizedProjects.map(project => ({ value: project.id, label: project.name }))}
@@ -632,7 +724,6 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                   onCreateNew={handleCreateProject}
                 />
               </div>
-
             </div>
             <div className="flex items-center space-x-2">
               <Button
