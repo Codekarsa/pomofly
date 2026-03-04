@@ -25,6 +25,7 @@ export const TaskSchema = z.object({
   completedPomodoros: z.number().int().min(0).optional(),
   estimationSource: z.enum(['manual', 'ai-suggested', 'ai-accepted']).optional(),
   aiSuggestedEstimate: z.number().int().min(1).optional(),
+  completedAt: z.date().optional(),
 });
 
 // Project validation schema

@@ -104,41 +104,36 @@ import {
   EstimationRecordCreate, 
   EstimationRecord,
   transformFirebaseEstimationRecord,
-  extractKeywords 
+  extractKeywords,
+  Task
 } from "./validation";
 
 /**
  * Add a new estimation record to the history collection
  */
-export async function addEstimationRecord(data: {
-  userId: string;
-  taskId: string;
-  taskTitle: string;
-  projectId?: string;
-  estimatedPomodoros: number;
-  actualPomodoros: number;
-  completedAt: Date;
-}): Promise<string> {
+export async function addEstimationRecord(userId: string, task: Task): Promise<string> {
   if (!_db) {
     throw new Error('Firebase not initialized');
   }
 
-  const keywords = extractKeywords(data.taskTitle);
-  const accuracy = data.actualPomodoros > 0 ? data.estimatedPomodoros / data.actualPomodoros : 1;
+  // Only store if task had an estimate
+  if (!task.estimatedPomodoros) {
+    return ''; // Skip tasks without estimates
+  }
 
-  const recordData: EstimationRecordCreate = {
-    userId: data.userId,
-    taskId: data.taskId,
-    taskTitle: data.taskTitle,
-    projectId: data.projectId,
-    estimatedPomodoros: data.estimatedPomodoros,
-    actualPomodoros: data.actualPomodoros,
-    accuracy,
-    completedAt: data.completedAt,
-    keywords,
+  const record = {
+    userId,
+    taskId: task.id,
+    taskTitle: task.title,
+    projectId: task.projectId || null,
+    estimatedPomodoros: task.estimatedPomodoros || 1,
+    actualPomodoros: task.totalPomodoroSessions || 0,
+    accuracy: (task.estimatedPomodoros || 1) / Math.max(task.totalPomodoroSessions || 1, 1),
+    completedAt: new Date(),
+    keywords: task.title.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2)
   };
 
-  const docRef = await addDoc(collection(_db, 'estimation_history'), recordData);
+  const docRef = await addDoc(collection(_db, 'estimation_history'), record);
   return docRef.id;
 }
 
