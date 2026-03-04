@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { validateAuth, checkRateLimit } from '@/lib/auth-middleware';
 
 interface TaskBreakdown {
   tasks: {
@@ -8,9 +9,37 @@ interface TaskBreakdown {
   }[];
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  // Authentication check
+  const authResult = await validateAuth(request);
+  if (!authResult.isAuthenticated) {
+    return NextResponse.json(
+      { error: 'Unauthorized', details: authResult.error },
+      { status: 401 }
+    );
+  }
+
+  // Rate limiting check
+  const rateLimitResult = checkRateLimit(authResult.uid!, 5, 60000); // 5 requests per minute
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      { 
+        error: 'Rate limit exceeded', 
+        details: 'Too many requests. Please try again later.',
+        resetTime: rateLimitResult.resetTime
+      },
+      { 
+        status: 429,
+        headers: {
+          'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString()
+        }
+      }
+    );
+  }
   try {
     const body = await request.json();
+    
+    // Input validation
     const {
       description,
       startDate,
@@ -19,6 +48,44 @@ export async function POST(request: Request) {
       shortBreakDuration,
       longBreakDuration,
     } = body;
+
+    // Validate required fields
+    if (!description || typeof description !== 'string') {
+      return NextResponse.json(
+        { error: 'Bad Request', details: 'Description is required and must be a string' },
+        { status: 400 }
+      );
+    }
+
+    // Validate description length (prevent abuse)
+    if (description.length > 2000) {
+      return NextResponse.json(
+        { error: 'Bad Request', details: 'Description must be less than 2000 characters' },
+        { status: 400 }
+      );
+    }
+
+    // Validate numeric fields
+    if (pomodoroDuration && (typeof pomodoroDuration !== 'number' || pomodoroDuration < 1 || pomodoroDuration > 120)) {
+      return NextResponse.json(
+        { error: 'Bad Request', details: 'Pomodoro duration must be between 1 and 120 minutes' },
+        { status: 400 }
+      );
+    }
+
+    if (shortBreakDuration && (typeof shortBreakDuration !== 'number' || shortBreakDuration < 1 || shortBreakDuration > 60)) {
+      return NextResponse.json(
+        { error: 'Bad Request', details: 'Short break duration must be between 1 and 60 minutes' },
+        { status: 400 }
+      );
+    }
+
+    if (longBreakDuration && (typeof longBreakDuration !== 'number' || longBreakDuration < 1 || longBreakDuration > 120)) {
+      return NextResponse.json(
+        { error: 'Bad Request', details: 'Long break duration must be between 1 and 120 minutes' },
+        { status: 400 }
+      );
+    }
 
     const apiKey = process.env.CLAUDE_API_KEY;
     const claudeModel = process.env.CLAUDE_MODEL;
