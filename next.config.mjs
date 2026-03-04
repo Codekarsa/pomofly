@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Removed 'output: export' which was incompatible with API routes and dynamic routes
-  // This enables proper SSR/SSG hybrid functionality for Firebase hosting
+  // CSP headers implementation (remove output: export for server deployment)
+  // Commented out output: export to enable headers() function
+  // output: 'export',
   
   // Enable experimental features for better performance
   experimental: {
