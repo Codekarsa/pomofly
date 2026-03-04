@@ -1,10 +1,9 @@
 'use client'
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, Suspense, lazy } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import Sidebar from './Sidebar';
 import SettingsModal from './SettingsModal';
 import GuestBanner from './GuestBanner';
-import DataMigrationModal from './DataMigrationModal';
 import { usePomodoro, defaultSettings } from '@/hooks/usePomodoro';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,9 @@ import { Github } from 'lucide-react';
 import { signInWithPopup, signOut } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
 import { hasGuestData, getGuestDataSummary } from '@/lib/guestStorage';
+
+// Lazy load DataMigrationModal since it's only shown conditionally
+const DataMigrationModal = lazy(() => import('./DataMigrationModal'));
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -136,12 +138,14 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         onSave={handleSettingsSave}
         event={event}
       />
-      <DataMigrationModal
-        isOpen={showMigrationModal}
-        onClose={handleCloseMigrationModal}
-        taskCount={guestDataSummary.taskCount}
-        projectCount={guestDataSummary.projectCount}
-      />
+      <Suspense fallback={null}>
+        <DataMigrationModal
+          isOpen={showMigrationModal}
+          onClose={handleCloseMigrationModal}
+          taskCount={guestDataSummary.taskCount}
+          projectCount={guestDataSummary.projectCount}
+        />
+      </Suspense>
     </div>
   );
 };
