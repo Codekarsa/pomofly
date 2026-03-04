@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, increment, writeBatch } from "firebase/firestore";
-import { db, auth } from '../lib/firebase';
+import { db, auth, addEstimationRecord } from '../lib/firebase';
 import {
   getGuestTasks,
   addGuestTask,
@@ -89,23 +89,6 @@ export function useTasks(projectId?: string) {
   const addTask = useCallback(async (title: string, taskProjectId: string, estimatedPomodoros?: number, focus?: boolean, labelIds?: string[]) => {
     const user = auth.currentUser;
 
-<<<<<<< HEAD
-    const newTaskData = {
-      title,
-      projectId: taskProjectId,
-      userId: user?.uid || 'guest',
-      completed: false,
-      totalPomodoroSessions: 0,
-      totalTimeSpent: 0,
-      createdAt: new Date(),
-      estimatedPomodoros,
-      focus: focus ?? false,
-      deadline: null,
-      manualTimeSpent: 0,
-      trackingStartedAt: null,
-      labelIds: labelIds ?? [],
-    };
-=======
     try {
       const newTaskData = validateTaskCreate({
         title,
@@ -113,17 +96,17 @@ export function useTasks(projectId?: string) {
         userId: user?.uid || 'guest',
         completed: false,
         estimatedPomodoros,
-        focus: false,
+        focus: focus ?? false,
         deadline: null,
+        estimationSource: estimatedPomodoros ? 'manual' : undefined,
       });
->>>>>>> origin/fix/data-validation-schemas
 
-    if (!user) {
-      // Guest mode
-      const newTask = addGuestTask(newTaskData);
-      setTasks(prev => [...prev, newTask]);
-      return newTask.id;
-    }
+      if (!user) {
+        // Guest mode
+        const newTask = addGuestTask(newTaskData);
+        setTasks(prev => [...prev, newTask]);
+        return newTask.id;
+      }
 
       const docRef = await addDoc(collection(db, "tasks"), newTaskData);
       return docRef.id;
@@ -177,23 +160,60 @@ export function useTasks(projectId?: string) {
 
   const toggleTaskCompletion = useCallback(async (id: string, currentCompletionState: boolean) => {
     const user = auth.currentUser;
+    const newCompleted = !currentCompletionState;
+
+    // Find the task to get its details
+    const task = tasks.find(t => t.id === id);
+    if (!task) {
+      throw new Error('Task not found');
+    }
 
     if (!user) {
       // Guest mode
-      updateGuestTask(id, { completed: !currentCompletionState });
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !currentCompletionState } : t));
+      const updates: Partial<Task> = { completed: newCompleted };
+      
+      // On completion, snapshot the actual pomodoros
+      if (!currentCompletionState && newCompleted) {
+        updates.completedPomodoros = task.totalPomodoroSessions || 0;
+      }
+      
+      updateGuestTask(id, updates);
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
       return;
     }
 
     try {
-      await updateDoc(doc(db, "tasks", id), {
-        completed: !currentCompletionState
-      });
+      const updates: any = { completed: newCompleted };
+
+      // On task completion, snapshot the actual pomodoros
+      if (!currentCompletionState && newCompleted) {
+        updates.completedPomodoros = task.totalPomodoroSessions || 0;
+
+        // Store in estimation history if task had an estimate
+        if (task.estimatedPomodoros) {
+          try {
+            await addEstimationRecord({
+              userId: user.uid,
+              taskId: id,
+              taskTitle: task.title,
+              projectId: task.projectId,
+              estimatedPomodoros: task.estimatedPomodoros,
+              actualPomodoros: task.totalPomodoroSessions || 0,
+              completedAt: new Date()
+            });
+          } catch (estimationError) {
+            // Don't fail the task completion if estimation history fails
+            console.error("Error storing estimation record:", estimationError);
+          }
+        }
+      }
+
+      await updateDoc(doc(db, "tasks", id), updates);
     } catch (err) {
       console.error("Error toggling task completion:", err);
       throw err;
     }
-  }, []);
+  }, [tasks]);
 
   const incrementPomodoroSession = useCallback(async (id: string, duration: number) => {
     const user = auth.currentUser;
