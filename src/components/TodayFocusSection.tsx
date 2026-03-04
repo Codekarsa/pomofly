@@ -22,6 +22,8 @@ import BulkActionToolbar from './BulkActionToolbar';
 import TaskTimeTracker from './TaskTimeTracker';
 import TimeTrackingControls from './TimeTrackingControls';
 import PomodoroProgressBar from './PomodoroProgressBar';
+import { LabelBadge } from './LabelPicker';
+import { useLabels } from '@/hooks/useLabels';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,6 +64,7 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
     stopAllTimeTracking
   } = useTasks();
   const { projects } = useProjects();
+  const { labels } = useLabels();
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
 
   const focusedTasks = useMemo(() => {
@@ -388,6 +391,13 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
                         </span>
 
                         {task.projectId && <ProjectBadge projectId={task.projectId} />}
+                        {task.labelIds && task.labelIds.length > 0 && (
+                          <span className="inline-flex items-center gap-1">
+                            {labels.filter(l => task.labelIds!.includes(l.id)).map(label => (
+                              <LabelBadge key={label.id} label={label} size="sm" />
+                            ))}
+                          </span>
+                        )}
                       </div>
 
                       {/* Row 2: Deadline + Timer + Progress Bar in one line */}

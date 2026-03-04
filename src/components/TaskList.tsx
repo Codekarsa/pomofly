@@ -25,6 +25,9 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Combobox } from './ui/combobox';
+import { cn } from '@/lib/utils';
+import LabelPicker, { LabelBadge } from './LabelPicker';
+import { useLabels } from '@/hooks/useLabels';
 import { AIBreakdownModal } from './AIBreakdownModal';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -63,6 +66,7 @@ interface CompletedTasksSectionProps {
   onDeleteTask: (id: string) => void;
   event: AnalyticsEvent;
   ProjectBadge: React.FC<{ projectId: string }>;
+  TaskLabels: React.FC<{ labelIds?: string[] }>;
 }
 
 const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
@@ -74,6 +78,7 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
   onDeleteTask,
   event,
   ProjectBadge,
+  TaskLabels,
 }) => {
   const [open, setOpen] = useState(false);
   if (!tasks.length) return null;
@@ -111,6 +116,7 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
                 </Button>
                 <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
                 {task.projectId && <ProjectBadge projectId={task.projectId} />}
+                <TaskLabels labelIds={task.labelIds} />
                 <span className="text-xs text-muted-foreground">
                   ({task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0})
                 </span>
@@ -188,7 +194,8 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [estimatedPomodoros, setEstimatedPomodoros] = useState<number | undefined>(undefined);
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [newTaskFocus, setNewTaskFocus] = useState(false);
-  const [editingTask, setEditingTask] = useState<{ id: string, title: string, estimatedPomodoros?: number, projectId?: string } | null>(null);
+  const [newTaskLabelIds, setNewTaskLabelIds] = useState<string[]>([]);
+  const [editingTask, setEditingTask] = useState<{ id: string, title: string, estimatedPomodoros?: number, projectId?: string, labelIds?: string[] } | null>(null);
   const [editingDeadline, setEditingDeadline] = useState<{ id: string, deadline: string } | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
@@ -196,6 +203,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [showAddTaskForm, setShowAddTaskForm] = useState(false);
   const [showAIBreakdownModal, setShowAIBreakdownModal] = useState(false);
   const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [labelFilter, setLabelFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -205,6 +213,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
 
   const { projects, addProject } = useProjects();
+  const { labels } = useLabels();
   const {
     tasks,
     loading: tasksLoading,
@@ -280,6 +289,20 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     );
   };
 
+  // Task Labels Component
+  const TaskLabels = ({ labelIds }: { labelIds?: string[] }) => {
+    if (!labelIds || labelIds.length === 0) return null;
+    const taskLabels = labels.filter(l => labelIds.includes(l.id));
+    if (taskLabels.length === 0) return null;
+    return (
+      <span className="inline-flex items-center gap-1">
+        {taskLabels.map(label => (
+          <LabelBadge key={label.id} label={label} size="sm" />
+        ))}
+      </span>
+    );
+  };
+
   useEffect(() => {
     event('task_list_view', { total_tasks: tasks.length });
   }, [event, tasks.length]);
@@ -288,21 +311,23 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     e.preventDefault();
     if (newTaskTitle.trim() && selectedProjectId) {
       try {
-        await addTask(newTaskTitle, selectedProjectId, estimatedPomodoros, newTaskFocus);
+        await addTask(newTaskTitle, selectedProjectId, estimatedPomodoros, newTaskFocus, newTaskLabelIds);
         event('task_added', {
           project_id: selectedProjectId,
           estimated_pomodoros: estimatedPomodoros,
-          focus: newTaskFocus
+          focus: newTaskFocus,
+          label_count: newTaskLabelIds.length
         });
         setNewTaskTitle('');
         setEstimatedPomodoros(0);
         setNewTaskFocus(false);
+        setNewTaskLabelIds([]);
       } catch (error) {
         console.error("Failed to add task:", error);
         event('task_add_error', { error_message: (error as Error).message });
       }
     }
-  }, [addTask, event, estimatedPomodoros, newTaskTitle, selectedProjectId, newTaskFocus]);
+  }, [addTask, event, estimatedPomodoros, newTaskTitle, selectedProjectId, newTaskFocus, newTaskLabelIds]);
 
   const handleUpdateTask = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -311,7 +336,8 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
         await updateTask(editingTask.id, {
           title: editingTask.title,
           estimatedPomodoros: editingTask.estimatedPomodoros,
-          projectId: editingTask.projectId
+          projectId: editingTask.projectId,
+          labelIds: editingTask.labelIds
         });
         event('task_updated', {
           task_id: editingTask.id,
@@ -335,6 +361,9 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     if (projectFilter !== 'all') {
       tasks = tasks.filter(task => task.projectId === projectFilter);
     }
+    if (labelFilter !== 'all') {
+      tasks = tasks.filter(task => task.labelIds?.includes(labelFilter));
+    }
     if (statusFilter === 'active') {
       tasks = tasks.filter(task => !task.completed);
     } else if (statusFilter === 'completed') {
@@ -346,7 +375,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
       tasks = tasks.filter(task => task.title.toLowerCase().includes(search.toLowerCase()));
     }
     return tasks;
-  }, [memoizedTasks, projectFilter, statusFilter, search]);
+  }, [memoizedTasks, projectFilter, labelFilter, statusFilter, search]);
 
   // Sorting logic
   const sortedTasks = useMemo(() => {
@@ -615,6 +644,12 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
               <span className="text-sm text-muted-foreground">
                 {newTaskFocus ? "Added to Today's Focus" : "Add to Today's Focus"}
               </span>
+              <div className="border-l pl-2 ml-1">
+                <LabelPicker
+                  selectedLabelIds={newTaskLabelIds}
+                  onChange={setNewTaskLabelIds}
+                />
+              </div>
             </div>
             <div className="flex items-center space-x-2">
               <Button type="submit" className="w-1/2">
@@ -665,7 +700,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
             <PopoverTrigger asChild>
               <Button variant="outline" size="icon" aria-label="Filter tasks" className="relative w-24 flex justify-center items-center">
                 <Filter className="w-4 h-4" />
-                {(projectFilter !== 'all' || statusFilter !== 'all') && (
+                {(projectFilter !== 'all' || labelFilter !== 'all' || statusFilter !== 'all') && (
                   <span className="absolute -top-1 -right-1 flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
@@ -684,6 +719,25 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                     <SelectItem value="all">All Projects</SelectItem>
                     {memoizedProjects.map(project => (
                       <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Label</label>
+                <Select value={labelFilter} onValueChange={setLabelFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Label" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Labels</SelectItem>
+                    {labels.map(label => (
+                      <SelectItem key={label.id} value={label.id}>
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: label.color }} />
+                          {label.name}
+                        </span>
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -754,6 +808,10 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                       placeholder="Select a project"
                       onCreateNew={handleCreateProjectForEdit}
                     />
+                    <LabelPicker
+                      selectedLabelIds={editingTask.labelIds || []}
+                      onChange={(labelIds) => setEditingTask({ ...editingTask, labelIds })}
+                    />
                     <Button type="submit" size="sm" variant="outline">Save</Button>
                     <Button type="button" size="sm" variant="ghost" onClick={() => setEditingTask(null)}>Cancel</Button>
                   </div>
@@ -799,6 +857,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                     </Button>
                     <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
                     {task.projectId && <ProjectBadge projectId={task.projectId} />}
+                    <TaskLabels labelIds={task.labelIds} />
                     <span className="text-xs text-muted-foreground">
                       ({task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0})
                     </span>
@@ -839,7 +898,8 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                           id: task.id,
                           title: task.title,
                           estimatedPomodoros: task.estimatedPomodoros,
-                          projectId: task.projectId
+                          projectId: task.projectId,
+                          labelIds: task.labelIds
                         });
                         event('task_edit_started', { task_id: task.id });
                       }}>
@@ -891,6 +951,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
             onDeleteTask={handleDeleteTask}
             event={event}
             ProjectBadge={ProjectBadge}
+            TaskLabels={TaskLabels}
           />
         )}
         {selectedTasks.size > 0 && (
