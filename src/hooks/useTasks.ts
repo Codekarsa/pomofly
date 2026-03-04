@@ -160,7 +160,6 @@ export function useTasks(projectId?: string) {
 
   const toggleTaskCompletion = useCallback(async (id: string, currentCompletionState: boolean) => {
     const user = auth.currentUser;
-    const newCompleted = !currentCompletionState;
 
     // Find the task to get its details
     const task = tasks.find(t => t.id === id);
@@ -170,10 +169,11 @@ export function useTasks(projectId?: string) {
 
     if (!user) {
       // Guest mode
-      const updates: Partial<Task> = { completed: newCompleted };
+      const updates: Partial<Task> = { completed: !currentCompletionState };
       
-      // On completion, snapshot the actual pomodoros
-      if (!currentCompletionState && newCompleted) {
+      // On completion, store completion data
+      if (!currentCompletionState) {
+        updates.completedAt = new Date();
         updates.completedPomodoros = task.totalPomodoroSessions || 0;
       }
       
@@ -183,32 +183,23 @@ export function useTasks(projectId?: string) {
     }
 
     try {
-      const updates: any = { completed: newCompleted };
+      const taskRef = doc(db, "tasks", id);
 
-      // On task completion, snapshot the actual pomodoros
-      if (!currentCompletionState && newCompleted) {
-        updates.completedPomodoros = task.totalPomodoroSessions || 0;
-
-        // Store in estimation history if task had an estimate
-        if (task.estimatedPomodoros) {
-          try {
-            await addEstimationRecord({
-              userId: user.uid,
-              taskId: id,
-              taskTitle: task.title,
-              projectId: task.projectId,
-              estimatedPomodoros: task.estimatedPomodoros,
-              actualPomodoros: task.totalPomodoroSessions || 0,
-              completedAt: new Date()
-            });
-          } catch (estimationError) {
-            // Don't fail the task completion if estimation history fails
-            console.error("Error storing estimation record:", estimationError);
-          }
-        }
+      if (!task.completed) {
+        // Store completion data
+        await updateDoc(taskRef, {
+          completed: true,
+          completedAt: new Date(),
+          completedPomodoros: task.totalPomodoroSessions || 0
+        });
+        // Add to estimation history
+        await addEstimationRecord(user.uid, task);
+      } else {
+        // Mark as incomplete
+        await updateDoc(taskRef, {
+          completed: false
+        });
       }
-
-      await updateDoc(doc(db, "tasks", id), updates);
     } catch (err) {
       console.error("Error toggling task completion:", err);
       throw err;
