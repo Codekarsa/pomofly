@@ -15,7 +15,11 @@
     "beads": "./scripts/beads-github-sync.sh status",
     "beads:sync": "./scripts/beads-github-sync.sh status",
     "beads:push": "./scripts/beads-github-sync.sh push",
-    "beads:pull": "./scripts/beads-github-sync.sh pull"
+    "beads:pull": "./scripts/beads-github-sync.sh pull",
+    "pwa:icons": "node scripts/create-placeholder-icons.js",
+    "pwa:icons:generate": "node scripts/generate-icons.js",
+    "pwa:test": "lighthouse https://pomofly.com --view",
+    "pwa:validate": "pwa-asset-generator validate"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.29.0",
