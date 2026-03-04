@@ -1,96 +1,76 @@
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, Auth } from "firebase/auth";
+import { getAuth as initAuth, GoogleAuthProvider, Auth } from "firebase/auth";
 import { getFirestore, Firestore } from "firebase/firestore";
 
-// Environment validation with proper typing
-interface FirebaseConfig {
-  apiKey: string;
-  authDomain: string;
-  projectId: string;
-  storageBucket: string;
-  messagingSenderId: string;
-  appId: string;
-}
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+};
 
-// Validate and build Firebase configuration
-function validateFirebaseConfig(): FirebaseConfig | null {
-  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-  const authDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  const storageBucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
-  const messagingSenderId = process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID;
-  const appId = process.env.NEXT_PUBLIC_FIREBASE_APP_ID;
-
-  // Use fallback values for development/demo (should be removed in production)
-  const firebaseConfig: FirebaseConfig = {
-    apiKey: apiKey || "AIzaSyD7ud8TN_pJ0b1x2ZPro9cvwKWd8y7Andc",
-    authDomain: authDomain || "pomofly-63fc9.firebaseapp.com",
-    projectId: projectId || "pomofly-63fc9",
-    storageBucket: storageBucket || "pomofly-63fc9.appspot.com",
-    messagingSenderId: messagingSenderId || "531162182130",
-    appId: appId || "1:531162182130:web:67108b2c84cdd3e0fbfb6b"
-  };
-
-  // Validate required fields
-  const requiredFields: (keyof FirebaseConfig)[] = [
-    'apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'
-  ];
-
-  for (const field of requiredFields) {
-    if (!firebaseConfig[field] || firebaseConfig[field].trim() === '') {
-      return null;
-    }
-  }
-
-  return firebaseConfig;
-}
-
-// Initialize Firebase safely
+// Skip Firebase initialization during static site generation (SSG) when env vars aren't available
+// Firebase will be properly initialized at runtime in the browser
 const isServer = typeof window === 'undefined';
-const firebaseConfig = validateFirebaseConfig();
+const hasRequiredConfig = !!(
+  firebaseConfig.apiKey &&
+  firebaseConfig.authDomain &&
+  firebaseConfig.projectId
+);
 
-let app: FirebaseApp | null = null;
-let _auth: Auth | null = null;
-let _db: Firestore | null = null;
-let _googleProvider: GoogleAuthProvider | null = null;
+let app: FirebaseApp | undefined;
+let _auth: Auth | undefined;
+let _db: Firestore | undefined;
+let _googleProvider: GoogleAuthProvider | undefined;
 
-// Initialize Firebase only if config is valid
-if (firebaseConfig && !isServer) {
+if (hasRequiredConfig && !isServer) {
   try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-    _auth = getAuth(app);
+    _auth = initAuth(app);
     _db = getFirestore(app);
     _googleProvider = new GoogleAuthProvider();
   } catch (error) {
     console.error('Failed to initialize Firebase:', error);
-    // Reset to null on initialization failure
-    app = null;
-    _auth = null;
-    _db = null;
-    _googleProvider = null;
+    // Reset to undefined on initialization failure
+    app = undefined;
+    _auth = undefined;
+    _db = undefined;
+    _googleProvider = undefined;
   }
-} else if (!firebaseConfig && !isServer) {
-  console.warn('Firebase configuration is invalid or missing. Some features may not work.');
+} else if (!hasRequiredConfig && !isServer) {
+  // Only warn in browser if config is missing
+  console.warn(
+    'Firebase configuration missing. Please set the following environment variables:\n' +
+    '- NEXT_PUBLIC_FIREBASE_API_KEY\n' +
+    '- NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN\n' +
+    '- NEXT_PUBLIC_FIREBASE_PROJECT_ID\n' +
+    '- NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET\n' +
+    '- NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID\n' +
+    '- NEXT_PUBLIC_FIREBASE_APP_ID\n' +
+    'Firebase features will be disabled.'
+  );
 }
 
-// Safe getter functions that validate initialization before returning values
-export function getFirebaseAuth(): Auth {
+// Safe getters with runtime validation
+export function getAuth(): Auth {
   if (!_auth) {
-    throw new Error('Firebase Auth not initialized. Check your Firebase configuration.');
+    throw new Error('Firebase Auth not initialized. Please check your Firebase configuration.');
   }
   return _auth;
 }
 
-export function getFirebaseDb(): Firestore {
+export function getDB(): Firestore {
   if (!_db) {
-    throw new Error('Firestore not initialized. Check your Firebase configuration.');
+    throw new Error('Firebase Firestore not initialized. Please check your Firebase configuration.');
   }
   return _db;
 }
 
 export function getGoogleProvider(): GoogleAuthProvider {
   if (!_googleProvider) {
-    throw new Error('Google Auth Provider not initialized. Check your Firebase configuration.');
+    throw new Error('Google Auth Provider not initialized. Please check your Firebase configuration.');
   }
   return _googleProvider;
 }
@@ -100,27 +80,10 @@ export function isFirebaseInitialized(): boolean {
   return !!(app && _auth && _db && _googleProvider);
 }
 
-// Legacy exports for backward compatibility - these will throw if not initialized
-export const auth = new Proxy({} as Auth, {
-  get(_, prop) {
-    const authInstance = getFirebaseAuth();
-    return authInstance[prop as keyof Auth];
-  }
-});
+// Export boolean to check if Firebase is available
+export const isFirebaseAvailable = hasRequiredConfig && !isServer;
 
-export const db = new Proxy({} as Firestore, {
-  get(_, prop) {
-    const dbInstance = getFirebaseDb();
-    return dbInstance[prop as keyof Firestore];
-  }
-});
-
-export const googleProvider = new Proxy({} as GoogleAuthProvider, {
-  get(_, prop) {
-    const providerInstance = getGoogleProvider();
-    return providerInstance[prop as keyof GoogleAuthProvider];
-  }
-});
-
-// Export the Firebase app instance for advanced usage
-export { app as firebaseApp };
+// Legacy exports for backward compatibility (deprecated)
+export const auth = _auth as Auth;
+export const db = _db as Firestore;
+export const googleProvider = _googleProvider as GoogleAuthProvider;
