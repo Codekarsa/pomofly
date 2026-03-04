@@ -185,7 +185,7 @@ export function useTasks(projectId?: string) {
     try {
       const taskRef = doc(db, "tasks", id);
 
-      if (!task.completed) {
+      if (!currentCompletionState) {
         // Store completion data
         await updateDoc(taskRef, {
           completed: true,
