@@ -104,15 +104,21 @@ import {
   EstimationRecordCreate, 
   EstimationRecord,
   transformFirebaseEstimationRecord,
-  extractKeywords 
+  extractKeywords,
+  Task
 } from "./validation";
 
 /**
  * Add a new estimation record to the history collection
  */
-export async function addEstimationRecord(userId: string, task: any): Promise<string> {
+export async function addEstimationRecord(userId: string, task: Task): Promise<string> {
   if (!_db) {
     throw new Error('Firebase not initialized');
+  }
+
+  // Only store if task had an estimate
+  if (!task.estimatedPomodoros) {
+    return ''; // Skip tasks without estimates
   }
 
   const record = {
