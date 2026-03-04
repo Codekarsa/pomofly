@@ -9,6 +9,34 @@ interface TaskBreakdown {
   }[];
 }
 
+// Request timeout configuration (30 seconds)
+const REQUEST_TIMEOUT_MS = 30000;
+
+class TimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TimeoutError';
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new TimeoutError(`Request timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    promise
+      .then((result) => {
+        clearTimeout(timeoutId);
+        resolve(result);
+      })
+      .catch((error) => {
+        clearTimeout(timeoutId);
+        reject(error);
+      });
+  });
+}
+
 export async function POST(request: NextRequest) {
   // Authentication check
   const authResult = await validateAuth(request);
@@ -89,12 +117,41 @@ export async function POST(request: NextRequest) {
 
     const apiKey = process.env.CLAUDE_API_KEY;
     const claudeModel = process.env.CLAUDE_MODEL;
+    
     if (!apiKey) {
-      throw new Error('CLAUDE_API_KEY is not set in the environment variables');
+      return NextResponse.json(
+        { 
+          error: 'Configuration Error', 
+          message: 'Claude API is not properly configured' 
+        },
+        { status: 503 }
+      );
+    }
+
+    if (!claudeModel) {
+      return NextResponse.json(
+        { 
+          error: 'Configuration Error', 
+          message: 'Claude model is not configured' 
+        },
+        { status: 503 }
+      );
+    }
+
+    // Validate required inputs
+    if (!description?.trim()) {
+      return NextResponse.json(
+        { 
+          error: 'Validation Error', 
+          message: 'Task description is required' 
+        },
+        { status: 400 }
+      );
     }
 
     const anthropic = new Anthropic({
       apiKey: apiKey,
+      timeout: REQUEST_TIMEOUT_MS,
     });
 
     console.log('Sending request to Claude API with body:', {
@@ -125,21 +182,30 @@ Please provide the breakdown in the following JSON format without any additional
     ...
   ]
 }`;
-    const message = await anthropic.messages.create({
-      model: claudeModel as Anthropic.Model,
-      max_tokens: 1000,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    });
+    const message = await withTimeout(
+      anthropic.messages.create({
+        model: claudeModel as Anthropic.Model,
+        max_tokens: 1000,
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+      }),
+      REQUEST_TIMEOUT_MS
+    );
 
     console.log('Claude API Response:', JSON.stringify(message, null, 2));
 
     if (!message.content || message.content.length === 0) {
-      throw new Error('Unexpected response structure from Claude API');
+      return NextResponse.json(
+        { 
+          error: 'API Response Error', 
+          message: 'Claude API returned empty response' 
+        },
+        { status: 502 }
+      );
     }
 
     const aiContent = (message.content[0] as Anthropic.TextBlock).text.trim();
@@ -151,7 +217,13 @@ Please provide the breakdown in the following JSON format without any additional
       taskBreakdown = JSON.parse(aiContent); 
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
-      throw new Error('Failed to parse AI response. Ensure the AI returns valid JSON.');
+      return NextResponse.json(
+        { 
+          error: 'AI Response Format Error', 
+          message: 'Claude API returned invalid JSON format' 
+        },
+        { status: 502 }
+      );
     }
 
     if (
@@ -163,14 +235,86 @@ Please provide the breakdown in the following JSON format without any additional
           typeof task.estimatedPomodoros === 'number'
       )
     ) {
-      throw new Error('AI response format is incorrect');
+      return NextResponse.json(
+        { 
+          error: 'AI Response Validation Error', 
+          message: 'Claude API response does not match expected task breakdown format' 
+        },
+        { status: 502 }
+      );
     }
 
     return NextResponse.json(taskBreakdown);
   } catch (error) {
     console.error('Error processing Claude API request:', error);
+
+    // Handle different error types with appropriate responses
+    if (error instanceof TimeoutError) {
+      return NextResponse.json(
+        { 
+          error: 'Request Timeout', 
+          message: 'Claude API request timed out. Please try again.' 
+        },
+        { status: 408 }
+      );
+    }
+
+    if (error instanceof Anthropic.APIError) {
+      if (error.status === 401) {
+        return NextResponse.json(
+          { 
+            error: 'Authentication Error', 
+            message: 'Invalid Claude API key' 
+          },
+          { status: 401 }
+        );
+      }
+
+      if (error.status === 429) {
+        return NextResponse.json(
+          { 
+            error: 'Rate Limit Exceeded', 
+            message: 'Claude API rate limit exceeded. Please try again later.' 
+          },
+          { status: 429 }
+        );
+      }
+
+      if (error.status === 400) {
+        return NextResponse.json(
+          { 
+            error: 'Bad Request', 
+            message: 'Invalid request to Claude API' 
+          },
+          { status: 400 }
+        );
+      }
+
+      return NextResponse.json(
+        { 
+          error: 'Claude API Error', 
+          message: `Claude API returned error: ${error.message}` 
+        },
+        { status: error.status || 502 }
+      );
+    }
+
+    if (error instanceof Anthropic.APIConnectionError) {
+      return NextResponse.json(
+        { 
+          error: 'Connection Error', 
+          message: 'Failed to connect to Claude API. Please try again.' 
+        },
+        { status: 503 }
+      );
+    }
+
+    // Generic error fallback
     return NextResponse.json(
-      { error: 'Internal Server Error', details: (error as Error).message },
+      { 
+        error: 'Internal Server Error', 
+        message: 'An unexpected error occurred processing your request' 
+      },
       { status: 500 }
     );
   }
