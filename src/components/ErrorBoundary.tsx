@@ -1,3 +1,5 @@
+'use client';
+
 import React, { Component, ReactNode } from 'react';
 import { monitoring } from '@/lib/monitoring';
 import { Button } from '@/components/ui/button';
