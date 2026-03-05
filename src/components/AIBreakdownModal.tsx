@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -44,21 +44,6 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
   const [longBreakDuration, setLongBreakDuration] = useState(settings.longBreak);
   
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
-
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const adjustTextareaHeight = () => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = 'auto';
-      const newHeight = Math.min(textarea.scrollHeight, 8 * 24);
-      textarea.style.height = `${newHeight}px`;
-    }
-  };
-
-  useEffect(() => {
-    adjustTextareaHeight();
-  }, [description]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -113,7 +98,7 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
     if (field === 'title') {
       newTasks[index].title = value;
     } else {
-      newTasks[index].estimatedPomodoros = parseInt(value, 10);
+      newTasks[index].estimatedPomodoros = parseInt(value, 10) || 1;
     }
     setBreakdownResult(newTasks);
   };
@@ -167,7 +152,7 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
                       id="pomodoroDuration"
                       type="number"
                       value={pomodoroDuration}
-                      onChange={(e) => setPomodoroDuration(parseInt(e.target.value, 10))}
+                      onChange={(e) => setPomodoroDuration(parseInt(e.target.value, 10) || 1)}
                       min="1"
                     />
                   </div>
@@ -177,7 +162,7 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
                       id="shortBreakDuration"
                       type="number"
                       value={shortBreakDuration}
-                      onChange={(e) => setShortBreakDuration(parseInt(e.target.value, 10))}
+                      onChange={(e) => setShortBreakDuration(parseInt(e.target.value, 10) || 1)}
                       min="1"
                     />
                   </div>
@@ -187,7 +172,7 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
                       id="longBreakDuration"
                       type="number"
                       value={longBreakDuration}
-                      onChange={(e) => setLongBreakDuration(parseInt(e.target.value, 10))}
+                      onChange={(e) => setLongBreakDuration(parseInt(e.target.value, 10) || 1)}
                       min="1"
                     />
                   </div>
