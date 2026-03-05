@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useApiMonitoring } from '@/hooks/useMonitoring';
+import { sanitizeTaskTitle, checkClientRateLimit } from '@/lib/security';
 
 interface BreakdownResult {
   tasks: {
@@ -38,6 +39,22 @@ export const useClaudeAI = () => {
       // Check if user is authenticated
       if (!user) {
         throw new Error('User must be authenticated to use AI features');
+      }
+
+      // Client-side rate limiting (5 requests per minute)
+      const rateLimitCheck = checkClientRateLimit(user.uid, 5, 60000);
+      if (!rateLimitCheck.allowed) {
+        const waitTime = Math.ceil((rateLimitCheck.resetTime - Date.now()) / 1000);
+        throw new Error(`Rate limit exceeded. Please wait ${waitTime} seconds before trying again.`);
+      }
+
+      // Basic input validation
+      if (!description?.trim() || description.trim().length === 0) {
+        throw new Error('Task description is required');
+      }
+
+      if (description.length > 2000) {
+        throw new Error('Task description must be less than 2000 characters');
       }
 
       // Get ID token for authentication
@@ -100,7 +117,17 @@ export const useClaudeAI = () => {
           throw new Error(errorMessage);
         }
 
-        return await response.json();
+        const data = await response.json();
+        
+        // Additional client-side sanitization for task titles
+        if (data?.tasks && Array.isArray(data.tasks)) {
+          data.tasks = data.tasks.map((task: any) => ({
+            ...task,
+            title: sanitizeTaskTitle(task.title || ''),
+          }));
+        }
+        
+        return data;
       });
       return result;
     } catch (err) {

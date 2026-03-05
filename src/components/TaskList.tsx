@@ -111,7 +111,7 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
                   aria-label="Mark as incomplete"
                 >
                   <CheckCircle className="w-4 h-4" fill="currentColor" />
-                </Button>
+                </MobileButton>
                 <MobileButton
                   variant="ghost"
                   size="icon"

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { validateAuth, checkRateLimit } from '@/lib/auth-middleware';
+import { sanitizeServerInput, validateServerInput, sanitizeAIResponse } from '@/lib/security';
 
 interface TaskBreakdown {
   tasks: {
@@ -85,13 +86,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate description length (prevent abuse)
-    if (description.length > 2000) {
+    // Server-side input validation and sanitization
+    const inputValidation = validateServerInput(description, 2000);
+    if (!inputValidation.isValid) {
       return NextResponse.json(
-        { error: 'Bad Request', details: 'Description must be less than 2000 characters' },
+        { error: 'Input Validation Error', details: inputValidation.error },
         { status: 400 }
       );
     }
+
+    // Sanitize the description to prevent injection attacks
+    const sanitizedDescription = sanitizeServerInput(description);
 
     // Validate numeric fields
     if (pomodoroDuration && (typeof pomodoroDuration !== 'number' || pomodoroDuration < 1 || pomodoroDuration > 120)) {
@@ -165,7 +170,7 @@ export async function POST(request: NextRequest) {
 
     const prompt = `Given the following task description and time constraints, please break it down into subtasks with estimated Pomodoro sessions (${pomodoroDuration}-minute work intervals) for each:
 
-Task Description: ${description}
+Task Description: ${sanitizedDescription}
 Start Date: ${startDate || 'Not specified'}
 End Date: ${endDate || 'Not specified'}
 Pomodoro Duration: ${pomodoroDuration} minutes
@@ -181,7 +186,9 @@ Please provide the breakdown in the following JSON format without any additional
     },
     ...
   ]
-}`;
+}
+
+IMPORTANT: Task titles should be plain text only, no HTML tags, scripts, or special formatting.`;
     const message = await withTimeout(
       anthropic.messages.create({
         model: claudeModel as Anthropic.Model,
@@ -212,7 +219,7 @@ Please provide the breakdown in the following JSON format without any additional
 
     console.log('Assistant Response Content:', aiContent);
 
-    let taskBreakdown: TaskBreakdown;
+    let taskBreakdown: any;
     try {
       taskBreakdown = JSON.parse(aiContent); 
     } catch (parseError) {
@@ -226,25 +233,20 @@ Please provide the breakdown in the following JSON format without any additional
       );
     }
 
-    if (
-      !taskBreakdown.tasks ||
-      !Array.isArray(taskBreakdown.tasks) ||
-      !taskBreakdown.tasks.every(
-        (task) =>
-          typeof task.title === 'string' &&
-          typeof task.estimatedPomodoros === 'number'
-      )
-    ) {
+    // Validate and sanitize AI response
+    const sanitizationResult = sanitizeAIResponse(taskBreakdown);
+    if (!sanitizationResult.isValid) {
+      console.error('AI response validation failed:', sanitizationResult.error);
       return NextResponse.json(
         { 
           error: 'AI Response Validation Error', 
-          message: 'Claude API response does not match expected task breakdown format' 
+          message: sanitizationResult.error || 'Claude API response failed security validation' 
         },
         { status: 502 }
       );
     }
 
-    return NextResponse.json(taskBreakdown);
+    return NextResponse.json(sanitizationResult.sanitizedData);
   } catch (error) {
     console.error('Error processing Claude API request:', error);
 
