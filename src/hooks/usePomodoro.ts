@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useHighPrecisionTimer } from './useHighPrecisionTimer';
 
 type PomodoroPhase = 'pomodoro' | 'shortBreak' | 'longBreak';
 
@@ -77,34 +78,34 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     localStorage.setItem('pomodoroSettings', JSON.stringify(newSettings));
   }, []);
 
-  // Timer display update effect - uses timestamp for accuracy
-  useEffect(() => {
-    if (!isActive) return;
+  // High precision timer callbacks
+  const handleTimerTick = useCallback((timeRemaining: number) => {
+    const mins = Math.floor(timeRemaining / 60);
+    const secs = timeRemaining % 60;
+    setMinutes(mins);
+    setSeconds(secs);
+  }, []);
 
-    const updateDisplay = () => {
-      const remaining = getRemainingTime();
-      const mins = Math.floor(remaining / 60);
-      const secs = remaining % 60;
+  const handleTimerComplete = useCallback(() => {
+    setIsActive(false);
+    setTimerStartedAt(null);
+    setPausedTimeRemaining(null);
+    handlePhaseComplete();
+  }, [handlePhaseComplete]);
 
-      setMinutes(mins);
-      setSeconds(secs);
+  const getCurrentDuration = useCallback(() => {
+    return settings[phase] * 60; // Convert minutes to seconds
+  }, [settings, phase]);
 
-      if (remaining <= 0) {
-        setIsActive(false);
-        setTimerStartedAt(null);
-        setPausedTimeRemaining(null);
-        handlePhaseComplete();
-      }
-    };
-
-    // Update immediately
-    updateDisplay();
-
-    // Then update every 100ms for smooth display
-    const interval = setInterval(updateDisplay, 100);
-
-    return () => clearInterval(interval);
-  }, [isActive, getRemainingTime, handlePhaseComplete]);
+  // Use high precision timer
+  const { timingStats, performanceMode } = useHighPrecisionTimer({
+    onTick: handleTimerTick,
+    onComplete: handleTimerComplete,
+    getDuration: getCurrentDuration,
+    isActive,
+    startTime: timerStartedAt,
+    pausedTime: pausedTimeRemaining
+  });
 
   const toggleTimer = useCallback(() => {
     if (!isActive) {
@@ -162,6 +163,8 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     resetTimer,
     switchPhase,
     settings,
-    updateSettings
+    updateSettings,
+    timingStats,
+    performanceMode
   };
 }
