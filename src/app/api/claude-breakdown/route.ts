@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { getServerEnv } from '@/lib/env';
 
 interface TaskBreakdown {
   tasks: {
@@ -10,6 +11,9 @@ interface TaskBreakdown {
 
 export async function POST(request: Request) {
   try {
+    // Validate environment variables early
+    const env = getServerEnv();
+    
     const body = await request.json();
     const {
       description,
@@ -20,14 +24,8 @@ export async function POST(request: Request) {
       longBreakDuration,
     } = body;
 
-    const apiKey = process.env.CLAUDE_API_KEY;
-    const claudeModel = process.env.CLAUDE_MODEL;
-    if (!apiKey) {
-      throw new Error('CLAUDE_API_KEY is not set in the environment variables');
-    }
-
     const anthropic = new Anthropic({
-      apiKey: apiKey,
+      apiKey: env.CLAUDE_API_KEY,
     });
 
     console.log('Sending request to Claude API with body:', {
@@ -59,7 +57,7 @@ Please provide the breakdown in the following JSON format without any additional
   ]
 }`;
     const message = await anthropic.messages.create({
-      model: claudeModel as Anthropic.Model,
+      model: env.CLAUDE_MODEL as Anthropic.Model,
       max_tokens: 1000,
       messages: [
         {
@@ -102,6 +100,19 @@ Please provide the breakdown in the following JSON format without any additional
     return NextResponse.json(taskBreakdown);
   } catch (error) {
     console.error('Error processing Claude API request:', error);
+    
+    // Handle environment validation errors with more specific messaging
+    if (error instanceof Error && error.message.includes('environment variables')) {
+      return NextResponse.json(
+        { 
+          error: 'Configuration Error', 
+          details: 'Server configuration is invalid. Please check environment variables.',
+          configError: true
+        },
+        { status: 500 }
+      );
+    }
+    
     return NextResponse.json(
       { error: 'Internal Server Error', details: (error as Error).message },
       { status: 500 }
