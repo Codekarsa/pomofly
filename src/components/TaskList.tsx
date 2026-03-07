@@ -111,7 +111,7 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
                   aria-label="Mark as incomplete"
                 >
                   <CheckCircle className="w-4 h-4" fill="currentColor" />
-                </Button>
+                </MobileButton>
                 <MobileButton
                   variant="ghost"
                   size="icon"
@@ -119,7 +119,7 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
                   className={`${task.focus ? 'text-yellow-500' : 'text-gray-400'}`}
                 >
                   <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
-                </Button>
+                </MobileButton>
                 <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
                 {task.projectId && <ProjectBadge projectId={task.projectId} />}
                 <TaskLabels labelIds={task.labelIds} />
@@ -941,7 +941,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                       aria-label={task.completed ? "Mark as incomplete" : "Mark as complete"}
                     >
                       <CheckCircle className="w-4 h-4" fill={task.completed ? 'currentColor' : 'none'} />
-                    </Button>
+                    </MobileButton>
                     <MobileButton
                       variant="ghost"
                       size="icon"
@@ -949,7 +949,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                       className={`${task.focus ? 'text-yellow-500' : 'text-gray-400'}`}
                     >
                       <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
-                    </Button>
+                    </MobileButton>
                     <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
                     {task.projectId && <ProjectBadge projectId={task.projectId} />}
                     <TaskLabels labelIds={task.labelIds} />

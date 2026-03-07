@@ -26,6 +26,7 @@ interface PomodoroTimerProps {
 const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) => {
   const { user } = useAuth();
   const { event } = useGoogleAnalytics();
+  const [isHydrated, setIsHydrated] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('selectedTaskIds');
@@ -33,6 +34,11 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     }
     return [];
   });
+  
+  // Track hydration to prevent hydration mismatch
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
   const {
     tasks,
     loading,
@@ -270,28 +276,9 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     event('timer_session_start_fresh');
   }, [startFresh, event]);
 
-  if (loading) {
-    return (
-      <Card className="w-full mx-auto">
-        <CardHeader>
-          <CardTitle>Pomodoro Timer</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-8">
-            {/* Timer circle skeleton with pulse animation */}
-            <div className="relative w-48 h-48 mb-6">
-              <div className="absolute inset-0 rounded-full border-8 border-gray-200"></div>
-              <div className="absolute inset-0 rounded-full border-8 border-t-red-500 border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-4xl font-mono text-gray-300 animate-pulse">--:--</div>
-              </div>
-            </div>
-            <p className="text-muted-foreground animate-pulse">Loading timer...</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  // Only show loading skeleton if we're truly waiting for essential data
+  // Don't show loading for timer display to prevent hydration mismatch
+  const showTasksLoading = loading && user;
 
   return (
     <>
@@ -331,7 +318,10 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
         </div>
 
         <div className="text-8xl font-bold mb-4 text-center py-6">
-          {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
+          {isHydrated 
+            ? `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+            : `${settings.pomodoro.toString().padStart(2, '0')}:00`
+          }
         </div>
 
         <div className="flex justify-center space-x-2 mb-6">
@@ -365,15 +355,25 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
 
         {/* Task Selection - available for authenticated users, always enabled */}
         {user && (
-          <SelectedTasksList
-            tasks={tasks}
-            projects={projects}
-            selectedTaskIds={selectedTaskIds}
-            onAddTask={handleAddTask}
-            onRemoveTask={handleRemoveTask}
-            getElapsedTime={getElapsedTime}
-            formatTime={formatTime}
-          />
+          showTasksLoading ? (
+            <div className="mt-6 p-4 border rounded-lg bg-muted/50">
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="w-4 h-4 bg-muted animate-pulse rounded"></div>
+                <div className="w-32 h-4 bg-muted animate-pulse rounded"></div>
+              </div>
+              <div className="w-full h-8 bg-muted animate-pulse rounded"></div>
+            </div>
+          ) : (
+            <SelectedTasksList
+              tasks={tasks}
+              projects={projects}
+              selectedTaskIds={selectedTaskIds}
+              onAddTask={handleAddTask}
+              onRemoveTask={handleRemoveTask}
+              getElapsedTime={getElapsedTime}
+              formatTime={formatTime}
+            />
+          )
         )}
       </CardContent>
     </Card>

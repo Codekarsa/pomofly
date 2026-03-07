@@ -21,7 +21,6 @@ const SettingsModal = lazy(() => import('./SettingsModal'));
 const MonitoringDashboard = lazy(() => import('./MonitoringDashboard'));
 
 import { TaskListLoader, ProjectListLoader, TodayFocusLoader } from '@/components/ui/loading';
->>>>>>> origin/feat/error-tracking-performance-monitoring
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
@@ -140,7 +139,6 @@ export default function Dashboard() {
             </div>
             <div className="space-y-8">
               {user ? (
-<<<<<<< HEAD
                 <>
                   <TaskErrorBoundary>
                     <Suspense fallback={<TodayFocusLoader />}>
@@ -163,7 +161,6 @@ export default function Dashboard() {
             </div>
           </div>
         </main>
-<<<<<<< HEAD
         <Suspense fallback={null}>
           <SettingsModal
             isOpen={isSettingsOpen}
@@ -173,13 +170,6 @@ export default function Dashboard() {
             event={memoizedEvent}
           />
         </Suspense>
-        <SettingsModal
-          isOpen={isSettingsOpen}
-          onClose={handleSettingsClose}
-          settings={settings}
-          onSave={handleSettingsSave}
-          event={memoizedEvent}
-        />
         <Footer onMonitoringClick={() => setIsMonitoringOpen(true)} />
       </div>
       <AutoBacklink />
