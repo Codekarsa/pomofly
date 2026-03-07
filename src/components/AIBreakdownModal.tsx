@@ -6,8 +6,10 @@ import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { useClaudeAI } from '@/hooks/useClaudeAI';
 import { Checkbox } from './ui/checkbox';
-import { Pencil, Trash2, X } from 'lucide-react';
+import { Pencil, Trash2, X, Loader2, AlertTriangle, RefreshCw, Clock } from 'lucide-react';
 import { Combobox } from './ui/combobox';
+import { Alert, AlertDescription } from './ui/alert';
+import { Progress } from './ui/progress';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -43,6 +45,12 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
   const [longBreakDuration, setLongBreakDuration] = useState(settings.longBreak);
   
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  
+  // Enhanced loading states
+  const [requestProgress, setRequestProgress] = useState(0);
+  const [requestTime, setRequestTime] = useState(0);
+  const [showSuccessConfirm, setShowSuccessConfirm] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -61,6 +69,26 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Reset states
+    setRequestProgress(0);
+    setRequestTime(0);
+    setShowSuccessConfirm(false);
+    setBreakdownResult(null);
+    
+    // Progress simulation
+    const progressInterval = setInterval(() => {
+      setRequestProgress(prev => {
+        if (prev >= 90) return prev; // Cap at 90% until real completion
+        return prev + Math.random() * 15;
+      });
+    }, 500);
+    
+    // Timer for elapsed time
+    const timeInterval = setInterval(() => {
+      setRequestTime(prev => prev + 1);
+    }, 1000);
+    
     try {
       const result = await getTaskBreakdown(
         description,
@@ -70,17 +98,42 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
         shortBreakDuration,
         longBreakDuration
       );
+      
+      // Complete progress and show success
+      setRequestProgress(100);
       setBreakdownResult(result.tasks);
+      setShowSuccessConfirm(true);
+      setRetryCount(0);
+      
     } catch (err) {
       console.error('Failed to get task breakdown:', err);
+      setRequestProgress(0);
+    } finally {
+      clearInterval(progressInterval);
+      clearInterval(timeInterval);
     }
   };
 
   const handleSave = () => {
     if (breakdownResult && selectedProject) {
       onSave(breakdownResult, selectedProject);
+      // Reset state
+      setDescription('');
+      setBreakdownResult(null);
+      setShowSuccessConfirm(false);
+      setRequestProgress(0);
+      setRequestTime(0);
       onClose();
     }
+  };
+  
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+    handleSubmit(new Event('submit') as any);
+  };
+  
+  const confirmAndContinue = () => {
+    setShowSuccessConfirm(false);
   };
 
   const handleEditTask = (index: number) => {
@@ -205,11 +258,68 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
           </div>
           <DialogFooter className="mt-4">
             <Button type="submit" disabled={loading} className="bg-primary text-primary-foreground hover:bg-primary/90">
-              {loading ? 'Processing...' : 'Get Breakdown'}
+              {loading ? (
+                <div className="flex items-center space-x-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Processing...</span>
+                </div>
+              ) : 'Get Breakdown'}
             </Button>
           </DialogFooter>
         </form>
-        {error && <p className="text-red-500 mt-2">{error}</p>}
+        
+        {/* Loading Progress */}
+        {loading && (
+          <div className="mt-4 space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center space-x-2">
+                <Clock className="h-4 w-4" />
+                <span>AI is analyzing your task...</span>
+              </span>
+              <span className="text-muted-foreground">{requestTime}s</span>
+            </div>
+            <Progress value={requestProgress} className="h-2" />
+            <div className="text-xs text-muted-foreground">
+              {requestProgress < 30 && "Breaking down your task into subtasks..."}
+              {requestProgress >= 30 && requestProgress < 60 && "Estimating time requirements..."}
+              {requestProgress >= 60 && requestProgress < 90 && "Optimizing pomodoro sessions..."}
+              {requestProgress >= 90 && "Finalizing breakdown..."}
+            </div>
+          </div>
+        )}
+        
+        {/* Error State with Retry */}
+        {error && (
+          <Alert className="mt-4" variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription className="flex items-center justify-between">
+              <span>{error} {retryCount > 0 && `(Attempt ${retryCount + 1})`}</span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRetry}
+                className="ml-2"
+              >
+                <RefreshCw className="h-4 w-4 mr-1" />
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {/* Success Confirmation */}
+        {showSuccessConfirm && breakdownResult && (
+          <Alert className="mt-4">
+            <AlertDescription>
+              <div className="flex items-center justify-between">
+                <span>✅ Successfully generated {breakdownResult.length} tasks! Review and edit below, then save.</span>
+                <Button variant="outline" size="sm" onClick={confirmAndContinue}>
+                  Got it
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
         {breakdownResult && (
           <div className="mt-4">
             <h3 className="font-semibold mb-4 text-lg">Task Breakdown:</h3>

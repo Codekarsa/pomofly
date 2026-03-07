@@ -23,6 +23,10 @@ export const useClaudeAI = () => {
     setError(null);
 
     try {
+      // Add timeout to the fetch request (30 seconds)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
       const response = await fetch('/api/claude-breakdown', {
         method: 'POST',
         headers: {
@@ -36,16 +40,30 @@ export const useClaudeAI = () => {
           shortBreakDuration,
           longBreakDuration,
         }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
-        throw new Error('Failed to get task breakdown');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.details || `Request failed (${response.status})`);
       }
 
       const result: BreakdownResult = await response.json();
       return result;
     } catch (err) {
-      setError((err as Error).message);
+      if (err instanceof Error) {
+        if (err.name === 'AbortError') {
+          setError('Request timed out. The AI service might be busy - please try again.');
+        } else if (err.message.includes('Failed to fetch')) {
+          setError('Network error. Please check your connection and try again.');
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError('An unexpected error occurred. Please try again.');
+      }
       throw err;
     } finally {
       setLoading(false);
