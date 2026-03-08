@@ -118,7 +118,7 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
             className="flex items-center gap-2"
           >
             {isImporting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-4 h-4 motion-safe:animate-spin" />
             ) : (
               <Upload className="w-4 h-4" />
             )}
