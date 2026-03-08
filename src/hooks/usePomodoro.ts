@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { safeLocalStorage } from '@/lib/safeLocalStorage';
 
 type PomodoroPhase = 'pomodoro' | 'shortBreak' | 'longBreak';
 
@@ -74,7 +75,7 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
 
   const updateSettings = useCallback((newSettings: PomodoroSettings) => {
     setSettings(newSettings);
-    localStorage.setItem('pomodoroSettings', JSON.stringify(newSettings));
+    safeLocalStorage.setItem('pomodoroSettings', newSettings);
   }, []);
 
   // Timer display update effect - uses timestamp for accuracy

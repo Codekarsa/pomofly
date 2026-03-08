@@ -9,6 +9,7 @@ import SettingsModal from './SettingsModal';
 import TodayFocusSection from './TodayFocusSection';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { Github } from 'lucide-react';
+import { safeLocalStorage } from '@/lib/safeLocalStorage';
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { signInWithPopup } from 'firebase/auth';
@@ -24,17 +25,15 @@ export default function Dashboard() {
   const { updateSettings } = usePomodoro(settings);
 
   useEffect(() => {
-    const savedSettings = localStorage.getItem('pomodoroSettings');
-    if (savedSettings) {
-      const parsedSettings = JSON.parse(savedSettings);
+    const parsedSettings = safeLocalStorage.getItem('pomodoroSettings', null);
+    if (parsedSettings) {
       setSettings(parsedSettings);
     }
   }, []);
 
   useEffect(() => {
-    const savedSettings = localStorage.getItem('pomodoroSettings');
-    if (savedSettings) {
-      const parsedSettings = JSON.parse(savedSettings);
+    const parsedSettings = safeLocalStorage.getItem('pomodoroSettings', null);
+    if (parsedSettings) {
       event('settings_loaded', {
         pomodoro: parsedSettings.pomodoro,
         shortBreak: parsedSettings.shortBreak,

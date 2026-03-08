@@ -6,6 +6,7 @@ import TaskList from '@/components/TaskList';
 import TodayFocusSection from '@/components/TodayFocusSection';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { defaultSettings } from '@/hooks/usePomodoro';
+import { safeLocalStorage } from '@/lib/safeLocalStorage';
 
 export default function TasksPage() {
   const { user } = useAuth();
@@ -13,9 +14,8 @@ export default function TasksPage() {
   const [settings, setSettings] = useState(defaultSettings);
 
   useEffect(() => {
-    const savedSettings = localStorage.getItem('pomodoroSettings');
-    if (savedSettings) {
-      const parsedSettings = JSON.parse(savedSettings);
+    const parsedSettings = safeLocalStorage.getItem('pomodoroSettings', null);
+    if (parsedSettings) {
       setSettings(parsedSettings);
     }
   }, []);

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
 import SelectedTasksList from './SelectedTasksList';
+import { safeLocalStorage } from '@/lib/safeLocalStorage';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -25,11 +26,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   const { user } = useAuth();
   const { event } = useGoogleAnalytics();
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('selectedTaskIds');
-      return saved ? JSON.parse(saved) : [];
-    }
-    return [];
+    return safeLocalStorage.getItem('selectedTaskIds', []);
   });
   const {
     tasks,
@@ -59,7 +56,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
 
   // Persist selectedTaskIds to localStorage
   useEffect(() => {
-    localStorage.setItem('selectedTaskIds', JSON.stringify(selectedTaskIds));
+    safeLocalStorage.setItem('selectedTaskIds', selectedTaskIds);
   }, [selectedTaskIds]);
 
   // Filter out invalid/stale task IDs (deleted or completed tasks)

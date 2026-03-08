@@ -4,15 +4,15 @@ import AppLayout from '@/components/AppLayout';
 import PomodoroTimer from '@/components/PomodoroTimer';
 import { defaultSettings } from '@/hooks/usePomodoro';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
+import { safeLocalStorage } from '@/lib/safeLocalStorage';
 
 export default function HomePage() {
   const [settings, setSettings] = useState(defaultSettings);
   const { event } = useGoogleAnalytics();
 
   useEffect(() => {
-    const savedSettings = localStorage.getItem('pomodoroSettings');
-    if (savedSettings) {
-      const parsedSettings = JSON.parse(savedSettings);
+    const parsedSettings = safeLocalStorage.getItem('pomodoroSettings', null);
+    if (parsedSettings) {
       setSettings(parsedSettings);
     }
   }, []);
