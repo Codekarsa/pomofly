@@ -251,7 +251,7 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
       <Card className="w-full mb-6 border border-border/50 bg-card shadow-sm rounded-xl">
         <CardContent className="py-8">
           <div className="flex flex-col items-center justify-center">
-            <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full motion-safe:animate-spin motion-reduce:border-amber-500" />
             <p className="text-sm text-muted-foreground mt-3">Loading focus tasks...</p>
           </div>
         </CardContent>
