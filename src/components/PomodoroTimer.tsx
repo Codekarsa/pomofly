@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
 import SelectedTasksList from './SelectedTasksList';
+import { parseFirebaseTimestamp } from '@/lib/utils';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -89,14 +90,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
         .map(task => {
           let elapsed = 0;
           if (task.trackingStartedAt) {
-            let startTime: number;
-            if (task.trackingStartedAt instanceof Date) {
-              startTime = task.trackingStartedAt.getTime();
-            } else if (typeof (task.trackingStartedAt as { toDate?: () => Date }).toDate === 'function') {
-              startTime = (task.trackingStartedAt as { toDate: () => Date }).toDate().getTime();
-            } else {
-              startTime = new Date(task.trackingStartedAt as unknown as string).getTime();
-            }
+            const startTime = parseFirebaseTimestamp(task.trackingStartedAt);
             elapsed = Math.floor((Date.now() - startTime) / 1000);
           }
           return {
@@ -165,14 +159,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
           .map(task => {
             let elapsed = 0;
             if (task.trackingStartedAt) {
-              let startTime: number;
-              if (task.trackingStartedAt instanceof Date) {
-                startTime = task.trackingStartedAt.getTime();
-              } else if (typeof (task.trackingStartedAt as { toDate?: () => Date }).toDate === 'function') {
-                startTime = (task.trackingStartedAt as { toDate: () => Date }).toDate().getTime();
-              } else {
-                startTime = new Date(task.trackingStartedAt as unknown as string).getTime();
-              }
+              const startTime = parseFirebaseTimestamp(task.trackingStartedAt);
               elapsed = Math.floor((Date.now() - startTime) / 1000);
             }
             return {
