@@ -31,6 +31,10 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     }
     return [];
   });
+  
+  // Accessibility state for screen reader announcements
+  const [announcement, setAnnouncement] = useState<string>('');
+  const lastMinuteRef = useRef<number>(-1);
   const {
     tasks,
     loading,
@@ -194,6 +198,65 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     event('pomodoro_timer_view', { user_authenticated: !!user });
   }, [event, user]);
 
+  // Accessibility: Announce timer progress to screen readers
+  useEffect(() => {
+    if (isActive && minutes !== lastMinuteRef.current) {
+      const phaseText = phase === 'pomodoro' ? 'work session' : 
+                       phase === 'shortBreak' ? 'short break' : 'long break';
+      const timeText = minutes === 1 ? '1 minute' : `${minutes} minutes`;
+      setAnnouncement(`${timeText} remaining in ${phaseText}`);
+      lastMinuteRef.current = minutes;
+    } else if (!isActive && lastMinuteRef.current !== -1) {
+      const phaseText = phase === 'pomodoro' ? 'work session' : 
+                       phase === 'shortBreak' ? 'short break' : 'long break';
+      setAnnouncement(`${phaseText} paused`);
+      lastMinuteRef.current = -1;
+    }
+  }, [isActive, minutes, phase]);
+
+  // Clear announcement after a brief delay to avoid repetitive reading
+  useEffect(() => {
+    if (announcement) {
+      const timer = setTimeout(() => setAnnouncement(''), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [announcement]);
+
+  // Keyboard shortcuts for accessibility
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only handle shortcuts when not in input fields
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      switch (event.key) {
+        case ' ':
+          event.preventDefault();
+          handleToggleTimer();
+          break;
+        case 'r':
+        case 'R':
+          event.preventDefault();
+          resetTimer();
+          event('pomodoro_timer_reset', { phase: phase, via: 'keyboard' });
+          setAnnouncement(`${phase === 'pomodoro' ? 'Work session' : phase === 'shortBreak' ? 'Short break' : 'Long break'} timer reset`);
+          break;
+        case 'Enter':
+          if (isActive) {
+            event.preventDefault();
+            handleDoneNext();
+          }
+          break;
+        default:
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleToggleTimer, resetTimer, handleDoneNext, isActive, phase, event]);
+
   const countTodaysSessions = useCallback(() => {
     const today = new Date().toDateString();
     return completedSessions.filter(session =>
@@ -247,21 +310,21 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
 
   if (loading) {
     return (
-      <Card className="w-full mx-auto">
+      <Card className="w-full mx-auto" role="main" aria-label="Pomodoro Timer Application">
         <CardHeader>
           <CardTitle>Pomodoro Timer</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8">
             {/* Timer circle skeleton with pulse animation */}
-            <div className="relative w-48 h-48 mb-6">
+            <div className="relative w-48 h-48 mb-6" role="progressbar" aria-label="Loading timer">
               <div className="absolute inset-0 rounded-full border-8 border-gray-200"></div>
               <div className="absolute inset-0 rounded-full border-8 border-t-red-500 border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-4xl font-mono text-gray-300 animate-pulse">--:--</div>
+                <div className="text-4xl font-mono text-gray-300 animate-pulse" aria-hidden="true">--:--</div>
               </div>
             </div>
-            <p className="text-muted-foreground animate-pulse">Loading timer...</p>
+            <p className="text-muted-foreground animate-pulse" role="status" aria-live="polite">Loading timer...</p>
           </div>
         </CardContent>
       </Card>
@@ -269,9 +332,12 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   }
 
   return (
-    <Card className="w-full mx-auto">
+    <Card className="w-full mx-auto" role="main" aria-label="Pomodoro Timer Application">
       <CardHeader>
-        <CardTitle>Pomodoro Timer</CardTitle>
+        <CardTitle id="timer-title">Pomodoro Timer</CardTitle>
+        <p className="text-sm text-muted-foreground" aria-label="Keyboard shortcuts available">
+          Keyboard shortcuts: Space to start/pause, R to reset, Enter to complete
+        </p>
       </CardHeader>
       <CardContent>
         <div className="mb-4 text-lg">
@@ -279,49 +345,84 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
           <span>{countTodaysSessions()}</span>
         </div>
 
-        <div className="mb-4 flex justify-center space-x-2">
-          {['pomodoro', 'shortBreak', 'longBreak'].map((timerPhase) => (
-            <Button
-              key={timerPhase}
-              onClick={() => {
-                switchPhase(timerPhase as 'pomodoro' | 'shortBreak' | 'longBreak');
-                event('pomodoro_phase_switched', { new_phase: timerPhase });
-              }}
-              variant={phase === timerPhase ? 'default' : 'outline'}
-            >
-              {timerPhase === 'pomodoro' ? 'Pomodoro' : timerPhase === 'shortBreak' ? 'Short Break' : 'Long Break'}
-            </Button>
-          ))}
+        <div className="mb-4 flex justify-center space-x-2" role="tablist" aria-label="Timer phase selection">
+          {['pomodoro', 'shortBreak', 'longBreak'].map((timerPhase) => {
+            const phaseLabel = timerPhase === 'pomodoro' ? 'Pomodoro' : timerPhase === 'shortBreak' ? 'Short Break' : 'Long Break';
+            const duration = timerPhase === 'pomodoro' ? settings.pomodoro : timerPhase === 'shortBreak' ? settings.shortBreak : settings.longBreak;
+            return (
+              <Button
+                key={timerPhase}
+                onClick={() => {
+                  switchPhase(timerPhase as 'pomodoro' | 'shortBreak' | 'longBreak');
+                  event('pomodoro_phase_switched', { new_phase: timerPhase });
+                  setAnnouncement(`Switched to ${phaseLabel.toLowerCase()}, ${duration} minutes`);
+                }}
+                variant={phase === timerPhase ? 'default' : 'outline'}
+                role="tab"
+                aria-selected={phase === timerPhase}
+                aria-label={`${phaseLabel}, ${duration} minutes${phase === timerPhase ? ' (currently selected)' : ''}`}
+                tabIndex={phase === timerPhase ? 0 : -1}
+              >
+                {phaseLabel}
+              </Button>
+            );
+          })}
         </div>
 
-        <div className="text-8xl font-bold mb-4 text-center py-6">
-          {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
+        {/* Timer Display with Accessibility */}
+        <div 
+          className="text-8xl font-bold mb-4 text-center py-6"
+          role="timer"
+          aria-live="polite"
+          aria-label={`${phase === 'pomodoro' ? 'Work session' : phase === 'shortBreak' ? 'Short break' : 'Long break'} timer. ${minutes} minutes and ${seconds} seconds remaining`}
+          aria-atomic="true"
+        >
+          <time tabIndex={0}>
+            {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
+          </time>
         </div>
 
-        <div className="flex justify-center space-x-2 mb-6">
+        {/* Screen reader announcements */}
+        <div 
+          role="status" 
+          aria-live="polite" 
+          aria-atomic="true"
+          className="sr-only"
+        >
+          {announcement}
+        </div>
+
+        <div className="flex justify-center space-x-2 mb-6" role="group" aria-label="Timer controls">
           <Button
             onClick={handleToggleTimer}
             variant={isActive ? 'secondary' : 'default'}
+            aria-label={isActive ? `Pause ${phase === 'pomodoro' ? 'work session' : phase === 'shortBreak' ? 'short break' : 'long break'} timer. Shortcut: Space` : `Start ${phase === 'pomodoro' ? 'work session' : phase === 'shortBreak' ? 'short break' : 'long break'} timer. Shortcut: Space`}
+            title={isActive ? 'Pause (Space)' : 'Start (Space)'}
           >
-            {isActive ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
+            {isActive ? <Pause className="mr-2 h-4 w-4" aria-hidden="true" /> : <Play className="mr-2 h-4 w-4" aria-hidden="true" />}
             {isActive ? 'Pause' : 'Start'}
           </Button>
           <Button
             onClick={() => {
               resetTimer();
               event('pomodoro_timer_reset', { phase: phase });
+              setAnnouncement(`${phase === 'pomodoro' ? 'Work session' : phase === 'shortBreak' ? 'Short break' : 'Long break'} timer reset`);
             }}
             variant="outline"
+            aria-label="Reset timer. Shortcut: R"
+            title="Reset (R)"
           >
-            <RotateCcw className="mr-2 h-4 w-4" />
+            <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" />
             Reset
           </Button>
           {isActive && (
             <Button
               onClick={handleDoneNext}
               variant="default"
+              aria-label="Mark session as complete and switch to next phase. Shortcut: Enter"
+              title="Done/Next (Enter)"
             >
-              <CheckCircle className="mr-2 h-4 w-4" />
+              <CheckCircle className="mr-2 h-4 w-4" aria-hidden="true" />
               Done/Next
             </Button>
           )}
