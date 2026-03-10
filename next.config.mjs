@@ -45,3 +45,4 @@ function generateCSP() {
 }
 
 export default nextConfig;
+# API routes enabled - static export removed
