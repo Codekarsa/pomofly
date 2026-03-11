@@ -88,7 +88,11 @@ const PWAServiceWorker: React.FC<PWAServiceWorkerProps> = ({ onUpdate, onInstall
   const handleInstall = async () => {
     if (installPrompt) {
       try {
-        const result = await installPrompt.prompt();
+        // Show the install prompt (returns void)
+        installPrompt.prompt();
+        
+        // Wait for the user's choice
+        const result = await installPrompt.userChoice;
         console.log('[PWA] Install prompt result:', result);
         
         if (result.outcome === 'accepted') {
