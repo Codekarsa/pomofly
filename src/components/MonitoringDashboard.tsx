@@ -242,9 +242,9 @@ const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({ isOpen, onClo
                           <p>Action: {error.context.action || 'Unknown'}</p>
                           <p>Time: {new Date(error.timestamp).toLocaleTimeString()}</p>
                         </div>
-                        {error.context.tags && error.context.tags.length > 0 && (
+                        {error.tags && error.tags.length > 0 && (
                           <div className="flex gap-1 mt-2">
-                            {error.context.tags.map((tag, i) => (
+                            {error.tags.map((tag, i) => (
                               <Badge key={i} variant="outline" className="text-xs">
                                 {tag}
                               </Badge>
