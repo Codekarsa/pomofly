@@ -30,7 +30,6 @@ import { Combobox } from './ui/combobox';
 import { cn } from '@/lib/utils';
 import LabelPicker, { LabelBadge } from './LabelPicker';
 import { useLabels } from '@/hooks/useLabels';
-import { AIBreakdownModal } from './AIBreakdownModal';
 import { EstimationHint } from './EstimationHint';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -111,7 +110,7 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
                   aria-label="Mark as incomplete"
                 >
                   <CheckCircle className="w-4 h-4" fill="currentColor" />
-                </Button>
+                </MobileButton>
                 <MobileButton
                   variant="ghost"
                   size="icon"
@@ -119,7 +118,7 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
                   className={`${task.focus ? 'text-yellow-500' : 'text-gray-400'}`}
                 >
                   <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
-                </Button>
+                </MobileButton>
                 <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
                 {task.projectId && <ProjectBadge projectId={task.projectId} />}
                 <TaskLabels labelIds={task.labelIds} />
@@ -603,12 +602,12 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     }
   }, [currentPage, event, activeTasks.length, itemsPerPage]);
 
-  const handleAIBreakdownSave = (tasks: { title: string; estimatedPomodoros: number }[]) => {
+  const handleAIBreakdownSave = useCallback((tasks: { title: string; estimatedPomodoros: number }[]) => {
     tasks.forEach(task => {
       addTask(task.title, selectedProjectId, task.estimatedPomodoros);
     });
     setShowAIBreakdownModal(false);
-  };
+  }, [addTask, selectedProjectId]);
 
   // Time tracking handlers
   const handleStartTracking = useCallback(async (taskId: string) => {
