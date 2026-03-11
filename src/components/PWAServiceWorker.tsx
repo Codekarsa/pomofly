@@ -20,31 +20,6 @@ const PWAServiceWorker: React.FC<PWAServiceWorkerProps> = ({ onUpdate, onInstall
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
 
-  useEffect(() => {
-    // Register service worker
-    if ('serviceWorker' in navigator) {
-      registerServiceWorker();
-    }
-
-    // Listen for install prompt
-    const handleBeforeInstallPrompt = (e: BeforeInstallPromptEvent) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-      setIsInstallable(true);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener);
-
-    // Check if already installed
-    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
-      setIsInstalled(true);
-    }
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener);
-    };
-  }, [registerServiceWorker]);
-
   const registerServiceWorker = useCallback(async () => {
     try {
       const registration = await navigator.serviceWorker.register('/sw.js');
@@ -73,6 +48,31 @@ const PWAServiceWorker: React.FC<PWAServiceWorkerProps> = ({ onUpdate, onInstall
       console.error('[PWA] Service Worker registration failed:', error);
     }
   }, [onUpdate]);
+
+  useEffect(() => {
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      registerServiceWorker();
+    }
+
+    // Listen for install prompt
+    const handleBeforeInstallPrompt = (e: BeforeInstallPromptEvent) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+      setIsInstallable(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener);
+
+    // Check if already installed
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener);
+    };
+  }, [registerServiceWorker]);
 
   const handleUpdate = () => {
     if ('serviceWorker' in navigator) {
