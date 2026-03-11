@@ -19,6 +19,10 @@ interface PomodoroSettings {
   longBreakInterval: number;
 }
 
+interface TimerSession {
+  selectedTaskIds?: string[];
+}
+
 interface PomodoroTimerProps {
   settings: PomodoroSettings;
 }
@@ -252,7 +256,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     });
   }, [toggleTimer, isActive, phase, selectedTaskIds.length, event]);
 
-  const handleRestoreSession = useCallback((session: any) => {
+  const handleRestoreSession = useCallback((session: TimerSession) => {
     // Restore selected task IDs if available
     if (session.selectedTaskIds && Array.isArray(session.selectedTaskIds)) {
       setSelectedTaskIds(session.selectedTaskIds);

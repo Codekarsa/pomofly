@@ -222,7 +222,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [estimationDebounceTimer, setEstimationDebounceTimer] = useState<NodeJS.Timeout | null>(null);
 
   const { projects, addProject } = useProjects();
-  const { getEstimate, loading: estimationLoading } = useEstimation();
+  const { getEstimate, loading: _estimationLoading } = useEstimation();
   const { labels } = useLabels();
   const {
     tasks,

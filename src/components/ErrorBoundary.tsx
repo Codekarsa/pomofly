@@ -12,10 +12,14 @@ interface Props {
   showDetails?: boolean;
 }
 
+interface ErrorInfo {
+  componentStack: string;
+}
+
 interface State {
   hasError: boolean;
   error?: Error;
-  errorInfo?: any;
+  errorInfo?: ErrorInfo;
   errorId?: string;
 }
 
@@ -29,7 +33,7 @@ class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: any) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Generate unique error ID for this occurrence
     const errorId = `boundary-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     

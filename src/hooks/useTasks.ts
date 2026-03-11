@@ -12,10 +12,7 @@ import {
   transformFirebaseTask, 
   validateTaskCreate, 
   validateTaskUpdate,
-  safeValidateTask,
-  type Task,
-  type TaskCreate,
-  type TaskUpdate 
+  type Task
 } from '../lib/validation';
 
 // Task interface now imported from validation.ts
@@ -86,7 +83,7 @@ export function useTasks(projectId?: string) {
     }
   }, [isGuest, projectId]);
 
-  const addTask = useCallback(async (title: string, taskProjectId: string, estimatedPomodoros?: number, focus?: boolean, labelIds?: string[]) => {
+  const addTask = useCallback(async (title: string, taskProjectId: string, estimatedPomodoros?: number, focus?: boolean, _labelIds?: string[]) => {
     const user = auth.currentUser;
 
     try {
@@ -123,7 +120,7 @@ export function useTasks(projectId?: string) {
       // Validate the updates
       const validatedUpdates = validateTaskUpdate({ id: taskId, ...updates });
       // Remove the id from updates since we don't want to update the document ID
-      const { id, ...updateData } = validatedUpdates;
+      const { id: _id, ...updateData } = validatedUpdates;
 
       if (!user) {
         // Guest mode

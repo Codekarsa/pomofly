@@ -82,7 +82,7 @@ export class TimerPersistence {
     }
   }
 
-  static isValidSession(session: any): session is PersistedTimerSession {
+  static isValidSession(session: unknown): session is PersistedTimerSession {
     return (
       session &&
       typeof session === 'object' &&

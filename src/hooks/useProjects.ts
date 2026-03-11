@@ -11,9 +11,7 @@ import {
   transformFirebaseProject, 
   validateProjectCreate, 
   validateProjectUpdate,
-  type Project,
-  type ProjectCreate,
-  type ProjectUpdate 
+  type Project
 } from '../lib/validation';
 
 // Project interface now imported from validation.ts
@@ -109,7 +107,7 @@ export function useProjects() {
       // Validate the update data
       const validatedUpdate = validateProjectUpdate({ id, name });
       // Remove the id from updates since we don't want to update the document ID
-      const { id: _, ...updateData } = validatedUpdate;
+      const { id: _id, ...updateData } = validatedUpdate;
 
       if (!user) {
         // Guest mode

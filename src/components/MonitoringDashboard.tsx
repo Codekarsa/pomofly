@@ -19,6 +19,12 @@ import {
   Zap
 } from 'lucide-react';
 
+interface MonitoringSummary {
+  sessionDuration: number;
+  sessionId: string;
+  userId?: string;
+}
+
 interface MonitoringDashboardProps {
   isOpen: boolean;
   onClose: () => void;
@@ -27,7 +33,7 @@ interface MonitoringDashboardProps {
 const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({ isOpen, onClose }) => {
   const [errors, setErrors] = useState<ErrorReport[]>([]);
   const [metrics, setMetrics] = useState<PerformanceMetric[]>([]);
-  const [summary, setSummary] = useState<any>(null);
+  const [summary, setSummary] = useState<MonitoringSummary | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const { getMonitoringSummary } = useMonitoring();

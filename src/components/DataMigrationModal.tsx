@@ -16,10 +16,10 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { getGuestTasks, getGuestProjects, clearGuestData } from '@/lib/guestStorage';
 import { collection, addDoc } from "firebase/firestore";
 import { db, auth } from '@/lib/firebase';
+import { Task, Project } from '@/lib/validation';
 
 interface DataMigrationModalProps {
   isOpen: boolean;
@@ -57,8 +57,8 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
   const [progress, setProgress] = useState<MigrationProgress>({ step: '', completed: 0, total: 0 });
   const [error, setError] = useState<MigrationError | null>(null);
   const [guestDataPreview, setGuestDataPreview] = useState<{
-    tasks: any[];
-    projects: any[];
+    tasks: Task[];
+    projects: Project[];
   }>({ tasks: [], projects: [] });
 
   // Load guest data preview when modal opens
@@ -182,7 +182,7 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
       
       let errorType: MigrationError['type'] = 'unknown';
       let errorMessage = 'An unexpected error occurred during import.';
-      let errorDetails = (err as Error).message;
+      const errorDetails = (err as Error).message;
 
       if (errorDetails.includes('network') || errorDetails.includes('fetch')) {
         errorType = 'network';

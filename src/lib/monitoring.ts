@@ -7,7 +7,7 @@ export interface ErrorReport {
     name: string;
     message: string;
     stack?: string;
-    cause?: any;
+    cause?: unknown;
   };
   context: {
     userAgent: string;
@@ -136,7 +136,7 @@ class MonitoringService {
         });
         observer.observe({ entryTypes: ['largest-contentful-paint'] });
       }
-    } catch (error) {
+    } catch (_error) {
       console.warn('Web Vitals monitoring not available');
     }
   }

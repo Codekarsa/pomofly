@@ -4,6 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RefreshCw, Download } from 'lucide-react';
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+}
+
 interface PWAServiceWorkerProps {
   onUpdate?: () => void;
   onInstall?: () => void;
@@ -11,7 +16,7 @@ interface PWAServiceWorkerProps {
 
 const PWAServiceWorker: React.FC<PWAServiceWorkerProps> = ({ onUpdate, onInstall }) => {
   const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
 
@@ -22,7 +27,7 @@ const PWAServiceWorker: React.FC<PWAServiceWorkerProps> = ({ onUpdate, onInstall
     }
 
     // Listen for install prompt
-    const handleBeforeInstallPrompt = (e: any) => {
+    const handleBeforeInstallPrompt = (e: BeforeInstallPromptEvent) => {
       e.preventDefault();
       setInstallPrompt(e);
       setIsInstallable(true);
@@ -145,7 +150,7 @@ export default PWAServiceWorker;
 // Hook for PWA utilities
 export const usePWA = () => {
   const [isInstalled, setIsInstalled] = useState(false);
-  const [isInstallable, setIsInstallable] = useState(false);
+  const [isInstallable, _setIsInstallable] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {

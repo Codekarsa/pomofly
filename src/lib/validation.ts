@@ -184,7 +184,7 @@ export function safeValidateFirebaseEstimationRecord(data: unknown) {
 /**
  * Transform Firebase document data to validated types
  */
-export function transformFirebaseTask(docData: any): Task {
+export function transformFirebaseTask(docData: unknown): Task {
   const transformed = {
     ...docData,
     createdAt: docData.createdAt?.toDate?.() || new Date(docData.createdAt),
@@ -194,7 +194,7 @@ export function transformFirebaseTask(docData: any): Task {
   return validateTask(transformed);
 }
 
-export function transformFirebaseProject(docData: any): Project {
+export function transformFirebaseProject(docData: unknown): Project {
   const transformed = {
     ...docData,
     createdAt: docData.createdAt?.toDate?.() || new Date(docData.createdAt),
@@ -202,7 +202,7 @@ export function transformFirebaseProject(docData: any): Project {
   return validateProject(transformed);
 }
 
-export function transformFirebaseEstimationRecord(docData: any): EstimationRecord {
+export function transformFirebaseEstimationRecord(docData: unknown): EstimationRecord {
   const transformed = {
     ...docData,
     createdAt: docData.createdAt?.toDate?.() || new Date(docData.createdAt),
