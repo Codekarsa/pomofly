@@ -27,6 +27,7 @@ export function useThrottle<T extends (...args: unknown[]) => unknown>(
   callback: T,
   delay: number
 ): T {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   return useCallback(throttle(callback, delay), [callback, delay]) as T;
 }
 
@@ -37,6 +38,7 @@ export function useDebounceCallback<T extends (...args: unknown[]) => unknown>(
   callback: T,
   delay: number
 ): T {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   return useCallback(debounce(callback, delay), [callback, delay]) as T;
 }
 
@@ -47,6 +49,7 @@ export function useMemoizedCallback<T extends (...args: unknown[]) => unknown>(
   callback: T,
   deps: React.DependencyList
 ): T {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   return useCallback(memoize(callback), deps) as T;
 }
 
@@ -109,7 +112,7 @@ export function useVirtualScroll<T>(
       visibleItems: items.slice(startIndex, endIndex + 1),
       totalHeight: items.length * itemHeight,
     };
-  }, [scrollTop, itemHeight, containerHeight, items.length, overscan, items]);
+  }, [scrollTop, itemHeight, containerHeight, overscan, items]);
 
   const onScroll = useCallback((event: React.UIEvent<HTMLElement>) => {
     setScrollTop(event.currentTarget.scrollTop);

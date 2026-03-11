@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useMonitoring } from '@/hooks/useMonitoring';
 import { monitoring, ErrorReport, PerformanceMetric } from '@/lib/monitoring';
 import { Button } from '@/components/ui/button';
@@ -42,9 +42,9 @@ const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({ isOpen, onClo
     if (isOpen) {
       refreshData();
     }
-  }, [isOpen, refreshKey]);
+  }, [isOpen, refreshKey, refreshData]);
 
-  const refreshData = () => {
+  const refreshData = useCallback(() => {
     const storedErrors = monitoring.getStoredErrors();
     const storedMetrics = monitoring.getStoredMetrics();
     const summaryData = getMonitoringSummary();
@@ -52,7 +52,7 @@ const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({ isOpen, onClo
     setErrors(storedErrors);
     setMetrics(storedMetrics);
     setSummary(summaryData);
-  };
+  }, [getMonitoringSummary]);
 
   const handleRefresh = () => {
     setRefreshKey(prev => prev + 1);

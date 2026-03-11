@@ -42,7 +42,7 @@ export async function validateAuth(request: NextRequest) {
       }
       
       return { isAuthenticated: true, uid };
-    } catch (_decodeError) {
+    } catch {
       return { isAuthenticated: false, error: 'Failed to decode token' };
     }
     

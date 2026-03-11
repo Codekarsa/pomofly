@@ -136,7 +136,7 @@ class MonitoringService {
         });
         observer.observe({ entryTypes: ['largest-contentful-paint'] });
       }
-    } catch (_error) {
+    } catch {
       console.warn('Web Vitals monitoring not available');
     }
   }

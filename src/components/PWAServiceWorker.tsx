@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RefreshCw, Download } from 'lucide-react';
@@ -43,9 +43,9 @@ const PWAServiceWorker: React.FC<PWAServiceWorkerProps> = ({ onUpdate, onInstall
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
-  }, []);
+  }, [registerServiceWorker]);
 
-  const registerServiceWorker = async () => {
+  const registerServiceWorker = useCallback(async () => {
     try {
       const registration = await navigator.serviceWorker.register('/sw.js');
       
@@ -72,7 +72,7 @@ const PWAServiceWorker: React.FC<PWAServiceWorkerProps> = ({ onUpdate, onInstall
     } catch (error) {
       console.error('[PWA] Service Worker registration failed:', error);
     }
-  };
+  }, [onUpdate]);
 
   const handleUpdate = () => {
     if ('serviceWorker' in navigator) {
@@ -150,6 +150,7 @@ export default PWAServiceWorker;
 // Hook for PWA utilities
 export const usePWA = () => {
   const [isInstalled, setIsInstalled] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isInstallable, _setIsInstallable] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
 

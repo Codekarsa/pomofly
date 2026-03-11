@@ -222,7 +222,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [estimationDebounceTimer, setEstimationDebounceTimer] = useState<NodeJS.Timeout | null>(null);
 
   const { projects, addProject } = useProjects();
-  const { getEstimate, loading: _estimationLoading } = useEstimation();
+  const { getEstimate } = useEstimation();
   const { labels } = useLabels();
   const {
     tasks,
@@ -431,7 +431,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
         clearTimeout(estimationDebounceTimer);
       }
     };
-  }, [newTaskTitle, selectedProjectId, getEstimate, estimatedPomodoros]);
+  }, [newTaskTitle, selectedProjectId, getEstimate, estimatedPomodoros, estimationDebounceTimer]);
 
   // Filtering logic
   const filteredTasks = useMemo(() => {

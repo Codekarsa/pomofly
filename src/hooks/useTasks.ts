@@ -83,7 +83,7 @@ export function useTasks(projectId?: string) {
     }
   }, [isGuest, projectId]);
 
-  const addTask = useCallback(async (title: string, taskProjectId: string, estimatedPomodoros?: number, focus?: boolean, _labelIds?: string[]) => {
+  const addTask = useCallback(async (title: string, taskProjectId: string, estimatedPomodoros?: number, focus?: boolean) => {
     const user = auth.currentUser;
 
     try {
@@ -120,7 +120,8 @@ export function useTasks(projectId?: string) {
       // Validate the updates
       const validatedUpdates = validateTaskUpdate({ id: taskId, ...updates });
       // Remove the id from updates since we don't want to update the document ID
-      const { id: _id, ...updateData } = validatedUpdates;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id: _, ...updateData } = validatedUpdates;
 
       if (!user) {
         // Guest mode
