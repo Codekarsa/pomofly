@@ -38,12 +38,6 @@ const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({ isOpen, onClo
 
   const { getMonitoringSummary } = useMonitoring();
 
-  useEffect(() => {
-    if (isOpen) {
-      refreshData();
-    }
-  }, [isOpen, refreshKey, refreshData]);
-
   const refreshData = useCallback(() => {
     const storedErrors = monitoring.getStoredErrors();
     const storedMetrics = monitoring.getStoredMetrics();
@@ -53,6 +47,12 @@ const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({ isOpen, onClo
     setMetrics(storedMetrics);
     setSummary(summaryData);
   }, [getMonitoringSummary]);
+
+  useEffect(() => {
+    if (isOpen) {
+      refreshData();
+    }
+  }, [isOpen, refreshKey, refreshData]);
 
   const handleRefresh = () => {
     setRefreshKey(prev => prev + 1);
