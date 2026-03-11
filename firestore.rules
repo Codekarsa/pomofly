@@ -1,0 +1,152 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isValidString(value, minLength, maxLength) {
+      return value is string 
+        && value.size() >= minLength 
+        && value.size() <= maxLength
+        && value.trim() == value;
+    }
+    
+    function isValidEmail(email) {
+      return email is string && email.matches('.*@.*');
+    }
+    
+    function hasOnlyFields(allowedFields) {
+      return request.resource.data.keys().hasOnly(allowedFields);
+    }
+    
+    function unchangedFields(fields) {
+      return fields.all(field => 
+        resource.data[field] == request.resource.data[field]
+      );
+    }
+    
+    // Projects collection
+    match /projects/{projectId} {
+      // Read: User can read their own projects
+      allow read: if isOwner(resource.data.userId);
+      
+      // Create: User can create projects with valid data
+      allow create: if isOwner(request.resource.data.userId)
+        && hasOnlyFields(['name', 'userId', 'createdAt'])
+        && isValidString(request.resource.data.name, 1, 100)
+        && request.resource.data.userId is string
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.createdAt == request.time;
+      
+      // Update: User can update their own project's name only
+      allow update: if isOwner(resource.data.userId)
+        && isOwner(request.resource.data.userId)
+        && unchangedFields(['userId', 'createdAt'])
+        && hasOnlyFields(['name', 'userId', 'createdAt'])
+        && isValidString(request.resource.data.name, 1, 100);
+      
+      // Delete: User can delete their own projects
+      allow delete: if isOwner(resource.data.userId);
+    }
+    
+    // Tasks collection
+    match /tasks/{taskId} {
+      // Read: User can read their own tasks
+      allow read: if isOwner(resource.data.userId);
+      
+      // Create: User can create tasks with valid data
+      allow create: if isOwner(request.resource.data.userId)
+        && hasOnlyFields(['title', 'projectId', 'userId', 'completed', 'totalPomodoroSessions', 
+                         'totalTimeSpent', 'createdAt', 'estimatedPomodoros', 'archived', 
+                         'focus', 'deadline', 'manualTimeSpent', 'trackingStartedAt'])
+        && isValidString(request.resource.data.title, 1, 500)
+        && request.resource.data.projectId is string
+        && request.resource.data.userId is string
+        && request.resource.data.completed is bool
+        && request.resource.data.totalPomodoroSessions is int
+        && request.resource.data.totalPomodoroSessions >= 0
+        && request.resource.data.totalTimeSpent is int
+        && request.resource.data.totalTimeSpent >= 0
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.focus is bool
+        && request.resource.data.manualTimeSpent is int
+        && request.resource.data.manualTimeSpent >= 0
+        // Optional fields validation
+        && (request.resource.data.keys().hasAll(['estimatedPomodoros']) 
+            ? request.resource.data.estimatedPomodoros is int && request.resource.data.estimatedPomodoros >= 0
+            : true)
+        && (request.resource.data.keys().hasAll(['archived']) 
+            ? request.resource.data.archived is bool
+            : true)
+        && (request.resource.data.keys().hasAll(['deadline']) 
+            ? (request.resource.data.deadline == null || request.resource.data.deadline is string)
+            : true)
+        && (request.resource.data.keys().hasAll(['trackingStartedAt']) 
+            ? (request.resource.data.trackingStartedAt == null || request.resource.data.trackingStartedAt is timestamp)
+            : true);
+      
+      // Update: User can update their own tasks with specific field rules
+      allow update: if isOwner(resource.data.userId)
+        && isOwner(request.resource.data.userId)
+        && unchangedFields(['userId', 'createdAt'])
+        && hasOnlyFields(['title', 'projectId', 'userId', 'completed', 'totalPomodoroSessions', 
+                         'totalTimeSpent', 'createdAt', 'estimatedPomodoros', 'archived', 
+                         'focus', 'deadline', 'manualTimeSpent', 'trackingStartedAt'])
+        && isValidString(request.resource.data.title, 1, 500)
+        && request.resource.data.projectId is string
+        && request.resource.data.completed is bool
+        && request.resource.data.totalPomodoroSessions is int
+        && request.resource.data.totalPomodoroSessions >= 0
+        && request.resource.data.totalTimeSpent is int
+        && request.resource.data.totalTimeSpent >= 0
+        && request.resource.data.focus is bool
+        && request.resource.data.manualTimeSpent is int
+        && request.resource.data.manualTimeSpent >= 0
+        // Ensure totalPomodoroSessions and totalTimeSpent can only increase or stay the same
+        && request.resource.data.totalPomodoroSessions >= resource.data.totalPomodoroSessions
+        && request.resource.data.totalTimeSpent >= resource.data.totalTimeSpent
+        // Optional fields validation
+        && (request.resource.data.keys().hasAll(['estimatedPomodoros']) 
+            ? request.resource.data.estimatedPomodoros is int && request.resource.data.estimatedPomodoros >= 0
+            : true)
+        && (request.resource.data.keys().hasAll(['archived']) 
+            ? request.resource.data.archived is bool
+            : true)
+        && (request.resource.data.keys().hasAll(['deadline']) 
+            ? (request.resource.data.deadline == null || request.resource.data.deadline is string)
+            : true)
+        && (request.resource.data.keys().hasAll(['trackingStartedAt']) 
+            ? (request.resource.data.trackingStartedAt == null || request.resource.data.trackingStartedAt is timestamp)
+            : true);
+      
+      // Delete: User can delete their own tasks
+      allow delete: if isOwner(resource.data.userId);
+    }
+    
+    // Time tracking sessions (if exists)
+    match /timeSessions/{sessionId} {
+      allow read, write: if isAuthenticated() 
+        && isOwner(request.resource.data.userId);
+    }
+    
+    // User profiles/settings (if exists)
+    match /users/{userId} {
+      allow read, write: if isAuthenticated() 
+        && request.auth.uid == userId;
+    }
+    
+    // Deny all other requests
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
