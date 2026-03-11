@@ -55,6 +55,12 @@ const optionalEnvVars = [
 ];
 
 function validateEnvironment() {
+  // Skip validation in CI environments where secrets are injected differently
+  if (process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true') {
+    console.log('🚀 CI environment detected - skipping environment validation');
+    return;
+  }
+
   console.log('🔍 Validating environment variables...');
   
   const errors = [];
