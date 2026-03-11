@@ -186,31 +186,31 @@ export function safeValidateFirebaseEstimationRecord(data: unknown) {
  * Transform Firebase document data to validated types
  */
 export function transformFirebaseTask(docData: unknown): Task {
-  const data = docData as any;
+  const data = docData as Record<string, unknown>;
   const transformed = {
     ...data,
-    createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
-    trackingStartedAt: data.trackingStartedAt?.toDate?.() || 
-                      (data.trackingStartedAt ? new Date(data.trackingStartedAt) : null),
+    createdAt: (data.createdAt as { toDate?: () => Date })?.toDate?.() || new Date(data.createdAt as Date),
+    trackingStartedAt: (data.trackingStartedAt as { toDate?: () => Date })?.toDate?.() || 
+                      (data.trackingStartedAt ? new Date(data.trackingStartedAt as Date) : null),
   };
   return validateTask(transformed);
 }
 
 export function transformFirebaseProject(docData: unknown): Project {
-  const data = docData as any;
+  const data = docData as Record<string, unknown>;
   const transformed = {
     ...data,
-    createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+    createdAt: (data.createdAt as { toDate?: () => Date })?.toDate?.() || new Date(data.createdAt as Date),
   };
   return validateProject(transformed);
 }
 
 export function transformFirebaseEstimationRecord(docData: unknown): EstimationRecord {
-  const data = docData as any;
+  const data = docData as Record<string, unknown>;
   const transformed = {
     ...data,
-    createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
-    completedAt: data.completedAt?.toDate?.() || new Date(data.completedAt),
+    createdAt: (data.createdAt as { toDate?: () => Date })?.toDate?.() || new Date(data.createdAt as Date),
+    completedAt: (data.completedAt as { toDate?: () => Date })?.toDate?.() || new Date(data.completedAt as Date),
   };
   return validateEstimationRecord(transformed);
 }

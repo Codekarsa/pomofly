@@ -10,7 +10,6 @@ import {
 } from '../lib/guestStorage';
 import { 
   transformFirebaseTask, 
-  validateTaskCreate, 
   validateTaskUpdate,
   type Task
 } from '../lib/validation';
@@ -110,7 +109,7 @@ export function useTasks(projectId?: string) {
 
       if (!user) {
         // Guest mode
-        const newTask = addGuestTask(newTaskData as any);
+        const newTask = addGuestTask(newTaskData as Omit<Task, 'id'>);
         setTasks(prev => [...prev, newTask]);
         return newTask.id;
       }
