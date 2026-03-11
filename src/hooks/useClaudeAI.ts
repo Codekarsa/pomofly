@@ -76,7 +76,7 @@ export const useClaudeAI = () => {
           
           switch (response.status) {
             case 400:
-              errorMessage = errorData.details || 'Please provide a valid task description';
+              errorMessage = errorData.message || 'Please provide a valid task description';
               break;
             case 401:
               errorMessage = 'Authentication required. Please log in to use AI features.';
@@ -94,7 +94,7 @@ export const useClaudeAI = () => {
               errorMessage = 'AI service error. Please try again or simplify your request.';
               break;
             default:
-              errorMessage = errorData.message || errorData.details || 'An unexpected error occurred';
+              errorMessage = errorData.message || 'An unexpected error occurred';
           }
           
           throw new Error(errorMessage);

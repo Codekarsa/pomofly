@@ -1,5 +1,12 @@
 // Service Worker registration and management
 
+// Extend ServiceWorkerRegistration to include Background Sync API
+interface ServiceWorkerRegistrationWithSync extends ServiceWorkerRegistration {
+  sync: {
+    register: (tag: string) => Promise<void>;
+  };
+}
+
 export function registerServiceWorker() {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     return;
@@ -61,7 +68,7 @@ function showUpdateAvailableNotification() {
 export function registerBackgroundSync(tag: string) {
   if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
     navigator.serviceWorker.ready.then((registration) => {
-      return registration.sync.register(tag);
+      return (registration as ServiceWorkerRegistrationWithSync).sync.register(tag);
     });
   }
 }

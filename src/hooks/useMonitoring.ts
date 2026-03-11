@@ -73,7 +73,8 @@ export function useMonitoring() {
     recordMetric(`form_${event}`, 1, ['form', formName, event]);
     
     if (event === 'error' && context?.error) {
-      reportError(context.error, {
+      const error = context.error instanceof Error ? context.error : new Error(String(context.error));
+      reportError(error, {
         component: 'form',
         action: 'form_error',
         severity: 'medium',

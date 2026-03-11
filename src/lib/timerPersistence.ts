@@ -83,22 +83,33 @@ export class TimerPersistence {
   }
 
   static isValidSession(session: unknown): session is PersistedTimerSession {
-    return (
-      session &&
-      typeof session === 'object' &&
-      ['pomodoro', 'shortBreak', 'longBreak'].includes(session.phase) &&
-      typeof session.isActive === 'boolean' &&
-      (session.timerStartedAt === null || typeof session.timerStartedAt === 'number') &&
-      (session.pausedTimeRemaining === null || typeof session.pausedTimeRemaining === 'number') &&
-      typeof session.sessionsCompleted === 'number' &&
-      typeof session.sessionCreatedAt === 'number' &&
-      session.settings &&
-      typeof session.settings === 'object' &&
-      typeof session.settings.pomodoro === 'number' &&
-      typeof session.settings.shortBreak === 'number' &&
-      typeof session.settings.longBreak === 'number' &&
-      typeof session.settings.longBreakInterval === 'number'
-    );
+    if (!session || typeof session !== 'object') {
+      return false;
+    }
+    
+    const s = session as Record<string, unknown>;
+    
+    // Check phase
+    if (!['pomodoro', 'shortBreak', 'longBreak'].includes(s.phase as string)) {
+      return false;
+    }
+    
+    // Check basic properties
+    if (typeof s.isActive !== 'boolean') return false;
+    if (s.timerStartedAt !== null && typeof s.timerStartedAt !== 'number') return false;
+    if (s.pausedTimeRemaining !== null && typeof s.pausedTimeRemaining !== 'number') return false;
+    if (typeof s.sessionsCompleted !== 'number') return false;
+    if (typeof s.sessionCreatedAt !== 'number') return false;
+    
+    // Check settings
+    if (!s.settings || typeof s.settings !== 'object') return false;
+    const settings = s.settings as Record<string, unknown>;
+    if (typeof settings.pomodoro !== 'number') return false;
+    if (typeof settings.shortBreak !== 'number') return false;
+    if (typeof settings.longBreak !== 'number') return false;
+    if (typeof settings.longBreakInterval !== 'number') return false;
+    
+    return true;
   }
 
   static calculateRemainingTime(session: PersistedTimerSession): number {
