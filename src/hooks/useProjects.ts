@@ -14,6 +14,9 @@ import {
   type Project
 } from '../lib/validation';
 
+// Re-export types for components
+export type { Project } from '../lib/validation';
+
 // Project interface now imported from validation.ts
 
 export function useProjects() {

@@ -26,6 +26,7 @@ export const TaskSchema = z.object({
   estimationSource: z.enum(['manual', 'ai-suggested', 'ai-accepted']).optional(),
   aiSuggestedEstimate: z.number().int().min(1).optional(),
   completedAt: z.date().optional(),
+  labelIds: z.array(z.string()).optional().default([]),
 });
 
 // Project validation schema
@@ -185,28 +186,31 @@ export function safeValidateFirebaseEstimationRecord(data: unknown) {
  * Transform Firebase document data to validated types
  */
 export function transformFirebaseTask(docData: unknown): Task {
+  const data = docData as any;
   const transformed = {
-    ...docData,
-    createdAt: docData.createdAt?.toDate?.() || new Date(docData.createdAt),
-    trackingStartedAt: docData.trackingStartedAt?.toDate?.() || 
-                      (docData.trackingStartedAt ? new Date(docData.trackingStartedAt) : null),
+    ...data,
+    createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+    trackingStartedAt: data.trackingStartedAt?.toDate?.() || 
+                      (data.trackingStartedAt ? new Date(data.trackingStartedAt) : null),
   };
   return validateTask(transformed);
 }
 
 export function transformFirebaseProject(docData: unknown): Project {
+  const data = docData as any;
   const transformed = {
-    ...docData,
-    createdAt: docData.createdAt?.toDate?.() || new Date(docData.createdAt),
+    ...data,
+    createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
   };
   return validateProject(transformed);
 }
 
 export function transformFirebaseEstimationRecord(docData: unknown): EstimationRecord {
+  const data = docData as any;
   const transformed = {
-    ...docData,
-    createdAt: docData.createdAt?.toDate?.() || new Date(docData.createdAt),
-    completedAt: docData.completedAt?.toDate?.() || new Date(docData.completedAt),
+    ...data,
+    createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+    completedAt: data.completedAt?.toDate?.() || new Date(data.completedAt),
   };
   return validateEstimationRecord(transformed);
 }

@@ -15,6 +15,9 @@ import {
   type Task
 } from '../lib/validation';
 
+// Re-export types for components
+export type { Task } from '../lib/validation';
+
 // Task interface now imported from validation.ts
 
 export function useTasks(projectId?: string) {
@@ -83,11 +86,11 @@ export function useTasks(projectId?: string) {
     }
   }, [isGuest, projectId]);
 
-  const addTask = useCallback(async (title: string, taskProjectId: string, estimatedPomodoros?: number, focus?: boolean) => {
+  const addTask = useCallback(async (title: string, taskProjectId: string, estimatedPomodoros?: number, focus?: boolean, labelIds?: string[]) => {
     const user = auth.currentUser;
 
     try {
-      const newTaskData = validateTaskCreate({
+      const newTaskData = {
         title,
         projectId: taskProjectId,
         userId: user?.uid || 'guest',
@@ -95,12 +98,19 @@ export function useTasks(projectId?: string) {
         estimatedPomodoros,
         focus: focus ?? false,
         deadline: null,
+        labelIds: labelIds || [],
         estimationSource: estimatedPomodoros ? 'manual' : undefined,
-      });
+        totalPomodoroSessions: 0,
+        totalTimeSpent: 0,
+        manualTimeSpent: 0,
+        trackingStartedAt: null,
+        archived: false,
+        createdAt: new Date(),
+      };
 
       if (!user) {
         // Guest mode
-        const newTask = addGuestTask(newTaskData);
+        const newTask = addGuestTask(newTaskData as any);
         setTasks(prev => [...prev, newTask]);
         return newTask.id;
       }

@@ -401,11 +401,11 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     if (newTaskTitle.length >= 5) {
       const timer = setTimeout(async () => {
         try {
-          const result = await getEstimate({
-            title: newTaskTitle,
-            projectId: selectedProjectId,
-            userEstimate: estimatedPomodoros
-          });
+          const result = await getEstimate(
+            newTaskTitle,
+            selectedProjectId,
+            estimatedPomodoros
+          );
           
           // Only show suggestion if user estimate doesn't match
           if (result && result.confidence !== 'none' && 
