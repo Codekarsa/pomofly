@@ -8,9 +8,95 @@ interface TaskBreakdown {
   }[];
 }
 
+// Security validation helpers
+function validateOrigin(request: Request): boolean {
+  const origin = request.headers.get('origin');
+  const host = request.headers.get('host');
+  
+  // Allow same-origin requests
+  if (origin && host) {
+    const originUrl = new URL(origin);
+    return originUrl.host === host;
+  }
+  
+  // Allow requests without origin (e.g., from mobile apps, but be cautious)
+  return !origin;
+}
+
+function sanitizeInput(input: string): string {
+  // Remove potentially dangerous characters and limit length
+  return input
+    .replace(/<[^>]*>/g, '') // Remove HTML tags
+    .replace(/[<>'"&]/g, '') // Remove dangerous characters
+    .trim()
+    .substring(0, 5000); // Limit to 5000 characters
+}
+
+function validateRequestBody(body: any): { valid: boolean; error?: string } {
+  if (!body || typeof body !== 'object') {
+    return { valid: false, error: 'Invalid request body' };
+  }
+
+  const { description, pomodoroDuration, shortBreakDuration, longBreakDuration } = body;
+
+  if (!description || typeof description !== 'string') {
+    return { valid: false, error: 'Description is required and must be a string' };
+  }
+
+  if (description.length > 5000) {
+    return { valid: false, error: 'Description too long (max 5000 characters)' };
+  }
+
+  if (pomodoroDuration && (typeof pomodoroDuration !== 'number' || pomodoroDuration < 1 || pomodoroDuration > 90)) {
+    return { valid: false, error: 'Invalid pomodoro duration (must be 1-90 minutes)' };
+  }
+
+  if (shortBreakDuration && (typeof shortBreakDuration !== 'number' || shortBreakDuration < 1 || shortBreakDuration > 30)) {
+    return { valid: false, error: 'Invalid short break duration (must be 1-30 minutes)' };
+  }
+
+  if (longBreakDuration && (typeof longBreakDuration !== 'number' || longBreakDuration < 1 || longBreakDuration > 60)) {
+    return { valid: false, error: 'Invalid long break duration (must be 1-60 minutes)' };
+  }
+
+  return { valid: true };
+}
+
 export async function POST(request: Request) {
   try {
+    // CSRF Protection: Validate origin
+    if (!validateOrigin(request)) {
+      return NextResponse.json(
+        { error: 'Forbidden: Invalid origin' },
+        { 
+          status: 403,
+          headers: {
+            'X-Content-Type-Options': 'nosniff',
+            'X-Frame-Options': 'DENY',
+          }
+        }
+      );
+    }
+
+    // Check content length to prevent large payload attacks
+    const contentLength = request.headers.get('content-length');
+    if (contentLength && parseInt(contentLength) > 10240) { // 10KB limit
+      return NextResponse.json(
+        { error: 'Request payload too large' },
+        { status: 413 }
+      );
+    }
     const body = await request.json();
+    
+    // Validate request body
+    const validation = validateRequestBody(body);
+    if (!validation.valid) {
+      return NextResponse.json(
+        { error: validation.error },
+        { status: 400 }
+      );
+    }
+
     const {
       description,
       startDate,
@@ -19,6 +105,11 @@ export async function POST(request: Request) {
       shortBreakDuration,
       longBreakDuration,
     } = body;
+
+    // Sanitize inputs
+    const sanitizedDescription = sanitizeInput(description);
+    const sanitizedStartDate = startDate ? sanitizeInput(startDate) : null;
+    const sanitizedEndDate = endDate ? sanitizeInput(endDate) : null;
 
     const apiKey = process.env.CLAUDE_API_KEY;
     const claudeModel = process.env.CLAUDE_MODEL;
@@ -31,9 +122,9 @@ export async function POST(request: Request) {
     });
 
     console.log('Sending request to Claude API with body:', {
-      description,
-      startDate: startDate || 'Not specified',
-      endDate: endDate || 'Not specified',
+      description: sanitizedDescription,
+      startDate: sanitizedStartDate || 'Not specified',
+      endDate: sanitizedEndDate || 'Not specified',
       pomodoroDuration,
       shortBreakDuration,
       longBreakDuration,
@@ -41,9 +132,9 @@ export async function POST(request: Request) {
 
     const prompt = `Given the following task description and time constraints, please break it down into subtasks with estimated Pomodoro sessions (${pomodoroDuration}-minute work intervals) for each:
 
-Task Description: ${description}
-Start Date: ${startDate || 'Not specified'}
-End Date: ${endDate || 'Not specified'}
+Task Description: ${sanitizedDescription}
+Start Date: ${sanitizedStartDate || 'Not specified'}
+End Date: ${sanitizedEndDate || 'Not specified'}
 Pomodoro Duration: ${pomodoroDuration} minutes
 Short Break Duration: ${shortBreakDuration} minutes
 Long Break Duration: ${longBreakDuration} minutes
@@ -99,12 +190,23 @@ Please provide the breakdown in the following JSON format without any additional
       throw new Error('AI response format is incorrect');
     }
 
-    return NextResponse.json(taskBreakdown);
+    return NextResponse.json(taskBreakdown, {
+      headers: {
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+      }
+    });
   } catch (error) {
     console.error('Error processing Claude API request:', error);
     return NextResponse.json(
       { error: 'Internal Server Error', details: (error as Error).message },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'DENY',
+        }
+      }
     );
   }
 }
