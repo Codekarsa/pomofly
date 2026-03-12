@@ -5,6 +5,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import GoogleAnalytics from '@/components/GoogleAnalytics'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import PWAServiceWorker from '@/components/PWAServiceWorker'
+import CSPMonitor from '@/components/CSPMonitor'
 import { Suspense } from 'react'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -73,8 +74,18 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <meta 
+          httpEquiv="Content-Security-Policy" 
+          content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://ssl.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://*.firebase.googleapis.com https://firebaseinstallations.googleapis.com https://firebase.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.google-analytics.com https://api.anthropic.com; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests; block-all-mixed-content;" 
+        />
+        <meta httpEquiv="X-Frame-Options" content="DENY" />
+        <meta httpEquiv="X-Content-Type-Options" content="nosniff" />
+        <meta httpEquiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+      </head>
       <body className={`${inter.className} bg-gray-100`}>
         <ErrorBoundary name="RootLayout" showDetails={process.env.NODE_ENV === 'development'}>
+          <CSPMonitor />
           <AuthProvider>
             <Suspense fallback={<div>Loading...</div>}>
               <GoogleAnalytics GA_MEASUREMENT_ID={process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!} />
