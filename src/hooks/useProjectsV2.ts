@@ -13,7 +13,7 @@ export interface UseProjectsResult {
   deleteProject: (id: string) => Promise<void>;
   
   // Project-specific operations
-  getProjectTasks: (projectId: string) => Promise<any[]>;
+  getProjectTasks: (projectId: string) => Promise<Record<string, unknown>[]>;
   
   // Utility
   refreshProjects: () => Promise<void>;

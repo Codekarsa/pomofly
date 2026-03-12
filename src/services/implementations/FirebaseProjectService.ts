@@ -10,7 +10,9 @@ import {
   doc,
   getDoc,
   getDocs,
-  Timestamp
+  Timestamp,
+  QueryDocumentSnapshot,
+  DocumentSnapshot
 } from 'firebase/firestore';
 import { IProjectService, Project, CreateProjectData, ProjectUpdate } from '../interfaces/IProjectService';
 import { IAuthService } from '../interfaces/IAuthService';
@@ -31,8 +33,11 @@ export class FirebaseProjectService implements IProjectService {
     return userId;
   }
 
-  private mapFirestoreProject(doc: any): Project {
+  private mapFirestoreProject(doc: QueryDocumentSnapshot | DocumentSnapshot): Project {
     const data = doc.data();
+    if (!data) {
+      throw new Error('Document data is missing');
+    }
     return {
       id: doc.id,
       name: data.name,
@@ -166,7 +171,7 @@ export class FirebaseProjectService implements IProjectService {
     }
   }
 
-  async getProjectTasks(projectId: string): Promise<any[]> {
+  async getProjectTasks(projectId: string): Promise<Record<string, unknown>[]> {
     try {
       const userId = this.validateAuthentication();
       
@@ -183,7 +188,7 @@ export class FirebaseProjectService implements IProjectService {
       );
       
       const querySnapshot = await getDocs(tasksQuery);
-      const tasks: any[] = [];
+      const tasks: Record<string, unknown>[] = [];
       querySnapshot.forEach((doc) => {
         tasks.push({ id: doc.id, ...doc.data() });
       });

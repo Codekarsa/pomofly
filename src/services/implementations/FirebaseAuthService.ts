@@ -1,6 +1,7 @@
 import { 
   Auth, 
   User, 
+  GoogleAuthProvider,
   signInWithPopup, 
   signOut as firebaseSignOut,
   onAuthStateChanged as firebaseOnAuthStateChanged
@@ -10,7 +11,7 @@ import { IAuthService, AuthUser } from '../interfaces/IAuthService';
 export class FirebaseAuthService implements IAuthService {
   constructor(
     private auth: Auth,
-    private googleProvider: any
+    private googleProvider: GoogleAuthProvider
   ) {}
 
   private mapFirebaseUser(user: User | null): AuthUser | null {

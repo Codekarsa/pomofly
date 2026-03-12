@@ -28,5 +28,5 @@ export interface IProjectService {
   ): () => void;
   
   // Project-specific operations
-  getProjectTasks(projectId: string): Promise<any[]>; // Returns Task[] but avoiding circular dep
+  getProjectTasks(projectId: string): Promise<Record<string, unknown>[]>; // Returns Task[] but avoiding circular dep
 }

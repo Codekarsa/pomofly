@@ -12,7 +12,9 @@ import {
   getDocs,
   writeBatch,
   increment,
-  Timestamp
+  Timestamp,
+  QueryDocumentSnapshot,
+  DocumentSnapshot
 } from 'firebase/firestore';
 import { ITaskService, Task, TaskFilter, TaskUpdate, CreateTaskData } from '../interfaces/ITaskService';
 import { IAuthService } from '../interfaces/IAuthService';
@@ -33,8 +35,11 @@ export class FirebaseTaskService implements ITaskService {
     return userId;
   }
 
-  private mapFirestoreTask(doc: any): Task {
+  private mapFirestoreTask(doc: QueryDocumentSnapshot | DocumentSnapshot): Task {
     const data = doc.data();
+    if (!data) {
+      throw new Error('Document data is missing');
+    }
     return {
       id: doc.id,
       title: data.title,
@@ -140,7 +145,7 @@ export class FirebaseTaskService implements ITaskService {
 
   async updateTask(id: string, updates: TaskUpdate): Promise<void> {
     try {
-      const userId = this.validateAuthentication();
+      this.validateAuthentication();
       
       // First verify ownership
       const existingTask = await this.getTask(id);
@@ -148,7 +153,7 @@ export class FirebaseTaskService implements ITaskService {
         throw new Error('Task not found');
       }
 
-      const updateData: any = { ...updates };
+      const updateData: Record<string, unknown> = { ...updates };
       
       // Convert dates to Firestore timestamps
       if (updates.trackingStartedAt !== undefined) {
@@ -182,7 +187,7 @@ export class FirebaseTaskService implements ITaskService {
 
   async updateMultipleTasks(taskIds: string[], updates: TaskUpdate): Promise<void> {
     try {
-      const userId = this.validateAuthentication();
+      this.validateAuthentication();
       const batch = writeBatch(this.db);
 
       // Verify ownership of all tasks first
@@ -194,7 +199,7 @@ export class FirebaseTaskService implements ITaskService {
       }
 
       // Prepare update data
-      const updateData: any = { ...updates };
+      const updateData: Record<string, unknown> = { ...updates };
       if (updates.trackingStartedAt !== undefined) {
         updateData.trackingStartedAt = updates.trackingStartedAt ? 
           Timestamp.fromDate(updates.trackingStartedAt) : null;
