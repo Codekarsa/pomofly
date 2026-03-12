@@ -114,7 +114,7 @@ export class FirebaseProjectService implements IProjectService {
       }
 
       const docRef = doc(this.db, this.collectionName, id);
-      await updateDoc(docRef, updates);
+      await updateDoc(docRef, updates as Record<string, unknown>);
     } catch (error) {
       console.error('Error updating project:', error);
       throw new Error('Failed to update project');
