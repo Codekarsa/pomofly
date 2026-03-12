@@ -1,0 +1,12 @@
+# Placeholder for notification sound files
+# 
+# In production, this directory should contain:
+# - bell.mp3
+# - chime.mp3
+# - ding.mp3
+# - notification.mp3
+# - success.mp3
+# - peaceful.mp3
+#
+# For development, the sound system will gracefully handle missing files
+# and provide fallback notifications.
