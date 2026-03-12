@@ -2,6 +2,9 @@ import React, { useState, useEffect, useCallback, memo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import AudioSettings from './AudioSettings';
+import { useAudioNotifications } from '@/hooks/useAudioNotifications';
 
 type Settings = {
   pomodoro: number;
@@ -21,6 +24,11 @@ interface SettingsModalProps {
 
 const SettingsModal = memo(({ isOpen, onClose, settings, onSave, event }: SettingsModalProps) => {
   const [localSettings, setLocalSettings] = useState<Settings>(settings);
+  const { 
+    settings: audioSettings, 
+    updateSettings: updateAudioSettings,
+    previewSound 
+  } = useAudioNotifications();
 
   useEffect(() => {
     if (isOpen) {
@@ -69,13 +77,16 @@ const SettingsModal = memo(({ isOpen, onClose, settings, onSave, event }: Settin
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-semibold mb-4">Timer Settings</h2>
+      <div className="bg-card rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <h2 className="text-xl font-semibold mb-4 text-foreground">Settings</h2>
+        
         <form onSubmit={handleSubmit}>
+          {/* Timer Settings */}
           <div className="space-y-4">
+            <h3 className="text-lg font-medium text-foreground">Timer Duration</h3>
             {Object.entries(localSettings).map(([key, value]) => (
               <div key={key} className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor={key} className="text-right capitalize">
+                <Label htmlFor={key} className="text-right capitalize text-foreground">
                   {key.replace(/([A-Z])/g, ' $1').trim()}
                 </Label>
                 <Input
@@ -90,6 +101,17 @@ const SettingsModal = memo(({ isOpen, onClose, settings, onSave, event }: Settin
               </div>
             ))}
           </div>
+
+          {/* Audio Settings */}
+          <div className="mt-6">
+            <Separator className="mb-6" />
+            <AudioSettings
+              settings={audioSettings}
+              onSettingsChange={updateAudioSettings}
+              onPreviewSound={previewSound}
+            />
+          </div>
+
           <div className="mt-6 flex justify-end space-x-2">
             <Button type="button" variant="outline" onClick={handleDialogClose}>
               Cancel

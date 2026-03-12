@@ -17,7 +17,7 @@ export const defaultSettings: PomodoroSettings = {
   longBreakInterval: 4
 };
 
-export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () => void) {
+export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: (phase: PomodoroPhase) => void) {
   const [phase, setPhase] = useState<PomodoroPhase>('pomodoro');
   const [minutes, setMinutes] = useState(initialSettings[phase]);
   const [seconds, setSeconds] = useState(0);
@@ -92,6 +92,8 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
   }, [timerStartedAt, pausedTimeRemaining, settings, phase]);
 
   const handlePhaseComplete = useCallback(() => {
+    const completedPhase = phase; // Capture the phase that just completed
+    
     if (phase === 'pomodoro') {
       setSessionsCompleted(prev => prev + 1);
       if (sessionsCompleted + 1 >= settings.longBreakInterval) {
@@ -108,7 +110,7 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     setSeconds(0);
     setTimerStartedAt(null);
     setPausedTimeRemaining(null);
-    onCompleteRef.current?.();
+    onCompleteRef.current?.(completedPhase);
   }, [phase, sessionsCompleted, settings]);
 
   const updateSettings = useCallback((newSettings: PomodoroSettings) => {

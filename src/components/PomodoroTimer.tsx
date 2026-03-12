@@ -5,6 +5,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { useProjects } from '@/hooks/useProjects';
 import { useTimeTracking } from '@/hooks/useTimeTracking';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
+import { useAudioNotifications } from '@/hooks/useAudioNotifications';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
@@ -28,6 +29,7 @@ interface PomodoroTimerProps {
 const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) => {
   const { user } = useAuth();
   const { event } = useGoogleAnalytics();
+  const { playNotification } = useAudioNotifications();
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('selectedTaskIds');
@@ -82,7 +84,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   }, [loading, tasks]);
 
   // Stable callback that uses refs - won't cause usePomodoro to reset
-  const handlePomodoroComplete = useCallback(() => {
+  const handlePomodoroComplete = useCallback((phase: 'pomodoro' | 'shortBreak' | 'longBreak') => {
     const taskIds = selectedTaskIdsRef.current;
     const currentTasks = tasksRef.current;
 
@@ -124,15 +126,19 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
         duration: settings.pomodoro,
         task_ids: taskIds,
         task_count: taskIds.length,
-        phase: 'pomodoro'
+        phase: phase
       });
     } else {
       event('pomodoro_session_completed', {
         duration: settings.pomodoro,
-        phase: 'pomodoro'
+        phase: phase
       });
     }
-  }, [user, settings.pomodoro, incrementPomodoroSession, stopAllTimeTracking, event]);
+
+    // Play completion sound
+    const soundPhase = phase === 'pomodoro' ? 'work' : 'break';
+    playNotification(soundPhase);
+  }, [user, settings.pomodoro, incrementPomodoroSession, stopAllTimeTracking, event, playNotification]);
 
   const {
     phase,
