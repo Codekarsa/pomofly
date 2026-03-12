@@ -11,6 +11,7 @@ import { Github } from 'lucide-react';
 import { signInWithPopup, signOut } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
 import { hasGuestData, getGuestDataSummary } from '@/lib/guestStorage';
+import ThemeToggle from './ThemeToggle';
 
 // Lazy load DataMigrationModal since it's only shown conditionally
 const DataMigrationModal = lazy(() => import('./DataMigrationModal'));
@@ -92,7 +93,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const isGuest = !user;
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-background">
       <Sidebar onSettingsClick={handleSettingsOpen} onSignIn={handleSignIn} />
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Guest Banner */}
@@ -100,10 +101,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           <GuestBanner onSignIn={handleSignIn} onDismiss={handleDismissGuestBanner} />
         )}
         {/* Top Header */}
-        <header className="bg-white border-b border-gray-200 px-6 py-3">
+        <header className="bg-card border-b border-border px-6 py-3">
           <div className="flex justify-between items-center">
-            <h1 className="text-xl font-semibold text-gray-900">Pomofly</h1>
+            <h1 className="text-xl font-semibold text-foreground">Pomofly</h1>
             <div className="flex items-center space-x-2">
+              <ThemeToggle />
               <Button variant="ghost" size="sm" asChild>
                 <a
                   href="https://github.com/Codekarsa/pomofly"
