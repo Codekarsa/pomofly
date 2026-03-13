@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { playSessionNotification, type SessionType } from '@/utils/sound-notifications';
 
 type PomodoroPhase = 'pomodoro' | 'shortBreak' | 'longBreak';
 
@@ -52,7 +53,14 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     return Math.max(0, remaining);
   }, [timerStartedAt, pausedTimeRemaining, settings, phase]);
 
-  const handlePhaseComplete = useCallback(() => {
+  const handlePhaseComplete = useCallback(async () => {
+    // Play notification sound for the completed phase
+    try {
+      await playSessionNotification(phase as SessionType);
+    } catch (error) {
+      console.warn('Failed to play notification sound:', error);
+    }
+
     if (phase === 'pomodoro') {
       setSessionsCompleted(prev => prev + 1);
       if (sessionsCompleted + 1 >= settings.longBreakInterval) {
