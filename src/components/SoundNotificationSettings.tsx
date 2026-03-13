@@ -39,7 +39,7 @@ export default function SoundNotificationSettings({ onSettingsChange }: SoundNot
     setSettings(currentSettings);
   }, []);
 
-  const handleSettingChange = useCallback((key: keyof SoundSettings, value: any) => {
+  const handleSettingChange = useCallback((key: keyof SoundSettings, value: SoundSettings[keyof SoundSettings]) => {
     const newSettings = { ...settings, [key]: value };
     setSettings(newSettings);
     updateSoundSettings({ [key]: value });
