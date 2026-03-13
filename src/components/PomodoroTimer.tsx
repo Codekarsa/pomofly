@@ -5,10 +5,12 @@ import { useTasks } from '@/hooks/useTasks';
 import { useProjects } from '@/hooks/useProjects';
 import { useTimeTracking } from '@/hooks/useTimeTracking';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
+import { useAudioNotifications } from '@/hooks/useAudioNotifications';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
+import { Play, Pause, RotateCcw, CheckCircle, Settings } from 'lucide-react';
 import SelectedTasksList from './SelectedTasksList';
+import AudioSettingsPanel from './AudioSettingsPanel';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -24,6 +26,7 @@ interface PomodoroTimerProps {
 const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) => {
   const { user } = useAuth();
   const { event } = useGoogleAnalytics();
+  const { playNotification } = useAudioNotifications();
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('selectedTaskIds');
@@ -31,6 +34,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     }
     return [];
   });
+  const [showAudioSettings, setShowAudioSettings] = useState(false);
   const {
     tasks,
     loading,
@@ -77,7 +81,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   }, [loading, tasks]);
 
   // Stable callback that uses refs - won't cause usePomodoro to reset
-  const handlePomodoroComplete = useCallback(() => {
+  const handlePomodoroComplete = useCallback((completedPhase: 'pomodoro' | 'shortBreak' | 'longBreak') => {
     const taskIds = selectedTaskIdsRef.current;
     const currentTasks = tasksRef.current;
 
@@ -119,15 +123,22 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
         duration: settings.pomodoro,
         task_ids: taskIds,
         task_count: taskIds.length,
-        phase: 'pomodoro'
+        phase: completedPhase
       });
     } else {
       event('pomodoro_session_completed', {
         duration: settings.pomodoro,
-        phase: 'pomodoro'
+        phase: completedPhase
       });
     }
-  }, [user, settings.pomodoro, incrementPomodoroSession, stopAllTimeTracking, event]);
+
+    // Play audio notification based on completed phase
+    if (completedPhase === 'pomodoro') {
+      playNotification('work-complete');
+    } else if (completedPhase === 'shortBreak' || completedPhase === 'longBreak') {
+      playNotification('break-complete');
+    }
+  }, [user, settings.pomodoro, incrementPomodoroSession, stopAllTimeTracking, event, playNotification]);
 
   const {
     phase,
@@ -324,6 +335,23 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
               <CheckCircle className="mr-2 h-4 w-4" />
               Done/Next
             </Button>
+          )}
+        </div>
+
+        {/* Audio Settings */}
+        <div className="mb-6">
+          <div className="flex justify-center mb-3">
+            <Button
+              onClick={() => setShowAudioSettings(!showAudioSettings)}
+              variant="outline"
+              size="sm"
+            >
+              <Settings className="mr-2 h-4 w-4" />
+              Audio Settings
+            </Button>
+          </div>
+          {showAudioSettings && (
+            <AudioSettingsPanel className="mb-4" />
           )}
         </div>
 
