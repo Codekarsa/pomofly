@@ -8,10 +8,80 @@ import {
   type ClaudeRequest,
   type TaskBreakdown,
 } from '@/lib/claude-validation';
+import {
+  rateLimitMiddleware,
+  validateRequestSize,
+  getClientIdentifier,
+  logAPIRequest,
+  RATE_LIMITS,
+  CORS_HEADERS,
+  SECURITY_HEADERS,
+} from '@/lib/rate-limiter';
+
+// Handle CORS preflight requests
+export async function OPTIONS(request: Request) {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      ...CORS_HEADERS,
+      ...SECURITY_HEADERS,
+    },
+  });
+}
 
 export async function POST(request: Request) {
+  const startTime = Date.now();
+  const identifier = getClientIdentifier(request);
+
   try {
-    // Parse and validate request body
+    // 1. Rate limiting check
+    const rateLimitResult = await rateLimitMiddleware(request, RATE_LIMITS.CLAUDE_API);
+    
+    if (!rateLimitResult.allowed) {
+      logAPIRequest(request, identifier, 'claude-breakdown', false);
+      
+      return NextResponse.json(
+        { 
+          error: 'Rate limit exceeded', 
+          details: rateLimitResult.error,
+          code: 'RATE_LIMITED'
+        },
+        { 
+          status: 429,
+          headers: {
+            ...CORS_HEADERS,
+            ...SECURITY_HEADERS,
+            ...rateLimitResult.headers,
+          }
+        }
+      );
+    }
+
+    // 2. Request size validation
+    const contentLength = request.headers.get('content-length');
+    const sizeValidation = validateRequestSize(contentLength, 100 * 1024); // 100KB limit
+    
+    if (!sizeValidation.valid) {
+      logAPIRequest(request, identifier, 'claude-breakdown', false);
+      
+      return NextResponse.json(
+        { 
+          error: 'Request too large', 
+          details: sizeValidation.error,
+          code: 'REQUEST_TOO_LARGE'
+        },
+        { 
+          status: 413,
+          headers: {
+            ...CORS_HEADERS,
+            ...SECURITY_HEADERS,
+            ...rateLimitResult.headers,
+          }
+        }
+      );
+    }
+
+    // 3. Parse and validate request body
     const rawBody = await request.json();
     let validatedRequest: ClaudeRequest;
     
@@ -19,27 +89,45 @@ export async function POST(request: Request) {
       validatedRequest = validateClaudeRequest(rawBody);
     } catch (validationError) {
       logValidationFailure('request', validationError, rawBody);
+      logAPIRequest(request, identifier, 'claude-breakdown', false);
+      
       return NextResponse.json(
         { 
           error: 'Invalid request data', 
           details: (validationError as Error).message,
           code: 'VALIDATION_ERROR'
         },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: {
+            ...CORS_HEADERS,
+            ...SECURITY_HEADERS,
+            ...rateLimitResult.headers,
+          }
+        }
       );
     }
 
     // Check for suspicious patterns in description
     const suspiciousPatterns = detectSuspiciousPatterns(validatedRequest.description);
     if (suspiciousPatterns.length > 0) {
-      console.warn('Suspicious patterns detected:', suspiciousPatterns);
+      console.warn('Suspicious patterns detected:', suspiciousPatterns, { identifier });
+      logAPIRequest(request, identifier, 'claude-breakdown', false);
+      
       return NextResponse.json(
         { 
           error: 'Request contains potentially dangerous content', 
           details: `Detected: ${suspiciousPatterns.join(', ')}`,
           code: 'SECURITY_VIOLATION'
         },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: {
+            ...CORS_HEADERS,
+            ...SECURITY_HEADERS,
+            ...rateLimitResult.headers,
+          }
+        }
       );
     }
 
@@ -49,17 +137,35 @@ export async function POST(request: Request) {
     
     if (!apiKey) {
       console.error('CLAUDE_API_KEY is not configured');
+      logAPIRequest(request, identifier, 'claude-breakdown', false);
+      
       return NextResponse.json(
         { error: 'Service configuration error', code: 'CONFIG_ERROR' },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: {
+            ...CORS_HEADERS,
+            ...SECURITY_HEADERS,
+            ...rateLimitResult.headers,
+          }
+        }
       );
     }
 
     if (!claudeModel) {
       console.error('CLAUDE_MODEL is not configured');
+      logAPIRequest(request, identifier, 'claude-breakdown', false);
+      
       return NextResponse.json(
         { error: 'Service configuration error', code: 'CONFIG_ERROR' },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: {
+            ...CORS_HEADERS,
+            ...SECURITY_HEADERS,
+            ...rateLimitResult.headers,
+          }
+        }
       );
     }
 
@@ -125,9 +231,18 @@ Guidelines:
 
     if (!message.content || message.content.length === 0) {
       console.error('Empty response from Claude API');
+      logAPIRequest(request, identifier, 'claude-breakdown', false);
+      
       return NextResponse.json(
         { error: 'AI service returned empty response', code: 'EMPTY_RESPONSE' },
-        { status: 502 }
+        { 
+          status: 502,
+          headers: {
+            ...CORS_HEADERS,
+            ...SECURITY_HEADERS,
+            ...rateLimitResult.headers,
+          }
+        }
       );
     }
 
@@ -144,13 +259,22 @@ Guidelines:
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
       logValidationFailure('response', parseError, aiContent);
+      logAPIRequest(request, identifier, 'claude-breakdown', false);
+      
       return NextResponse.json(
         { 
           error: 'AI response could not be parsed as valid JSON', 
           details: 'Please try again with a simpler task description',
           code: 'PARSE_ERROR'
         },
-        { status: 502 }
+        { 
+          status: 502,
+          headers: {
+            ...CORS_HEADERS,
+            ...SECURITY_HEADERS,
+            ...rateLimitResult.headers,
+          }
+        }
       );
     }
 
@@ -161,22 +285,42 @@ Guidelines:
     } catch (validationError) {
       console.error('AI response validation failed:', validationError);
       logValidationFailure('response', validationError, parsedResponse);
+      logAPIRequest(request, identifier, 'claude-breakdown', false);
+      
       return NextResponse.json(
         { 
           error: 'AI response format is invalid', 
           details: (validationError as Error).message,
           code: 'RESPONSE_VALIDATION_ERROR'
         },
-        { status: 502 }
+        { 
+          status: 502,
+          headers: {
+            ...CORS_HEADERS,
+            ...SECURITY_HEADERS,
+            ...rateLimitResult.headers,
+          }
+        }
       );
     }
 
     console.log(`Successfully validated ${validatedResponse.tasks.length} tasks`);
+    
+    // Log successful request
+    const processingTime = Date.now() - startTime;
+    logAPIRequest(request, identifier, 'claude-breakdown', true, processingTime);
 
-    return NextResponse.json(validatedResponse);
+    return NextResponse.json(validatedResponse, {
+      headers: {
+        ...CORS_HEADERS,
+        ...SECURITY_HEADERS,
+        ...rateLimitResult.headers,
+      }
+    });
 
   } catch (error) {
     console.error('Unexpected error processing Claude API request:', error);
+    logAPIRequest(request, identifier, 'claude-breakdown', false);
     
     // Don't expose sensitive error details in production
     const isDevelopment = process.env.NODE_ENV === 'development';
@@ -187,7 +331,14 @@ Guidelines:
         details: isDevelopment ? (error as Error).message : 'Please try again later',
         code: 'INTERNAL_ERROR'
       },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          ...CORS_HEADERS,
+          ...SECURITY_HEADERS,
+          // Note: rateLimitResult.headers might not be available if error occurred before rate limiting
+        }
+      }
     );
   }
 }
