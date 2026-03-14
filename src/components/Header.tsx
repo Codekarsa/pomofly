@@ -6,11 +6,14 @@ import { auth, googleProvider } from '../lib/firebase';
 import { signOut, signInWithPopup } from 'firebase/auth';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { Button } from '@/components/ui/button';
-import { Github } from 'lucide-react';
+import { MobileButton } from '@/components/ui/mobile-button';
+import { Github, Menu, X } from 'lucide-react';
+import { useState } from 'react';
 
 export default function Header({ onSettingsClick }: { onSettingsClick: () => void }) {
   const { user } = useAuth();
   const { event } = useGoogleAnalytics();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleSignOut = async () => {
     try {
@@ -49,7 +52,9 @@ export default function Header({ onSettingsClick }: { onSettingsClick: () => voi
     <header className="bg-background border-b">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
         <h1 className="text-xl font-semibold text-foreground">Pomofly</h1>
-        <div className="flex items-center space-x-2">
+        
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex items-center space-x-2">
           <Button variant="ghost" size="sm" asChild>
             <a
               href="https://github.com/Codekarsa/pomofly"
@@ -58,7 +63,7 @@ export default function Header({ onSettingsClick }: { onSettingsClick: () => voi
               className="flex items-center"
             >
               <Github className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Star on GitHub</span>
+              <span>Star on GitHub</span>
             </a>
           </Button>
           <Button variant="ghost" size="sm" onClick={handleSettingsClick}>
@@ -74,7 +79,71 @@ export default function Header({ onSettingsClick }: { onSettingsClick: () => voi
             </Button>
           )}
         </div>
+
+        {/* Mobile Menu Button */}
+        <MobileButton
+          variant="ghost"
+          size="icon"
+          className="md:hidden"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+        >
+          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </MobileButton>
       </div>
+
+      {/* Mobile Navigation Menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-t bg-background">
+          <div className="container mx-auto px-4 py-2 flex flex-col space-y-2">
+            <MobileButton variant="ghost" className="justify-start h-12" asChild>
+              <a
+                href="https://github.com/Codekarsa/pomofly"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <Github className="w-5 h-5 mr-3" />
+                Star on GitHub
+              </a>
+            </MobileButton>
+            <MobileButton 
+              variant="ghost" 
+              className="justify-start h-12"
+              onClick={() => {
+                handleSettingsClick();
+                setMobileMenuOpen(false);
+              }}
+            >
+              Settings
+            </MobileButton>
+            {user ? (
+              <MobileButton 
+                variant="ghost" 
+                className="justify-start h-12"
+                onClick={() => {
+                  handleSignOut();
+                  setMobileMenuOpen(false);
+                }}
+              >
+                Sign Out
+              </MobileButton>
+            ) : (
+              <MobileButton 
+                variant="ghost" 
+                className="justify-start h-12"
+                onClick={() => {
+                  handleSignIn();
+                  setMobileMenuOpen(false);
+                }}
+              >
+                Sign In
+              </MobileButton>
+            )}
+          </div>
+        </div>
+      )}
     </header>
   );
 }

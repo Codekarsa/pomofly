@@ -1,0 +1,12 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "estimation_history",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "completedAt", "order": "DESCENDING" }
+      ]
+    }
+  ]
+}
