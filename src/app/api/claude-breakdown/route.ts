@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { validateAuth, checkRateLimit } from '@/lib/auth-middleware';
+import { getServerEnv } from '@/lib/env';
 
 interface TaskBreakdown {
   tasks: {
@@ -115,18 +116,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const apiKey = process.env.CLAUDE_API_KEY;
-    const claudeModel = process.env.CLAUDE_MODEL;
-    
-    if (!apiKey) {
-      return NextResponse.json(
-        { 
-          error: 'Configuration Error', 
-          message: 'Claude API is not properly configured' 
-        },
-        { status: 503 }
-      );
-    }
+    // Validate environment variables early
+    const env = getServerEnv();
 
     if (!claudeModel) {
       return NextResponse.json(
@@ -150,7 +141,7 @@ export async function POST(request: NextRequest) {
     }
 
     const anthropic = new Anthropic({
-      apiKey: apiKey,
+      apiKey: env.CLAUDE_API_KEY,
       timeout: REQUEST_TIMEOUT_MS,
     });
 
@@ -184,7 +175,7 @@ Please provide the breakdown in the following JSON format without any additional
 }`;
     const message = await withTimeout(
       anthropic.messages.create({
-        model: claudeModel as Anthropic.Model,
+        model: env.CLAUDE_MODEL as Anthropic.Model,
         max_tokens: 1000,
         messages: [
           {
@@ -247,6 +238,18 @@ Please provide the breakdown in the following JSON format without any additional
     return NextResponse.json(taskBreakdown);
   } catch (error) {
     console.error('Error processing Claude API request:', error);
+    
+    // Handle environment validation errors with more specific messaging
+    if (error instanceof Error && error.message.includes('environment variables')) {
+      return NextResponse.json(
+        { 
+          error: 'Configuration Error', 
+          details: 'Server configuration is invalid. Please check environment variables.',
+          configError: true
+        },
+        { status: 500 }
+      );
+    }
 
     // Handle different error types with appropriate responses
     if (error instanceof TimeoutError) {
