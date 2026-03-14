@@ -11,6 +11,7 @@ import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
 import SelectedTasksList from './SelectedTasksList';
 import { TimerPerformanceIndicator } from './TimerPerformanceIndicator';
 import { TimerRestoreNotification } from './TimerRestoreNotification';
+import { TimerProgress } from './CircularProgress';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -280,15 +281,15 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8">
-            {/* Timer circle skeleton with pulse animation */}
-            <div className="relative w-48 h-48 mb-6">
-              <div className="absolute inset-0 rounded-full border-8 border-gray-200"></div>
-              <div className="absolute inset-0 rounded-full border-8 border-t-red-500 border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-4xl font-mono text-gray-300 animate-pulse">--:--</div>
-              </div>
-            </div>
-            <p className="text-muted-foreground animate-pulse">Loading timer...</p>
+            <TimerProgress
+              progress={25}
+              variant="default"
+              size={280}
+              strokeWidth={12}
+            >
+              <div className="text-6xl font-bold text-gray-300 animate-pulse">--:--</div>
+              <div className="text-lg text-muted-foreground mt-2 animate-pulse">Loading...</div>
+            </TimerProgress>
           </div>
         </CardContent>
       </Card>
@@ -332,8 +333,26 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
           ))}
         </div>
 
-        <div className="text-8xl font-bold mb-4 text-center py-6">
-          {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
+        <div className="flex flex-col items-center justify-center mb-4 py-6">
+          <TimerProgress
+            progress={
+              phase === 'pomodoro' 
+                ? ((settings.pomodoro * 60 - (minutes * 60 + seconds)) / (settings.pomodoro * 60)) * 100
+                : phase === 'shortBreak'
+                ? ((settings.shortBreak * 60 - (minutes * 60 + seconds)) / (settings.shortBreak * 60)) * 100
+                : ((settings.longBreak * 60 - (minutes * 60 + seconds)) / (settings.longBreak * 60)) * 100
+            }
+            variant={phase === 'pomodoro' ? 'pomodoro' : phase === 'shortBreak' ? 'shortBreak' : 'longBreak'}
+            size={280}
+            strokeWidth={12}
+          >
+            <div className="text-6xl font-bold text-center">
+              {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
+            </div>
+            <div className="text-lg text-muted-foreground mt-2 capitalize">
+              {phase === 'shortBreak' ? 'Short Break' : phase === 'longBreak' ? 'Long Break' : 'Pomodoro'}
+            </div>
+          </TimerProgress>
         </div>
 
         <TimerPerformanceIndicator
