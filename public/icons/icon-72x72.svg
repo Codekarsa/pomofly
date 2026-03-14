@@ -1,0 +1,8 @@
+<svg width="72" height="72" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
+    <rect width="72" height="72" rx="9" fill="#3b82f6"/>
+    <circle cx="36" cy="36" r="25.2" fill="white" stroke="#e5e7eb" stroke-width="1.44"/>
+    <circle cx="36" cy="36" r="25.2" fill="none" stroke="#10b981" stroke-width="1.8" 
+            stroke-linecap="round" stroke-dasharray="158.4" stroke-dashoffset="39.6" transform="rotate(-90 36 36)"/>
+    <circle cx="36" cy="36" r="2.16" fill="#374151"/>
+    <text x="36" y="64.8" text-anchor="middle" font-family="system-ui" font-size="7.2" font-weight="700" fill="white">P</text>
+  </svg>

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Plus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ interface ComboboxProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  onCreateNew?: (name: string) => void;
 }
 
 export const Combobox: React.FC<ComboboxProps> = ({
@@ -34,9 +35,15 @@ export const Combobox: React.FC<ComboboxProps> = ({
   value,
   onChange,
   placeholder = "Select an option...",
+  onCreateNew,
 }) => {
   const [open, setOpen] = React.useState(false);
   const [searchValue, setSearchValue] = React.useState("");
+
+  const hasExactMatch = options.some(
+    (option) => option.label.toLowerCase() === searchValue.trim().toLowerCase()
+  );
+  const showCreateOption = onCreateNew && searchValue.trim() && !hasExactMatch;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -61,7 +68,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
             onValueChange={setSearchValue}
           />
           <CommandList>
-            <CommandEmpty>No options found.</CommandEmpty>
+            {!showCreateOption && <CommandEmpty>No options found.</CommandEmpty>}
             <CommandGroup>
               {options.map((option) => (
                 <CommandItem
@@ -82,6 +89,19 @@ export const Combobox: React.FC<ComboboxProps> = ({
                   {option.label}
                 </CommandItem>
               ))}
+              {showCreateOption && (
+                <CommandItem
+                  value={`__create__${searchValue.trim()}`}
+                  onSelect={() => {
+                    onCreateNew(searchValue.trim());
+                    setOpen(false);
+                    setSearchValue("");
+                  }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create &ldquo;{searchValue.trim()}&rdquo;
+                </CommandItem>
+              )}
             </CommandGroup>
           </CommandList>
         </Command>

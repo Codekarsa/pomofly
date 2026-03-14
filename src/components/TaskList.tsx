@@ -1,14 +1,16 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import Link from 'next/link';
 import { useTasks, Task } from '../hooks/useTasks';
 import { useProjects } from '../hooks/useProjects';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { useTimeTracking } from '@/hooks/useTimeTracking';
+import { useEstimation, type EstimationResult } from '@/hooks/useEstimation';
 import { Button } from '@/components/ui/button';
+import { MobileButton } from '@/components/ui/mobile-button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MoreHorizontal, Plus, Pencil, Trash2, Star, Calendar, ChevronDown, ChevronRight, Search, ArrowUpAZ, ArrowDownAZ, Filter, CheckCircle, Eye } from 'lucide-react';
+import { MoreHorizontal, Plus, Pencil, Trash2, Star, Calendar, ChevronDown, ChevronRight, Search, ArrowUpAZ, ArrowDownAZ, Filter, CheckCircle, Eye, FolderOpen } from 'lucide-react';
 import TaskTimeTracker from './TaskTimeTracker';
 import TimeTrackingControls from './TimeTrackingControls';
 import BulkActionToolbar from './BulkActionToolbar';
@@ -25,7 +27,11 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Combobox } from './ui/combobox';
+import { cn } from '@/lib/utils';
+import LabelPicker, { LabelBadge } from './LabelPicker';
+import { useLabels } from '@/hooks/useLabels';
 import { AIBreakdownModal } from './AIBreakdownModal';
+import { EstimationHint } from './EstimationHint';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -39,6 +45,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+
+// Lazy load the heavy AI Breakdown Modal
+const AIBreakdownModal = lazy(() => import('./AIBreakdownModal').then(module => ({ default: module.AIBreakdownModal })));
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -63,6 +72,7 @@ interface CompletedTasksSectionProps {
   onDeleteTask: (id: string) => void;
   event: AnalyticsEvent;
   ProjectBadge: React.FC<{ projectId: string }>;
+  TaskLabels: React.FC<{ labelIds?: string[] }>;
 }
 
 const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
@@ -74,6 +84,7 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
   onDeleteTask,
   event,
   ProjectBadge,
+  TaskLabels,
 }) => {
   const [open, setOpen] = useState(false);
   if (!tasks.length) return null;
@@ -92,25 +103,26 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
           {tasks.map((task) => (
             <li key={task.id} className="flex items-center justify-between p-2 bg-muted rounded-md transition-colors">
               <div className="flex items-center space-x-2">
-                <Button
+                <MobileButton
                   variant="ghost"
-                  size="sm"
+                  size="icon"
                   onClick={() => onToggleTaskCompletion(task.id, task.completed)}
-                  className="p-1 text-green-500 hover:text-gray-400"
+                  className="text-green-500 hover:text-gray-400"
                   aria-label="Mark as incomplete"
                 >
                   <CheckCircle className="w-4 h-4" fill="currentColor" />
-                </Button>
-                <Button
+                </MobileButton>
+                <MobileButton
                   variant="ghost"
-                  size="sm"
+                  size="icon"
                   onClick={() => onToggleTaskFocus(task.id, task.focus || false)}
-                  className={`p-1 ${task.focus ? 'text-yellow-500' : 'text-gray-400'}`}
+                  className={`${task.focus ? 'text-yellow-500' : 'text-gray-400'}`}
                 >
                   <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
-                </Button>
+                </MobileButton>
                 <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
                 {task.projectId && <ProjectBadge projectId={task.projectId} />}
+                <TaskLabels labelIds={task.labelIds} />
                 <span className="text-xs text-muted-foreground">
                   ({task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0})
                 </span>
@@ -127,9 +139,9 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm">
+                  <MobileButton variant="ghost" size="icon">
                     <MoreHorizontal className="w-4 h-4" />
-                  </Button>
+                  </MobileButton>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
@@ -187,7 +199,9 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [estimatedPomodoros, setEstimatedPomodoros] = useState<number | undefined>(undefined);
   const [selectedProjectId, setSelectedProjectId] = useState('');
-  const [editingTask, setEditingTask] = useState<{ id: string, title: string, estimatedPomodoros?: number, projectId?: string } | null>(null);
+  const [newTaskFocus, setNewTaskFocus] = useState(false);
+  const [newTaskLabelIds, setNewTaskLabelIds] = useState<string[]>([]);
+  const [editingTask, setEditingTask] = useState<{ id: string, title: string, estimatedPomodoros?: number, projectId?: string, labelIds?: string[] } | null>(null);
   const [editingDeadline, setEditingDeadline] = useState<{ id: string, deadline: string } | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
@@ -195,6 +209,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [showAddTaskForm, setShowAddTaskForm] = useState(false);
   const [showAIBreakdownModal, setShowAIBreakdownModal] = useState(false);
   const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [labelFilter, setLabelFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -202,8 +217,14 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
+  
+  // Estimation state
+  const [estimation, setEstimation] = useState<EstimationResult | null>(null);
+  const [estimationDebounceTimer, setEstimationDebounceTimer] = useState<NodeJS.Timeout | null>(null);
 
-  const { projects } = useProjects();
+  const { projects, addProject } = useProjects();
+  const { getEstimate, loading: estimationLoading } = useEstimation();
+  const { labels } = useLabels();
   const {
     tasks,
     loading: tasksLoading,
@@ -227,6 +248,46 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   // Time tracking hook
   const { activelyTrackedTasks, hasActiveTracking, getElapsedTime, formatTime } = useTimeTracking(memoizedTasks);
 
+  const handleCreateProject = useCallback(async (name: string) => {
+    try {
+      const newProjectId = await addProject(name);
+      if (newProjectId) {
+        setSelectedProjectId(newProjectId);
+        event('project_created_from_task_form', { project_name: name });
+      }
+    } catch (error) {
+      console.error("Failed to create project:", error);
+    }
+  }, [addProject, event]);
+
+  const handleCreateProjectForEdit = useCallback(async (name: string) => {
+    try {
+      const newProjectId = await addProject(name);
+      if (newProjectId) {
+        setEditingTask(prev => prev ? { ...prev, projectId: newProjectId } : prev);
+        event('project_created_from_task_form', { project_name: name });
+      }
+    } catch (error) {
+      console.error("Failed to create project:", error);
+    }
+  }, [addProject, event]);
+
+  // Handle applying estimation suggestion
+  const handleApplyEstimation = useCallback(() => {
+    if (estimation) {
+      setEstimatedPomodoros(estimation.suggestedPomodoros);
+      // Track the source of the estimate
+      event('estimation_applied', {
+        suggested_pomodoros: estimation.suggestedPomodoros,
+        confidence: estimation.confidence,
+        similar_tasks_count: estimation.similarTasksCount,
+        task_title: newTaskTitle
+      });
+      // Clear the estimation after applying
+      setEstimation(null);
+    }
+  }, [estimation, event, newTaskTitle]);
+
   // Helper function to get project name by ID
   const getProjectName = useCallback((projectId: string) => {
     const project = memoizedProjects.find(p => p.id === projectId);
@@ -236,21 +297,14 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   // Project Badge Component
   const ProjectBadge = ({ projectId }: { projectId: string }) => {
     const projectName = getProjectName(projectId);
-    const displayName = projectName.length > 8 ? projectName.substring(0, 8) + '...' : projectName;
-    
-    // Debug logging
-    console.log('ProjectBadge Debug:', {
-      projectId,
-      projectName,
-      availableProjects: memoizedProjects.map(p => ({ id: p.id, name: p.name })),
-      foundProject: memoizedProjects.find(p => p.id === projectId)
-    });
-    
+    const displayName = projectName.length > 12 ? projectName.substring(0, 12) + '...' : projectName;
+
     return (
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 max-w-24 overflow-hidden">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-secondary text-secondary-foreground transition-colors duration-150 hover:bg-secondary/80">
+              <FolderOpen className="w-3 h-3" />
               {displayName}
             </span>
           </TooltipTrigger>
@@ -262,6 +316,20 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     );
   };
 
+  // Task Labels Component
+  const TaskLabels = ({ labelIds }: { labelIds?: string[] }) => {
+    if (!labelIds || labelIds.length === 0) return null;
+    const taskLabels = labels.filter(l => labelIds.includes(l.id));
+    if (taskLabels.length === 0) return null;
+    return (
+      <span className="inline-flex items-center gap-1">
+        {taskLabels.map(label => (
+          <LabelBadge key={label.id} label={label} size="sm" />
+        ))}
+      </span>
+    );
+  };
+
   useEffect(() => {
     event('task_list_view', { total_tasks: tasks.length });
   }, [event, tasks.length]);
@@ -270,19 +338,32 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     e.preventDefault();
     if (newTaskTitle.trim() && selectedProjectId) {
       try {
-        await addTask(newTaskTitle, selectedProjectId, estimatedPomodoros);
+        await addTask(newTaskTitle, selectedProjectId, estimatedPomodoros, newTaskFocus, newTaskLabelIds);
+        
+        // Track estimation source analytics
+        const estimationSource = estimation ? 'ai-suggested' : 'manual';
         event('task_added', {
           project_id: selectedProjectId,
-          estimated_pomodoros: estimatedPomodoros
+          estimated_pomodoros: estimatedPomodoros,
+          focus: newTaskFocus,
+          label_count: newTaskLabelIds.length,
+          estimation_source: estimationSource,
+          ai_suggested_estimate: estimation?.suggestedPomodoros,
+          ai_confidence: estimation?.confidence
         });
+        
+        // Reset form
         setNewTaskTitle('');
         setEstimatedPomodoros(0);
+        setNewTaskFocus(false);
+        setNewTaskLabelIds([]);
+        setEstimation(null); // Clear estimation
       } catch (error) {
         console.error("Failed to add task:", error);
         event('task_add_error', { error_message: (error as Error).message });
       }
     }
-  }, [addTask, event, estimatedPomodoros, newTaskTitle, selectedProjectId]);
+  }, [addTask, event, estimatedPomodoros, newTaskTitle, selectedProjectId, newTaskFocus, newTaskLabelIds, estimation]);
 
   const handleUpdateTask = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -291,7 +372,8 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
         await updateTask(editingTask.id, {
           title: editingTask.title,
           estimatedPomodoros: editingTask.estimatedPomodoros,
-          projectId: editingTask.projectId
+          projectId: editingTask.projectId,
+          labelIds: editingTask.labelIds
         });
         event('task_updated', {
           task_id: editingTask.id,
@@ -309,11 +391,57 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     }
   }, [editingTask, event, updateTask]);
 
+  // Debounced estimation effect
+  useEffect(() => {
+    // Clear existing timer
+    if (estimationDebounceTimer) {
+      clearTimeout(estimationDebounceTimer);
+    }
+
+    // Only estimate if title is long enough and user hasn't entered an estimate yet
+    if (newTaskTitle.length >= 5) {
+      const timer = setTimeout(async () => {
+        try {
+          const result = await getEstimate({
+            title: newTaskTitle,
+            projectId: selectedProjectId,
+            userEstimate: estimatedPomodoros
+          });
+          
+          // Only show suggestion if user estimate doesn't match
+          if (result && result.confidence !== 'none' && 
+              (!estimatedPomodoros || estimatedPomodoros !== result.suggestedPomodoros)) {
+            setEstimation(result);
+          } else {
+            setEstimation(null);
+          }
+        } catch (error) {
+          console.error('Error getting estimation:', error);
+          setEstimation(null);
+        }
+      }, 500); // 500ms debounce
+
+      setEstimationDebounceTimer(timer);
+    } else {
+      setEstimation(null);
+    }
+
+    // Cleanup function
+    return () => {
+      if (estimationDebounceTimer) {
+        clearTimeout(estimationDebounceTimer);
+      }
+    };
+  }, [newTaskTitle, selectedProjectId, getEstimate, estimatedPomodoros]);
+
   // Filtering logic
   const filteredTasks = useMemo(() => {
     let tasks = memoizedTasks;
     if (projectFilter !== 'all') {
       tasks = tasks.filter(task => task.projectId === projectFilter);
+    }
+    if (labelFilter !== 'all') {
+      tasks = tasks.filter(task => task.labelIds?.includes(labelFilter));
     }
     if (statusFilter === 'active') {
       tasks = tasks.filter(task => !task.completed);
@@ -326,7 +454,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
       tasks = tasks.filter(task => task.title.toLowerCase().includes(search.toLowerCase()));
     }
     return tasks;
-  }, [memoizedTasks, projectFilter, statusFilter, search]);
+  }, [memoizedTasks, projectFilter, labelFilter, statusFilter, search]);
 
   // Sorting logic
   const sortedTasks = useMemo(() => {
@@ -563,22 +691,58 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
               />
             </div>
             <div className="flex items-center space-x-2">
-              <Input
-                type="number"
-                value={estimatedPomodoros}
-                onChange={(e) => setEstimatedPomodoros(e.target.value ? parseInt(e.target.value) : undefined)}
-                placeholder="Estimated Pomodoros"
-                className="w-1/2"
-              />
+              <div className="w-1/2">
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    value={estimatedPomodoros}
+                    onChange={(e) => setEstimatedPomodoros(e.target.value ? parseInt(e.target.value) : undefined)}
+                    placeholder="Estimated Pomodoros"
+                    className="flex-1"
+                  />
+                  <span className="text-sm text-muted-foreground">🍅</span>
+                </div>
+                {estimation && estimation.confidence !== 'none' && (
+                  <div className="mt-2">
+                    <EstimationHint
+                      suggestion={estimation.suggestedPomodoros}
+                      confidence={estimation.confidence as 'high' | 'medium' | 'low'}
+                      onApply={handleApplyEstimation}
+                      similarTasksCount={estimation.similarTasksCount}
+                    />
+                  </div>
+                )}
+              </div>
               <div className="w-1/2">
                 <Combobox
                   options={memoizedProjects.map(project => ({ value: project.id, label: project.name }))}
                   value={selectedProjectId}
                   onChange={(value) => setSelectedProjectId(value)}
                   placeholder="Select a project"
+                  onCreateNew={handleCreateProject}
                 />
               </div>
-
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setNewTaskFocus(!newTaskFocus)}
+                className={cn("p-1", newTaskFocus ? "text-yellow-500" : "text-gray-400")}
+                aria-label={newTaskFocus ? "Remove from Today's Focus" : "Add to Today's Focus"}
+              >
+                <Star className="w-4 h-4" fill={newTaskFocus ? "currentColor" : "none"} />
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {newTaskFocus ? "Added to Today's Focus" : "Add to Today's Focus"}
+              </span>
+              <div className="border-l pl-2 ml-1">
+                <LabelPicker
+                  selectedLabelIds={newTaskLabelIds}
+                  onChange={setNewTaskLabelIds}
+                />
+              </div>
             </div>
             <div className="flex items-center space-x-2">
               <Button type="submit" className="w-1/2">
@@ -629,7 +793,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
             <PopoverTrigger asChild>
               <Button variant="outline" size="icon" aria-label="Filter tasks" className="relative w-24 flex justify-center items-center">
                 <Filter className="w-4 h-4" />
-                {(projectFilter !== 'all' || statusFilter !== 'all') && (
+                {(projectFilter !== 'all' || labelFilter !== 'all' || statusFilter !== 'all') && (
                   <span className="absolute -top-1 -right-1 flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
@@ -648,6 +812,25 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                     <SelectItem value="all">All Projects</SelectItem>
                     {memoizedProjects.map(project => (
                       <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Label</label>
+                <Select value={labelFilter} onValueChange={setLabelFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Label" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Labels</SelectItem>
+                    {labels.map(label => (
+                      <SelectItem key={label.id} value={label.id}>
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: label.color }} />
+                          {label.name}
+                        </span>
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -716,9 +899,14 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                       value={editingTask.projectId || ''}
                       onChange={(value) => setEditingTask({ ...editingTask, projectId: value })}
                       placeholder="Select a project"
+                      onCreateNew={handleCreateProjectForEdit}
                     />
-                    <Button type="submit" size="sm" variant="outline">Save</Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setEditingTask(null)}>Cancel</Button>
+                    <LabelPicker
+                      selectedLabelIds={editingTask.labelIds || []}
+                      onChange={(labelIds) => setEditingTask({ ...editingTask, labelIds })}
+                    />
+                    <MobileButton type="submit" size="sm" variant="outline">Save</MobileButton>
+                    <MobileButton type="button" size="sm" variant="ghost" onClick={() => setEditingTask(null)}>Cancel</MobileButton>
                   </div>
                 </form>
               ) : editingDeadline && editingDeadline.id === task.id ? (
@@ -732,8 +920,8 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                     onChange={(e) => setEditingDeadline({ ...editingDeadline, deadline: e.target.value })}
                     className="flex-grow"
                   />
-                  <Button type="submit" size="sm" variant="outline">Save</Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => setEditingDeadline(null)}>Cancel</Button>
+                  <MobileButton type="submit" size="sm" variant="outline">Save</MobileButton>
+                  <MobileButton type="button" size="sm" variant="ghost" onClick={() => setEditingDeadline(null)}>Cancel</MobileButton>
                 </form>
               ) : (
                 <>
@@ -743,25 +931,26 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                       onCheckedChange={() => handleToggleSelection(task.id)}
                       aria-label={`Select task: ${task.title}`}
                     />
-                    <Button
+                    <MobileButton
                       variant="ghost"
-                      size="sm"
+                      size="icon"
                       onClick={() => handleToggleTaskCompletion(task.id, task.completed)}
-                      className={`p-1 ${task.completed ? 'text-green-500' : 'text-gray-400 hover:text-green-500'}`}
+                      className={`${task.completed ? 'text-green-500' : 'text-gray-400 hover:text-green-500'}`}
                       aria-label={task.completed ? "Mark as incomplete" : "Mark as complete"}
                     >
                       <CheckCircle className="w-4 h-4" fill={task.completed ? 'currentColor' : 'none'} />
-                    </Button>
-                    <Button
+                    </MobileButton>
+                    <MobileButton
                       variant="ghost"
-                      size="sm"
+                      size="icon"
                       onClick={() => handleToggleTaskFocus(task.id, task.focus || false)}
-                      className={`p-1 ${task.focus ? 'text-yellow-500' : 'text-gray-400'}`}
+                      className={`${task.focus ? 'text-yellow-500' : 'text-gray-400'}`}
                     >
                       <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
-                    </Button>
+                    </MobileButton>
                     <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
                     {task.projectId && <ProjectBadge projectId={task.projectId} />}
+                    <TaskLabels labelIds={task.labelIds} />
                     <span className="text-xs text-muted-foreground">
                       ({task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0})
                     </span>
@@ -786,9 +975,9 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
+                      <MobileButton variant="ghost" size="icon">
                         <MoreHorizontal className="w-4 h-4" />
-                      </Button>
+                      </MobileButton>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem asChild>
@@ -802,7 +991,8 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                           id: task.id,
                           title: task.title,
                           estimatedPomodoros: task.estimatedPomodoros,
-                          projectId: task.projectId
+                          projectId: task.projectId,
+                          labelIds: task.labelIds
                         });
                         event('task_edit_started', { task_id: task.id });
                       }}>
@@ -854,6 +1044,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
             onDeleteTask={handleDeleteTask}
             event={event}
             ProjectBadge={ProjectBadge}
+            TaskLabels={TaskLabels}
           />
         )}
         {selectedTasks.size > 0 && (
@@ -887,13 +1078,15 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AIBreakdownModal
-        isOpen={showAIBreakdownModal}
-        onClose={() => setShowAIBreakdownModal(false)}
-        onSave={handleAIBreakdownSave}
-        settings={settings}
-        projects={projects}
-      />
+      <Suspense fallback={null}>
+        <AIBreakdownModal
+          isOpen={showAIBreakdownModal}
+          onClose={() => setShowAIBreakdownModal(false)}
+          onSave={handleAIBreakdownSave}
+          settings={settings}
+          projects={projects}
+        />
+      </Suspense>
     </Card>
   );
 });
