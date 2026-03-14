@@ -12,10 +12,10 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "beads": "./scripts/beads-github-sync.sh status",
-    "beads:sync": "./scripts/beads-github-sync.sh status",
-    "beads:push": "./scripts/beads-github-sync.sh push",
-    "beads:pull": "./scripts/beads-github-sync.sh pull"
+    "beads": "node scripts/script-runner.js beads-github-sync.sh status",
+    "beads:sync": "node scripts/script-runner.js beads-github-sync.sh status",
+    "beads:push": "node scripts/script-runner.js beads-github-sync.sh push",
+    "beads:pull": "node scripts/script-runner.js beads-github-sync.sh pull"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.29.0",
