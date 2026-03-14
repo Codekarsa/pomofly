@@ -4,6 +4,7 @@ import './globals.css'
 import { AuthProvider } from './contexts/AuthContext'
 import GoogleAnalytics from '@/components/GoogleAnalytics'
 import { GlobalErrorBoundary } from '@/components/ErrorBoundary'
+import { GlobalErrorHandlerProvider } from '@/components/GlobalErrorHandlerProvider'
 import PWAServiceWorker from '@/components/PWAServiceWorker'
 import { Suspense } from 'react'
 
@@ -76,11 +77,13 @@ export default function RootLayout({
       <body className={`${inter.className} bg-gray-100`}>
         <GlobalErrorBoundary>
           <AuthProvider>
-            <Suspense fallback={<div>Loading...</div>}>
-              <GoogleAnalytics GA_MEASUREMENT_ID={process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!} />
-            </Suspense>
-            {children}
-            <PWAServiceWorker />
+            <GlobalErrorHandlerProvider>
+              <Suspense fallback={<div>Loading...</div>}>
+                <GoogleAnalytics GA_MEASUREMENT_ID={process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!} />
+              </Suspense>
+              {children}
+              <PWAServiceWorker />
+            </GlobalErrorHandlerProvider>
           </AuthProvider>
         </GlobalErrorBoundary>
       </body>

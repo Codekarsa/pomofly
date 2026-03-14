@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, increment, writeBatch } from "firebase/firestore";
 import { db, auth, addEstimationRecord } from '../lib/firebase';
+import { useErrorReporting } from './useErrorReporting';
 import {
   getGuestTasks,
   addGuestTask,
@@ -24,6 +25,7 @@ export function useTasks(projectId?: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [isGuest, setIsGuest] = useState(false);
+  const { reportError } = useErrorReporting();
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -118,6 +120,9 @@ export function useTasks(projectId?: string) {
       return docRef.id;
     } catch (err) {
       console.error("Error adding task:", err);
+      if (err instanceof Error) {
+        reportError(err, { context: 'task_creation', projectId });
+      }
       throw err;
     }
   }, []);
@@ -143,6 +148,9 @@ export function useTasks(projectId?: string) {
       await updateDoc(taskRef, updateData);
     } catch (error) {
       console.error("Error updating task:", error);
+      if (error instanceof Error) {
+        reportError(error, { context: 'task_update', taskId });
+      }
       throw error;
     }
   }, []);
