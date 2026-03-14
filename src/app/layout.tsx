@@ -3,7 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from './contexts/AuthContext'
 import GoogleAnalytics from '@/components/GoogleAnalytics'
-import ErrorBoundary from '@/components/ErrorBoundary'
+import { GlobalErrorBoundary } from '@/components/ErrorBoundary'
 import PWAServiceWorker from '@/components/PWAServiceWorker'
 import { Suspense } from 'react'
 
@@ -74,7 +74,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} bg-gray-100`}>
-        <ErrorBoundary name="RootLayout" showDetails={process.env.NODE_ENV === 'development'}>
+        <GlobalErrorBoundary>
           <AuthProvider>
             <Suspense fallback={<div>Loading...</div>}>
               <GoogleAnalytics GA_MEASUREMENT_ID={process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!} />
@@ -82,7 +82,7 @@ export default function RootLayout({
             {children}
             <PWAServiceWorker />
           </AuthProvider>
-        </ErrorBoundary>
+        </GlobalErrorBoundary>
       </body>
     </html>
   )

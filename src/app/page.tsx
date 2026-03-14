@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import AppLayout from '@/components/AppLayout';
 import PomodoroTimer from '@/components/PomodoroTimer';
+import { ComponentErrorBoundary } from '@/components/ErrorBoundary';
 import { defaultSettings } from '@/hooks/usePomodoro';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 
@@ -32,7 +33,9 @@ export default function HomePage() {
             <p className="text-muted-foreground text-sm sm:text-base">Focus on your work with timed sessions</p>
           </div>
           <div className="px-2 sm:px-0">
-            <PomodoroTimer settings={memoizedSettings} />
+            <ComponentErrorBoundary>
+              <PomodoroTimer settings={memoizedSettings} />
+            </ComponentErrorBoundary>
           </div>
         </div>
       </div>
