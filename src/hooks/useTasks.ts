@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, increment, writeBatch } from "firebase/firestore";
-import { db, auth } from '../lib/firebase';
+import { db, auth, addEstimationRecord } from '../lib/firebase';
+import { useErrorReporting } from './useErrorReporting';
 import {
   getGuestTasks,
   addGuestTask,
@@ -8,29 +9,23 @@ import {
   deleteGuestTask,
   saveGuestTasks,
 } from '../lib/guestStorage';
+import { 
+  transformFirebaseTask, 
+  validateTaskUpdate,
+  type Task
+} from '../lib/validation';
 
-export interface Task {
-  id: string;
-  title: string;
-  projectId: string;
-  userId: string;
-  completed: boolean;
-  totalPomodoroSessions: number;
-  totalTimeSpent: number;
-  createdAt: Date;
-  estimatedPomodoros?: number;
-  archived?: boolean;
-  focus: boolean;
-  deadline: string | null;
-  manualTimeSpent: number;
-  trackingStartedAt: Date | null;
-}
+// Re-export types for components
+export type { Task } from '../lib/validation';
+
+// Task interface now imported from validation.ts
 
 export function useTasks(projectId?: string) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [isGuest, setIsGuest] = useState(false);
+  const { reportError } = useErrorReporting();
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -60,7 +55,13 @@ export function useTasks(projectId?: string) {
       (querySnapshot) => {
         const taskList: Task[] = [];
         querySnapshot.forEach((doc) => {
-          taskList.push({ id: doc.id, ...doc.data() } as Task);
+          try {
+            const validatedTask = transformFirebaseTask({ id: doc.id, ...doc.data() });
+            taskList.push(validatedTask);
+          } catch (validationError) {
+            console.error(`Invalid task data for document ${doc.id}:`, validationError);
+            // Skip invalid tasks but continue processing others
+          }
         });
         setTasks(taskList);
         setLoading(false);
@@ -86,36 +87,42 @@ export function useTasks(projectId?: string) {
     }
   }, [isGuest, projectId]);
 
-  const addTask = useCallback(async (title: string, taskProjectId: string, estimatedPomodoros?: number) => {
+  const addTask = useCallback(async (title: string, taskProjectId: string, estimatedPomodoros?: number, focus?: boolean, labelIds?: string[]) => {
     const user = auth.currentUser;
 
-    const newTaskData = {
-      title,
-      projectId: taskProjectId,
-      userId: user?.uid || 'guest',
-      completed: false,
-      totalPomodoroSessions: 0,
-      totalTimeSpent: 0,
-      createdAt: new Date(),
-      estimatedPomodoros,
-      focus: false,
-      deadline: null,
-      manualTimeSpent: 0,
-      trackingStartedAt: null
-    };
-
-    if (!user) {
-      // Guest mode
-      const newTask = addGuestTask(newTaskData);
-      setTasks(prev => [...prev, newTask]);
-      return newTask.id;
-    }
-
     try {
+      const newTaskData = {
+        title,
+        projectId: taskProjectId,
+        userId: user?.uid || 'guest',
+        completed: false,
+        estimatedPomodoros,
+        focus: focus ?? false,
+        deadline: null,
+        labelIds: labelIds || [],
+        estimationSource: estimatedPomodoros ? 'manual' : undefined,
+        totalPomodoroSessions: 0,
+        totalTimeSpent: 0,
+        manualTimeSpent: 0,
+        trackingStartedAt: null,
+        archived: false,
+        createdAt: new Date(),
+      };
+
+      if (!user) {
+        // Guest mode
+        const newTask = addGuestTask(newTaskData as Omit<Task, 'id'>);
+        setTasks(prev => [...prev, newTask]);
+        return newTask.id;
+      }
+
       const docRef = await addDoc(collection(db, "tasks"), newTaskData);
       return docRef.id;
     } catch (err) {
       console.error("Error adding task:", err);
+      if (err instanceof Error) {
+        reportError(err, { context: 'task_creation', projectId });
+      }
       throw err;
     }
   }, []);
@@ -123,18 +130,27 @@ export function useTasks(projectId?: string) {
   const updateTask = useCallback(async (taskId: string, updates: Partial<Task>) => {
     const user = auth.currentUser;
 
-    if (!user) {
-      // Guest mode
-      updateGuestTask(taskId, updates);
+    try {
+      // Validate the updates
+      const validatedUpdates = validateTaskUpdate({ id: taskId, ...updates });
+      // Remove the id from updates since we don't want to update the document ID
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id: _, ...updateData } = validatedUpdates;
+
+      if (!user) {
+        // Guest mode
+        updateGuestTask(taskId, updateData);
       setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
       return;
     }
 
-    const taskRef = doc(db, "tasks", taskId);
-    try {
-      await updateDoc(taskRef, updates);
+      const taskRef = doc(db, "tasks", taskId);
+      await updateDoc(taskRef, updateData);
     } catch (error) {
       console.error("Error updating task:", error);
+      if (error instanceof Error) {
+        reportError(error, { context: 'task_update', taskId });
+      }
       throw error;
     }
   }, []);
@@ -160,22 +176,50 @@ export function useTasks(projectId?: string) {
   const toggleTaskCompletion = useCallback(async (id: string, currentCompletionState: boolean) => {
     const user = auth.currentUser;
 
+    // Find the task to get its details
+    const task = tasks.find(t => t.id === id);
+    if (!task) {
+      throw new Error('Task not found');
+    }
+
     if (!user) {
       // Guest mode
-      updateGuestTask(id, { completed: !currentCompletionState });
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !currentCompletionState } : t));
+      const updates: Partial<Task> = { completed: !currentCompletionState };
+      
+      // On completion, store completion data
+      if (!currentCompletionState) {
+        updates.completedAt = new Date();
+        updates.completedPomodoros = task.totalPomodoroSessions || 0;
+      }
+      
+      updateGuestTask(id, updates);
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
       return;
     }
 
     try {
-      await updateDoc(doc(db, "tasks", id), {
-        completed: !currentCompletionState
-      });
+      const taskRef = doc(db, "tasks", id);
+
+      if (!currentCompletionState) {
+        // Store completion data
+        await updateDoc(taskRef, {
+          completed: true,
+          completedAt: new Date(),
+          completedPomodoros: task.totalPomodoroSessions || 0
+        });
+        // Add to estimation history
+        await addEstimationRecord(user.uid, task);
+      } else {
+        // Mark as incomplete
+        await updateDoc(taskRef, {
+          completed: false
+        });
+      }
     } catch (err) {
       console.error("Error toggling task completion:", err);
       throw err;
     }
-  }, []);
+  }, [tasks]);
 
   const incrementPomodoroSession = useCallback(async (id: string, duration: number) => {
     const user = auth.currentUser;

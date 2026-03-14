@@ -7,13 +7,17 @@ import {
   updateGuestProject,
   deleteGuestProject,
 } from '../lib/guestStorage';
+import { 
+  transformFirebaseProject, 
+  validateProjectCreate, 
+  validateProjectUpdate,
+  type Project
+} from '../lib/validation';
 
-export interface Project {
-  id: string;
-  name: string;
-  userId: string;
-  createdAt: Date;
-}
+// Re-export types for components
+export type { Project } from '../lib/validation';
+
+// Project interface now imported from validation.ts
 
 export function useProjects() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -42,7 +46,13 @@ export function useProjects() {
       (querySnapshot) => {
         const projectList: Project[] = [];
         querySnapshot.forEach((doc) => {
-          projectList.push({ id: doc.id, ...doc.data() } as Project);
+          try {
+            const validatedProject = transformFirebaseProject({ id: doc.id, ...doc.data() });
+            projectList.push(validatedProject);
+          } catch (validationError) {
+            console.error(`Invalid project data for document ${doc.id}:`, validationError);
+            // Skip invalid projects but continue processing others
+          }
         });
         setProjects(projectList);
         setLoading(false);
@@ -75,12 +85,17 @@ export function useProjects() {
     }
 
     try {
-      const newProject = {
+      const validatedProject = validateProjectCreate({
         name,
         userId: user.uid,
+      });
+      
+      const projectData = {
+        ...validatedProject,
         createdAt: new Date()
       };
-      const docRef = await addDoc(collection(db, "projects"), newProject);
+      
+      const docRef = await addDoc(collection(db, "projects"), projectData);
       return docRef.id;
     } catch (err) {
       console.error("Error adding project:", err);
@@ -91,15 +106,21 @@ export function useProjects() {
   const updateProject = useCallback(async (id: string, name: string) => {
     const user = auth.currentUser;
 
-    if (!user) {
-      // Guest mode
-      updateGuestProject(id, name);
-      setProjects(prev => prev.map(p => p.id === id ? { ...p, name } : p));
-      return;
-    }
-
     try {
-      await updateDoc(doc(db, "projects", id), { name });
+      // Validate the update data
+      const validatedUpdate = validateProjectUpdate({ id, name });
+      // Remove the id from updates since we don't want to update the document ID
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id: _, ...updateData } = validatedUpdate;
+
+      if (!user) {
+        // Guest mode
+        updateGuestProject(id, updateData.name!);
+        setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updateData } : p));
+        return;
+      }
+
+      await updateDoc(doc(db, "projects", id), updateData);
     } catch (err) {
       console.error("Error updating project:", err);
       throw err;

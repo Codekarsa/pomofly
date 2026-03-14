@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
 import SelectedTasksList from './SelectedTasksList';
 import { TimerPerformanceIndicator } from './TimerPerformanceIndicator';
+import { TimerRestoreNotification } from './TimerRestoreNotification';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -17,6 +18,8 @@ interface PomodoroSettings {
   longBreak: number;
   longBreakInterval: number;
 }
+
+// Removed unused TimerSession interface
 
 interface PomodoroTimerProps {
   settings: PomodoroSettings;
@@ -58,9 +61,10 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     tasksRef.current = tasks;
   }, [tasks]);
 
-  // Persist selectedTaskIds to localStorage
+  // Persist selectedTaskIds to localStorage and session
   useEffect(() => {
     localStorage.setItem('selectedTaskIds', JSON.stringify(selectedTaskIds));
+    TimerPersistence.updateSessionTaskIds(selectedTaskIds);
   }, [selectedTaskIds]);
 
   // Filter out invalid/stale task IDs (deleted or completed tasks)
@@ -140,6 +144,8 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     switchPhase,
     timingStats,
     performanceMode,
+    wasRestored,
+    clearRestoreFlag,
   } = usePomodoro(settings, handlePomodoroComplete);
 
   // Handle timer start/pause - manage time tracking
@@ -248,6 +254,24 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     });
   }, [toggleTimer, isActive, phase, selectedTaskIds.length, event]);
 
+  const handleRestoreSession = useCallback((session: PersistedTimerSession) => {
+    // Restore selected task IDs if available
+    if (session.selectedTaskIds && Array.isArray(session.selectedTaskIds)) {
+      setSelectedTaskIds(session.selectedTaskIds);
+    }
+    restoreSession(session);
+    event('timer_session_restored', {
+      phase: session.phase,
+      was_active: session.isActive,
+      tasks_count: session.selectedTaskIds?.length || 0
+    });
+  }, [restoreSession, event]);
+
+  const handleStartFresh = useCallback(() => {
+    startFresh();
+    event('timer_session_start_fresh', {});
+  }, [startFresh, event]);
+
   if (loading) {
     return (
       <Card className="w-full mx-auto">
@@ -272,7 +296,18 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   }
 
   return (
-    <Card className="w-full mx-auto">
+    <>
+      {/* Timer Recovery Modal */}
+      {showRecoveryModal && persistedSession && (
+        <TimerRecoveryModal
+          isOpen={showRecoveryModal}
+          session={persistedSession}
+          onRestore={handleRestoreSession}
+          onStartFresh={handleStartFresh}
+        />
+      )}
+
+      <Card className="w-full mx-auto">
       <CardHeader>
         <CardTitle>Pomodoro Timer</CardTitle>
       </CardHeader>
@@ -350,7 +385,12 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
           />
         )}
       </CardContent>
+      <TimerRestoreNotification 
+        show={wasRestored}
+        onDismiss={clearRestoreFlag}
+      />
     </Card>
+    </>
   );
 });
 

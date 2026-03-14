@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useHighPrecisionTimer } from './useHighPrecisionTimer';
+import { useTimerPersistence } from './useTimerPersistence';
 
 type PomodoroPhase = 'pomodoro' | 'shortBreak' | 'longBreak';
 
@@ -18,6 +19,7 @@ export const defaultSettings: PomodoroSettings = {
 };
 
 export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () => void) {
+  const [wasRestored, setWasRestored] = useState(false);
   const [phase, setPhase] = useState<PomodoroPhase>('pomodoro');
   const [minutes, setMinutes] = useState(initialSettings[phase]);
   const [seconds, setSeconds] = useState(0);
@@ -34,6 +36,28 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
   useEffect(() => {
     onCompleteRef.current = onComplete;
   }, [onComplete]);
+
+  // Timer persistence
+  const { clearPersistedState } = useTimerPersistence(
+    phase,
+    minutes,
+    seconds,
+    isActive,
+    sessionsCompleted,
+    timerStartedAt,
+    pausedTimeRemaining,
+    (restoredState) => {
+      // Restore state from localStorage
+      setPhase(restoredState.phase);
+      setMinutes(restoredState.minutes);
+      setSeconds(restoredState.seconds);
+      setIsActive(restoredState.isActive);
+      setSessionsCompleted(restoredState.sessionsCompleted);
+      setTimerStartedAt(restoredState.timerStartedAt);
+      setPausedTimeRemaining(restoredState.pausedTimeRemaining);
+      setWasRestored(true);
+    }
+  );
 
   // Calculate remaining time from timestamp (accurate, no drift)
   const getRemainingTime = useCallback((): number => {
@@ -135,7 +159,8 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     setPausedTimeRemaining(null);
     setMinutes(settings[phase]);
     setSeconds(0);
-  }, [phase, settings]);
+    clearPersistedState(); // Clear persistence when manually resetting
+  }, [phase, settings, clearPersistedState]);
 
   const switchPhase = useCallback((newPhase: PomodoroPhase) => {
     setPhase(newPhase);
@@ -154,6 +179,10 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     }
   }, [settings, phase, isActive, timerStartedAt, pausedTimeRemaining]);
 
+  const clearRestoreFlag = useCallback(() => {
+    setWasRestored(false);
+  }, []);
+
   return {
     phase,
     minutes,
@@ -165,6 +194,8 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     settings,
     updateSettings,
     timingStats,
-    performanceMode
+    performanceMode,
+    wasRestored,
+    clearRestoreFlag
   };
 }

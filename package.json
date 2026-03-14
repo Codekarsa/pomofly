@@ -15,7 +15,11 @@
     "beads": "./scripts/beads-github-sync.sh status",
     "beads:sync": "./scripts/beads-github-sync.sh status",
     "beads:push": "./scripts/beads-github-sync.sh push",
-    "beads:pull": "./scripts/beads-github-sync.sh pull"
+    "beads:pull": "./scripts/beads-github-sync.sh pull",
+    "pwa:icons": "node scripts/create-placeholder-icons.js",
+    "pwa:icons:generate": "node scripts/generate-icons.js",
+    "pwa:test": "lighthouse https://pomofly.com --view",
+    "pwa:validate": "pwa-asset-generator validate"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.29.0",
@@ -30,6 +34,7 @@
     "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-popover": "^1.1.2",
     "@radix-ui/react-primitive": "^2.0.0",
+    "@radix-ui/react-progress": "^1.1.8",
     "@radix-ui/react-select": "^2.1.2",
     "@radix-ui/react-separator": "^1.1.0",
     "@radix-ui/react-slot": "^1.1.0",
@@ -50,14 +55,15 @@
     "react-hook-form": "^7.53.0",
     "tailwind-merge": "^2.5.3",
     "tailwindcss-animate": "^1.0.7",
-    "yup": "^1.4.0"
+    "yup": "^1.4.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^14.2.1",
     "@testing-library/user-event": "^14.5.2",
     "@types/jest": "^30.0.0",
-    "@types/node": "^20.16.9",
+    "@types/node": "25.4.0",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "eslint": "^8",
@@ -66,6 +72,6 @@
     "jest-environment-jsdom": "^29.7.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "5.9.3"
   }
 }

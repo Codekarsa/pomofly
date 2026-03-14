@@ -1,24 +1,33 @@
 'use client'
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import Header from './Header';
 import PomodoroTimer from './PomodoroTimer';
-import TaskList from './TaskList';
-import ProjectList from './ProjectList';
-import SettingsModal from './SettingsModal';
-import TodayFocusSection from './TodayFocusSection';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
-import { Github } from 'lucide-react';
+import { useMonitoring } from '@/hooks/useMonitoring';
+import { TimerErrorBoundary, TaskErrorBoundary } from '@/components/ErrorBoundary';
+import { Github, Activity } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
 import { usePomodoro, defaultSettings } from '@/hooks/usePomodoro';
 
+// Lazy load heavy components that are only used when authenticated
+const TaskList = lazy(() => import('./TaskList'));
+const ProjectList = lazy(() => import('./ProjectList'));
+const TodayFocusSection = lazy(() => import('./TodayFocusSection'));
+const SettingsModal = lazy(() => import('./SettingsModal'));
+const MonitoringDashboard = lazy(() => import('./MonitoringDashboard'));
+
+import { TaskListLoader, ProjectListLoader, TodayFocusLoader } from '@/components/ui/loading';
+
 export default function Dashboard() {
   const { user, loading } = useAuth();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isMonitoringOpen, setIsMonitoringOpen] = useState(false);
   const { event } = useGoogleAnalytics();
+  const { trackAction, reportError } = useMonitoring();
   const [settings, setSettings] = useState(defaultSettings);
 
   const { updateSettings } = usePomodoro(settings);
@@ -49,10 +58,19 @@ export default function Dashboard() {
   const memoizedEvent = useCallback(event, [event]);
 
   useEffect(() => {
-    event('dashboard_view', {
-      is_authenticated: !!user
-    });
-  }, [user, event]);
+    try {
+      event('dashboard_view', {
+        is_authenticated: !!user
+      });
+      trackAction('dashboard_view', { authenticated: !!user });
+    } catch (error) {
+      reportError(error as Error, {
+        component: 'Dashboard',
+        action: 'dashboard_view_tracking',
+        severity: 'low'
+      });
+    }
+  }, [user, event, trackAction, reportError]);
 
   const handleSettingsOpen = useCallback(() => {
     setIsSettingsOpen(true);
@@ -77,12 +95,25 @@ export default function Dashboard() {
   const memoizedSettings = useMemo(() => settings, [settings]);
 
   const handleSignIn = async () => {
+    const startTime = performance.now();
     try {
+      trackAction('sign_in_attempt', { method: 'Google' });
       await signInWithPopup(auth, googleProvider);
+      
+      const duration = performance.now() - startTime;
       event('user_sign_in', { method: 'Google' });
+      trackAction('sign_in_success', { method: 'Google', duration });
     } catch (error) {
+      const duration = performance.now() - startTime;
       console.error('Error signing in:', error);
       event('sign_in_error', { error: (error as Error).message });
+      reportError(error as Error, {
+        component: 'Dashboard',
+        action: 'sign_in',
+        severity: 'medium',
+        tags: ['authentication', 'google_sign_in']
+      });
+      trackAction('sign_in_error', { method: 'Google', duration });
     }
   };
 
@@ -95,14 +126,28 @@ export default function Dashboard() {
         <main className="flex-grow container mx-auto px-4 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="space-y-8">
-              <PomodoroTimer settings={memoizedSettings} />
-              {user && <ProjectList />}
+              <TimerErrorBoundary>
+                <PomodoroTimer settings={memoizedSettings} />
+              </TimerErrorBoundary>
+              {user && (
+                <TaskErrorBoundary>
+                  <Suspense fallback={<ProjectListLoader />}>
+                    <ProjectList />
+                  </Suspense>
+                </TaskErrorBoundary>
+              )}
             </div>
             <div className="space-y-8">
               {user ? (
                 <>
-                  <TodayFocusSection settings={settings} />
-                  <TaskList settings={settings} />
+                  <TaskErrorBoundary>
+                    <Suspense fallback={<TodayFocusLoader />}>
+                      <TodayFocusSection settings={settings} />
+                    </Suspense>
+                    <Suspense fallback={<TaskListLoader />}>
+                      <TaskList settings={settings} />
+                    </Suspense>
+                  </TaskErrorBoundary>
                 </>
               ) : (
                 <div className="bg-white p-6 rounded-lg shadow-md">
@@ -116,21 +161,31 @@ export default function Dashboard() {
             </div>
           </div>
         </main>
-        <SettingsModal
-          isOpen={isSettingsOpen}
-          onClose={handleSettingsClose}
-          settings={settings}
-          onSave={handleSettingsSave}
-          event={memoizedEvent}
-        />
-        <Footer />
+        <Suspense fallback={null}>
+          <SettingsModal
+            isOpen={isSettingsOpen}
+            onClose={handleSettingsClose}
+            settings={settings}
+            onSave={handleSettingsSave}
+            event={memoizedEvent}
+          />
+        </Suspense>
+        <Footer onMonitoringClick={() => setIsMonitoringOpen(true)} />
       </div>
       <AutoBacklink />
+      
+      {/* Monitoring Dashboard */}
+      <Suspense fallback={null}>
+        <MonitoringDashboard
+          isOpen={isMonitoringOpen}
+          onClose={() => setIsMonitoringOpen(false)}
+        />
+      </Suspense>
     </>
   );
 }
 
-const Footer = () => (
+const Footer = ({ onMonitoringClick }: { onMonitoringClick?: () => void }) => (
   <footer className="bg-background border-t py-2 text-sm text-muted-foreground mt-auto">
     <div className="container mx-auto px-4">
       <div className="flex items-center justify-between mb-2">
@@ -139,6 +194,20 @@ const Footer = () => (
           <Separator orientation="vertical" className="h-4" />
           <a href="/#" className="hover:underline">Privacy</a>
           <a href="/#" className="hover:underline">Terms</a>
+          {process.env.NODE_ENV === 'development' && onMonitoringClick && (
+            <>
+              <Separator orientation="vertical" className="h-4" />
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={onMonitoringClick}
+                className="text-xs"
+              >
+                <Activity className="h-3 w-3 mr-1" />
+                Monitoring
+              </Button>
+            </>
+          )}
         </div>
         <div className="flex items-center space-x-4">
           <span>Made with ❤️ by Codekarsa</span>

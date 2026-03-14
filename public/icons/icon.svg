@@ -1,0 +1,27 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" rx="64" fill="#3b82f6"/>
+  
+  <!-- Timer Circle -->
+  <circle cx="256" cy="256" r="180" fill="#ffffff" stroke="#e5e7eb" stroke-width="8"/>
+  
+  <!-- Timer Progress (25 minutes example) -->
+  <circle cx="256" cy="256" r="180" fill="none" stroke="#10b981" stroke-width="12" stroke-linecap="round"
+          stroke-dasharray="1130" stroke-dashoffset="283" transform="rotate(-90 256 256)"/>
+  
+  <!-- Clock Center -->
+  <circle cx="256" cy="256" r="16" fill="#374151"/>
+  
+  <!-- Clock Hands -->
+  <line x1="256" y1="256" x2="256" y2="160" stroke="#374151" stroke-width="6" stroke-linecap="round"/>
+  <line x1="256" y1="256" x2="320" y2="256" stroke="#374151" stroke-width="4" stroke-linecap="round"/>
+  
+  <!-- Timer Numbers -->
+  <text x="256" y="140" text-anchor="middle" font-family="system-ui" font-size="32" font-weight="600" fill="#6b7280">25</text>
+  <text x="380" y="266" text-anchor="middle" font-family="system-ui" font-size="24" font-weight="500" fill="#6b7280">15</text>
+  <text x="256" y="386" text-anchor="middle" font-family="system-ui" font-size="24" font-weight="500" fill="#6b7280">05</text>
+  <text x="132" y="266" text-anchor="middle" font-family="system-ui" font-size="24" font-weight="500" fill="#6b7280">45</text>
+  
+  <!-- App Name -->
+  <text x="256" y="460" text-anchor="middle" font-family="system-ui" font-size="48" font-weight="700" fill="#ffffff">POMOFLY</text>
+</svg>

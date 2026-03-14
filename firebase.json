@@ -1,11 +1,14 @@
 {
   "hosting": {
-    "public": "out",
+    "source": ".",
+    "use": "@firebase/next",
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**"
-    ],
-    "cleanUrls": true
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/coverage/**",
+      "**/.nyc_output/**"
+    ]
   }
 }
