@@ -1,9 +1,11 @@
 'use client'
-import React, { useState, useCallback, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import Sidebar from './Sidebar';
 import SettingsModal from './SettingsModal';
 import GuestBanner from './GuestBanner';
+import DataMigrationModal from './DataMigrationModal';
+import AuthErrorFallback from './AuthErrorFallback';
 import { usePomodoro, defaultSettings } from '@/hooks/usePomodoro';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { Button } from "@/components/ui/button";
@@ -12,15 +14,12 @@ import { signInWithPopup, signOut } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
 import { hasGuestData, getGuestDataSummary } from '@/lib/guestStorage';
 
-// Lazy load DataMigrationModal since it's only shown conditionally
-const DataMigrationModal = lazy(() => import('./DataMigrationModal'));
-
 interface AppLayoutProps {
   children: React.ReactNode;
 }
 
 const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, error, retry, clearError, isOnline } = useAuth();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settings, setSettings] = useState(defaultSettings);
   const [showGuestBanner, setShowGuestBanner] = useState(true);
@@ -61,21 +60,35 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   const handleSignIn = async () => {
     try {
+      clearError(); // Clear any previous errors
       await signInWithPopup(auth, googleProvider);
       event('user_sign_in', { method: 'Google' });
     } catch (error) {
       console.error('Error signing in:', error);
       event('sign_in_error', { error: (error as Error).message });
+      
+      // Don't automatically set this as the auth context error since it's a user action
+      // The user can try again or use a different method
+      if (error instanceof Error) {
+        // You could show a toast or alert here instead of setting the global auth error
+        console.warn('Sign-in failed:', error.message);
+      }
     }
   };
 
   const handleSignOut = async () => {
     try {
+      clearError(); // Clear any previous errors
       await signOut(auth);
       event('user_sign_out', { method: 'Google' });
     } catch (error) {
       console.error('Error signing out:', error);
       event('sign_out_error', { error: (error as Error).message });
+      
+      // Sign-out errors are less critical, user can retry or refresh page
+      if (error instanceof Error) {
+        console.warn('Sign-out failed:', error.message);
+      }
     }
   };
 
@@ -87,7 +100,32 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     setShowMigrationModal(false);
   }, []);
 
-  if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  // Enhanced loading state with error handling
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">
+            {!isOnline ? 'Waiting for connection...' : 'Loading...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show authentication error fallback if there's an error
+  if (error) {
+    return (
+      <AuthErrorFallback 
+        error={error} 
+        onRetry={() => {
+          clearError();
+          retry();
+        }}
+      />
+    );
+  }
 
   const isGuest = !user;
 
@@ -138,14 +176,12 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         onSave={handleSettingsSave}
         event={event}
       />
-      <Suspense fallback={null}>
-        <DataMigrationModal
-          isOpen={showMigrationModal}
-          onClose={handleCloseMigrationModal}
-          taskCount={guestDataSummary.taskCount}
-          projectCount={guestDataSummary.projectCount}
-        />
-      </Suspense>
+      <DataMigrationModal
+        isOpen={showMigrationModal}
+        onClose={handleCloseMigrationModal}
+        taskCount={guestDataSummary.taskCount}
+        projectCount={guestDataSummary.projectCount}
+      />
     </div>
   );
 };
