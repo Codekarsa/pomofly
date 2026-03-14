@@ -9,8 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
 import SelectedTasksList from './SelectedTasksList';
-import { TimerRecoveryModal } from './TimerRecoveryModal';
-import { TimerPersistence, PersistedTimerSession } from '@/lib/timerPersistence';
+import { TimerRestoreNotification } from './TimerRestoreNotification';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -142,10 +141,8 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     toggleTimer,
     resetTimer,
     switchPhase,
-    showRecoveryModal,
-    persistedSession,
-    restoreSession,
-    startFresh
+    wasRestored,
+    clearRestoreFlag,
   } = usePomodoro(settings, handlePomodoroComplete);
 
   // Handle timer start/pause - manage time tracking
@@ -378,6 +375,10 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
           />
         )}
       </CardContent>
+      <TimerRestoreNotification 
+        show={wasRestored}
+        onDismiss={clearRestoreFlag}
+      />
     </Card>
     </>
   );

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { TimerPersistence, PersistedTimerSession } from '@/lib/timerPersistence';
+import { useTimerPersistence } from './useTimerPersistence';
 
 type PomodoroPhase = 'pomodoro' | 'shortBreak' | 'longBreak';
 
@@ -18,6 +18,7 @@ export const defaultSettings: PomodoroSettings = {
 };
 
 export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () => void) {
+  const [wasRestored, setWasRestored] = useState(false);
   const [phase, setPhase] = useState<PomodoroPhase>('pomodoro');
   const [minutes, setMinutes] = useState(initialSettings[phase]);
   const [seconds, setSeconds] = useState(0);
@@ -29,49 +30,33 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null);
   const [pausedTimeRemaining, setPausedTimeRemaining] = useState<number | null>(null);
 
-  // Session recovery state
-  const [persistedSession, setPersistedSession] = useState<PersistedTimerSession | null>(null);
-  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
-
   // Use ref for onComplete to prevent dependency changes from resetting timer
   const onCompleteRef = useRef(onComplete);
   useEffect(() => {
     onCompleteRef.current = onComplete;
   }, [onComplete]);
 
-  // Check for persisted session on mount
-  useEffect(() => {
-    const session = TimerPersistence.loadSession();
-    if (session) {
-      setPersistedSession(session);
-      setShowRecoveryModal(true);
+  // Timer persistence
+  const { clearPersistedState } = useTimerPersistence(
+    phase,
+    minutes,
+    seconds,
+    isActive,
+    sessionsCompleted,
+    timerStartedAt,
+    pausedTimeRemaining,
+    (restoredState) => {
+      // Restore state from localStorage
+      setPhase(restoredState.phase);
+      setMinutes(restoredState.minutes);
+      setSeconds(restoredState.seconds);
+      setIsActive(restoredState.isActive);
+      setSessionsCompleted(restoredState.sessionsCompleted);
+      setTimerStartedAt(restoredState.timerStartedAt);
+      setPausedTimeRemaining(restoredState.pausedTimeRemaining);
+      setWasRestored(true);
     }
-  }, []);
-
-  // Persist session whenever state changes
-  const persistCurrentSession = useCallback(() => {
-    const session: PersistedTimerSession = {
-      phase,
-      isActive,
-      timerStartedAt,
-      pausedTimeRemaining,
-      sessionsCompleted,
-      sessionCreatedAt: Date.now(),
-      settings,
-    };
-    
-    // Only persist if there's meaningful state to save
-    if (isActive || timerStartedAt !== null || pausedTimeRemaining !== null) {
-      TimerPersistence.saveSession(session);
-    } else {
-      TimerPersistence.clearSession();
-    }
-  }, [phase, isActive, timerStartedAt, pausedTimeRemaining, sessionsCompleted, settings]);
-
-  // Auto-persist when state changes
-  useEffect(() => {
-    persistCurrentSession();
-  }, [persistCurrentSession]);
+  );
 
   // Calculate remaining time from timestamp (accurate, no drift)
   const getRemainingTime = useCallback((): number => {
@@ -173,7 +158,8 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     setPausedTimeRemaining(null);
     setMinutes(settings[phase]);
     setSeconds(0);
-  }, [phase, settings]);
+    clearPersistedState(); // Clear persistence when manually resetting
+  }, [phase, settings, clearPersistedState]);
 
   const switchPhase = useCallback((newPhase: PomodoroPhase) => {
     setPhase(newPhase);
@@ -184,32 +170,6 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     setIsActive(false);
   }, [settings]);
 
-  // Recovery functions
-  const restoreSession = useCallback((session: PersistedTimerSession) => {
-    setPhase(session.phase);
-    setIsActive(session.isActive);
-    setTimerStartedAt(session.timerStartedAt);
-    setPausedTimeRemaining(session.pausedTimeRemaining);
-    setSessionsCompleted(session.sessionsCompleted);
-    setSettings(session.settings);
-    
-    // Update display from restored state
-    const remaining = TimerPersistence.calculateRemainingTime(session);
-    const mins = Math.floor(remaining / 60);
-    const secs = remaining % 60;
-    setMinutes(mins);
-    setSeconds(secs);
-    
-    setShowRecoveryModal(false);
-    setPersistedSession(null);
-  }, []);
-
-  const startFresh = useCallback(() => {
-    setShowRecoveryModal(false);
-    setPersistedSession(null);
-    TimerPersistence.clearSession();
-  }, []);
-
   useEffect(() => {
     // Only reset display when settings change and timer is not active
     if (!isActive && timerStartedAt === null && pausedTimeRemaining === null) {
@@ -217,6 +177,10 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
       setSeconds(0);
     }
   }, [settings, phase, isActive, timerStartedAt, pausedTimeRemaining]);
+
+  const clearRestoreFlag = useCallback(() => {
+    setWasRestored(false);
+  }, []);
 
   return {
     phase,
@@ -228,10 +192,7 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     switchPhase,
     settings,
     updateSettings,
-    // Recovery modal state
-    showRecoveryModal,
-    persistedSession,
-    restoreSession,
-    startFresh
+    wasRestored,
+    clearRestoreFlag
   };
 }
