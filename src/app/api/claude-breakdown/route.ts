@@ -8,6 +8,54 @@ interface TaskBreakdown {
   }[];
 }
 
+// Supported Claude models (based on Anthropic's current offerings)
+const SUPPORTED_CLAUDE_MODELS = [
+  'claude-3-5-sonnet-20241022',
+  'claude-3-5-sonnet-20240620',
+  'claude-3-5-haiku-20241022',
+  'claude-3-opus-20240229',
+  'claude-3-sonnet-20240229',
+  'claude-3-haiku-20240307',
+] as const;
+
+type SupportedClaudeModel = typeof SUPPORTED_CLAUDE_MODELS[number];
+
+const DEFAULT_CLAUDE_MODEL: SupportedClaudeModel = 'claude-3-5-sonnet-20241022';
+
+/**
+ * Validates if the provided model is supported by Anthropic SDK
+ * @param model - The model string to validate
+ * @returns The validated model or default model with warning
+ */
+function validateClaudeModel(model: string | undefined): {
+  model: SupportedClaudeModel;
+  isValid: boolean;
+  warning?: string;
+} {
+  if (!model) {
+    return {
+      model: DEFAULT_CLAUDE_MODEL,
+      isValid: false,
+      warning: 'CLAUDE_MODEL environment variable is not set. Using default model.'
+    };
+  }
+
+  const isSupported = SUPPORTED_CLAUDE_MODELS.includes(model as SupportedClaudeModel);
+  
+  if (!isSupported) {
+    return {
+      model: DEFAULT_CLAUDE_MODEL,
+      isValid: false,
+      warning: `Configured model '${model}' is not supported. Using default model '${DEFAULT_CLAUDE_MODEL}'. Supported models: ${SUPPORTED_CLAUDE_MODELS.join(', ')}`
+    };
+  }
+
+  return {
+    model: model as SupportedClaudeModel,
+    isValid: true
+  };
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -21,9 +69,17 @@ export async function POST(request: Request) {
     } = body;
 
     const apiKey = process.env.CLAUDE_API_KEY;
-    const claudeModel = process.env.CLAUDE_MODEL;
     if (!apiKey) {
       throw new Error('CLAUDE_API_KEY is not set in the environment variables');
+    }
+
+    // Validate Claude model configuration
+    const modelValidation = validateClaudeModel(process.env.CLAUDE_MODEL);
+    const claudeModel = modelValidation.model;
+
+    // Log warning if model configuration is invalid
+    if (!modelValidation.isValid && modelValidation.warning) {
+      console.warn('Claude model configuration warning:', modelValidation.warning);
     }
 
     const anthropic = new Anthropic({
@@ -59,7 +115,7 @@ Please provide the breakdown in the following JSON format without any additional
   ]
 }`;
     const message = await anthropic.messages.create({
-      model: claudeModel as Anthropic.Model,
+      model: claudeModel, // Now properly validated
       max_tokens: 1000,
       messages: [
         {
