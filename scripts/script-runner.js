@@ -92,12 +92,26 @@ function validateScriptIntegrity(scriptName, scriptPath) {
  */
 function sanitizeArguments(args) {
   return args.map(arg => {
-    // Remove any potentially dangerous characters
-    const sanitized = String(arg).replace(/[;&|`$(){}[\]<>]/g, '');
+    const originalArg = String(arg);
+    
+    // Check for dangerous patterns but be less aggressive
+    const dangerousPatterns = [
+      /[;&|`]/g,           // Command separators and backticks
+      /\$\(/g,             // Command substitution $()
+      /\$\{/g,             // Variable substitution ${}
+      /\.\.\//g,           // Directory traversal
+    ];
+    
+    let sanitized = originalArg;
+    
+    // Apply sanitization for dangerous patterns
+    dangerousPatterns.forEach(pattern => {
+      sanitized = sanitized.replace(pattern, '');
+    });
     
     // Log if sanitization occurred
-    if (sanitized !== arg) {
-      console.warn(`Warning: Sanitized argument '${arg}' to '${sanitized}'`);
+    if (sanitized !== originalArg) {
+      console.warn(`Warning: Sanitized argument '${originalArg}' to '${sanitized}'`);
     }
     
     return sanitized;
