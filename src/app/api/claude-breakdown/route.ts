@@ -9,6 +9,7 @@ interface TaskBreakdown {
 }
 
 // Supported Claude models (based on Anthropic's current offerings)
+// NOTE: Update this list when new Claude models are released
 const SUPPORTED_CLAUDE_MODELS = [
   'claude-3-5-sonnet-20241022',
   'claude-3-5-sonnet-20240620',
@@ -71,6 +72,11 @@ export async function POST(request: Request) {
     const apiKey = process.env.CLAUDE_API_KEY;
     if (!apiKey) {
       throw new Error('CLAUDE_API_KEY is not set in the environment variables');
+    }
+    
+    // Basic API key format validation (should start with sk-)
+    if (!apiKey.startsWith('sk-')) {
+      console.warn('Claude API key format appears invalid (should start with "sk-")');
     }
 
     // Validate Claude model configuration
