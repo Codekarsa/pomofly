@@ -17,6 +17,7 @@ import {
   type TaskCreate,
   type TaskUpdate 
 } from '../lib/validation';
+import { AppCacheManager } from '@/lib/appCache';
 
 // Task interface now imported from validation.ts
 
@@ -64,6 +65,10 @@ export function useTasks(projectId?: string) {
         });
         setTasks(taskList);
         setLoading(false);
+        
+        // Validate task-related caches now that we have current task list
+        const availableTaskIds = taskList.map(task => task.id);
+        AppCacheManager.validateTaskRelatedCaches(availableTaskIds);
       },
       (err) => {
         console.error("Error fetching tasks:", err);
@@ -147,11 +152,13 @@ export function useTasks(projectId?: string) {
       // Guest mode
       deleteGuestTask(id);
       setTasks(prev => prev.filter(t => t.id !== id));
+      AppCacheManager.onTasksDeleted([id]);
       return;
     }
 
     try {
       await deleteDoc(doc(db, "tasks", id));
+      AppCacheManager.onTasksDeleted([id]);
     } catch (err) {
       console.error("Error deleting task:", err);
       throw err;

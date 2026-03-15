@@ -11,6 +11,7 @@ import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
 import SelectedTasksList from './SelectedTasksList';
 import { TimerRecoveryModal } from './TimerRecoveryModal';
 import { TimerPersistence } from '@/lib/timerPersistence';
+import { SelectedTaskIdsCache, AppCacheManager } from '@/lib/appCache';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -27,11 +28,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   const { user } = useAuth();
   const { event } = useGoogleAnalytics();
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('selectedTaskIds');
-      return saved ? JSON.parse(saved) : [];
-    }
-    return [];
+    return SelectedTaskIdsCache.get();
   });
   const {
     tasks,
@@ -59,25 +56,26 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     tasksRef.current = tasks;
   }, [tasks]);
 
-  // Persist selectedTaskIds to localStorage and session
+  // Persist selectedTaskIds using cache system and session
   useEffect(() => {
-    localStorage.setItem('selectedTaskIds', JSON.stringify(selectedTaskIds));
+    SelectedTaskIdsCache.set(selectedTaskIds);
     TimerPersistence.updateSessionTaskIds(selectedTaskIds);
   }, [selectedTaskIds]);
 
-  // Filter out invalid/stale task IDs (deleted or completed tasks)
+  // Filter out invalid/stale task IDs (deleted or completed tasks) using enhanced cache validation
   useEffect(() => {
     if (!loading && tasks.length > 0 && selectedTaskIds.length > 0) {
-      const validTaskIds = selectedTaskIds.filter(id => {
-        const task = tasks.find(t => t.id === id);
-        return task && !task.completed;
-      });
+      const availableTaskIds = tasks
+        .filter(task => !task.completed)
+        .map(task => task.id);
+      
+      const validTaskIds = SelectedTaskIdsCache.validateAgainstTasks(availableTaskIds);
+      
       if (validTaskIds.length !== selectedTaskIds.length) {
         setSelectedTaskIds(validTaskIds);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, tasks]);
+  }, [loading, tasks, selectedTaskIds]);
 
   // Stable callback that uses refs - won't cause usePomodoro to reset
   const handlePomodoroComplete = useCallback(() => {

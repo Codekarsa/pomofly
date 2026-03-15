@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { TimerPersistence, PersistedTimerSession } from '@/lib/timerPersistence';
+import { PomodoroSettingsCache } from '@/lib/appCache';
 
 type PomodoroPhase = 'pomodoro' | 'shortBreak' | 'longBreak';
 
@@ -113,7 +114,7 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
 
   const updateSettings = useCallback((newSettings: PomodoroSettings) => {
     setSettings(newSettings);
-    localStorage.setItem('pomodoroSettings', JSON.stringify(newSettings));
+    PomodoroSettingsCache.set(newSettings);
   }, []);
 
   // Timer display update effect - uses timestamp for accuracy
