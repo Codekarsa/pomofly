@@ -1,0 +1,880 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Pomofly API",
+    "description": "API documentation for the Pomofly Pomodoro timer application with task management capabilities",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Pomofly Support",
+      "url": "https://pomofly.com",
+      "email": "support@pomofly.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "API Server"
+    }
+  ],
+  "paths": {
+    "/claude-breakdown": {
+      "post": {
+        "summary": "Get AI-powered task breakdown",
+        "description": "Break down a task description into subtasks with estimated Pomodoro sessions using Claude AI",
+        "operationId": "getTaskBreakdown",
+        "tags": ["AI", "Tasks"],
+        "security": [
+          {
+            "firebaseAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskBreakdownRequest"
+              },
+              "examples": {
+                "webDevelopment": {
+                  "summary": "Web development project",
+                  "value": {
+                    "description": "Create a responsive landing page for a new product",
+                    "startDate": "2024-03-01",
+                    "endDate": "2024-03-05",
+                    "pomodoroDuration": 25,
+                    "shortBreakDuration": 5,
+                    "longBreakDuration": 15
+                  }
+                },
+                "research": {
+                  "summary": "Research task",
+                  "value": {
+                    "description": "Research competitive analysis for mobile app features",
+                    "pomodoroDuration": 30,
+                    "shortBreakDuration": 10,
+                    "longBreakDuration": 20
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Task breakdown successfully generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskBreakdownResponse"
+                },
+                "examples": {
+                  "webDevelopment": {
+                    "summary": "Web development task breakdown",
+                    "value": {
+                      "tasks": [
+                        {
+                          "title": "Set up project structure and dependencies",
+                          "estimatedPomodoros": 2
+                        },
+                        {
+                          "title": "Design responsive layout and wireframes",
+                          "estimatedPomodoros": 3
+                        },
+                        {
+                          "title": "Implement header and navigation",
+                          "estimatedPomodoros": 2
+                        },
+                        {
+                          "title": "Build hero section with product showcase",
+                          "estimatedPomodoros": 3
+                        },
+                        {
+                          "title": "Add mobile responsiveness and testing",
+                          "estimatedPomodoros": 2
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "408": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitExceeded"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/monitoring": {
+      "get": {
+        "summary": "Get monitoring data",
+        "description": "Retrieve monitoring information including errors, metrics, or system health",
+        "operationId": "getMonitoringData",
+        "tags": ["Monitoring"],
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "required": true,
+            "description": "Type of monitoring data to retrieve",
+            "schema": {
+              "type": "string",
+              "enum": ["errors", "metrics", "summary", "health"]
+            },
+            "examples": {
+              "errors": {
+                "summary": "Get error examples",
+                "value": "errors"
+              },
+              "metrics": {
+                "summary": "Get performance metrics examples",
+                "value": "metrics"
+              },
+              "summary": {
+                "summary": "Get monitoring summary",
+                "value": "summary"
+              },
+              "health": {
+                "summary": "Get health status",
+                "value": "health"
+              }
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of items to return (for errors and metrics)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Monitoring data retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ErrorMonitoringResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/MetricsMonitoringResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/MonitoringSummaryResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/HealthCheckResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      },
+      "post": {
+        "summary": "Submit monitoring data",
+        "description": "Submit error or performance monitoring data to the server",
+        "operationId": "submitMonitoringData",
+        "tags": ["Monitoring"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MonitoringDataRequest"
+              },
+              "examples": {
+                "errorData": {
+                  "summary": "Submit error data",
+                  "value": {
+                    "type": "error",
+                    "data": {
+                      "id": "error-1699123456789-abc123",
+                      "timestamp": "2024-02-28T10:30:00.000Z",
+                      "error": {
+                        "name": "TypeError",
+                        "message": "Cannot read property of undefined",
+                        "stack": "TypeError: Cannot read property..."
+                      },
+                      "context": {
+                        "userAgent": "Mozilla/5.0...",
+                        "url": "https://pomofly.com/dashboard",
+                        "userId": "user123",
+                        "sessionId": "session-456"
+                      },
+                      "severity": "medium"
+                    }
+                  }
+                },
+                "metricData": {
+                  "summary": "Submit performance metrics",
+                  "value": {
+                    "type": "metric",
+                    "data": {
+                      "id": "metric-1699123456789-def456",
+                      "timestamp": "2024-02-28T10:30:00.000Z",
+                      "metric": "page_load_time",
+                      "value": 1250.5,
+                      "context": {
+                        "userId": "user123",
+                        "sessionId": "session-456",
+                        "route": "/dashboard"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Monitoring data submitted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitoringSubmissionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "firebaseAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Firebase JWT",
+        "description": "Firebase Authentication JWT token"
+      }
+    },
+    "schemas": {
+      "TaskBreakdownRequest": {
+        "type": "object",
+        "required": ["description"],
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Task description to break down",
+            "minLength": 1,
+            "maxLength": 2000,
+            "example": "Create a responsive landing page for a new product"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Project start date (YYYY-MM-DD)",
+            "example": "2024-03-01"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Project end date (YYYY-MM-DD)",
+            "example": "2024-03-05"
+          },
+          "pomodoroDuration": {
+            "type": "integer",
+            "description": "Pomodoro session duration in minutes",
+            "minimum": 1,
+            "maximum": 120,
+            "default": 25,
+            "example": 25
+          },
+          "shortBreakDuration": {
+            "type": "integer",
+            "description": "Short break duration in minutes",
+            "minimum": 1,
+            "maximum": 60,
+            "default": 5,
+            "example": 5
+          },
+          "longBreakDuration": {
+            "type": "integer",
+            "description": "Long break duration in minutes",
+            "minimum": 1,
+            "maximum": 120,
+            "default": 15,
+            "example": 15
+          }
+        }
+      },
+      "TaskBreakdownResponse": {
+        "type": "object",
+        "required": ["tasks"],
+        "properties": {
+          "tasks": {
+            "type": "array",
+            "description": "Array of subtasks with estimated Pomodoro sessions",
+            "items": {
+              "$ref": "#/components/schemas/SubTask"
+            }
+          }
+        }
+      },
+      "SubTask": {
+        "type": "object",
+        "required": ["title", "estimatedPomodoros"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Subtask title",
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "Set up project structure and dependencies"
+          },
+          "estimatedPomodoros": {
+            "type": "integer",
+            "description": "Estimated number of Pomodoro sessions needed",
+            "minimum": 1,
+            "maximum": 20,
+            "example": 2
+          }
+        }
+      },
+      "MonitoringDataRequest": {
+        "type": "object",
+        "required": ["type", "data"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["error", "metric"],
+            "description": "Type of monitoring data being submitted"
+          },
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ErrorData"
+              },
+              {
+                "$ref": "#/components/schemas/MetricData"
+              }
+            ]
+          }
+        }
+      },
+      "ErrorData": {
+        "type": "object",
+        "required": ["id", "timestamp", "error"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique error identifier",
+            "example": "error-1699123456789-abc123"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Error occurrence timestamp",
+            "example": "2024-02-28T10:30:00.000Z"
+          },
+          "error": {
+            "$ref": "#/components/schemas/ErrorInfo"
+          },
+          "context": {
+            "$ref": "#/components/schemas/ErrorContext"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "critical"],
+            "description": "Error severity level",
+            "example": "medium"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Error tags for categorization",
+            "example": ["javascript", "task_management"]
+          }
+        }
+      },
+      "ErrorInfo": {
+        "type": "object",
+        "required": ["name", "message"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Error type/name",
+            "example": "TypeError"
+          },
+          "message": {
+            "type": "string",
+            "description": "Error message",
+            "example": "Cannot read property of undefined"
+          },
+          "stack": {
+            "type": "string",
+            "description": "Error stack trace",
+            "example": "TypeError: Cannot read property..."
+          }
+        }
+      },
+      "ErrorContext": {
+        "type": "object",
+        "properties": {
+          "userAgent": {
+            "type": "string",
+            "description": "User agent string",
+            "example": "Mozilla/5.0..."
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Page URL where error occurred",
+            "example": "https://pomofly.com/dashboard"
+          },
+          "userId": {
+            "type": "string",
+            "description": "User identifier",
+            "example": "user123"
+          },
+          "sessionId": {
+            "type": "string",
+            "description": "Session identifier",
+            "example": "session-456"
+          },
+          "route": {
+            "type": "string",
+            "description": "Application route",
+            "example": "/dashboard"
+          },
+          "component": {
+            "type": "string",
+            "description": "React component where error occurred",
+            "example": "TaskList"
+          },
+          "action": {
+            "type": "string",
+            "description": "User action that triggered error",
+            "example": "task_creation"
+          }
+        }
+      },
+      "MetricData": {
+        "type": "object",
+        "required": ["id", "timestamp", "metric", "value"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique metric identifier",
+            "example": "metric-1699123456789-def456"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Metric collection timestamp",
+            "example": "2024-02-28T10:30:00.000Z"
+          },
+          "metric": {
+            "type": "string",
+            "description": "Metric name",
+            "example": "page_load_time"
+          },
+          "value": {
+            "type": "number",
+            "description": "Metric value",
+            "example": 1250.5
+          },
+          "context": {
+            "$ref": "#/components/schemas/MetricContext"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Metric tags for categorization",
+            "example": ["performance", "page_load"]
+          }
+        }
+      },
+      "MetricContext": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "User identifier",
+            "example": "user123"
+          },
+          "sessionId": {
+            "type": "string",
+            "description": "Session identifier",
+            "example": "session-456"
+          },
+          "route": {
+            "type": "string",
+            "description": "Application route",
+            "example": "/dashboard"
+          },
+          "userAgent": {
+            "type": "string",
+            "description": "User agent string",
+            "example": "Mozilla/5.0..."
+          }
+        }
+      },
+      "ErrorMonitoringResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Error monitoring is client-side only. Errors are stored in localStorage and can be sent to external services."
+          },
+          "example": {
+            "$ref": "#/components/schemas/ErrorData"
+          }
+        }
+      },
+      "MetricsMonitoringResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Performance metrics are client-side only. Metrics are stored in localStorage and can be sent to external services."
+          },
+          "example": {
+            "$ref": "#/components/schemas/MetricData"
+          }
+        }
+      },
+      "MonitoringSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "monitoring": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "example": "active"
+              },
+              "version": {
+                "type": "string",
+                "example": "1.0.0"
+              },
+              "features": {
+                "type": "object",
+                "properties": {
+                  "errorTracking": {
+                    "type": "boolean",
+                    "example": true
+                  },
+                  "performanceMonitoring": {
+                    "type": "boolean",
+                    "example": true
+                  },
+                  "userAnalytics": {
+                    "type": "boolean",
+                    "example": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "HealthCheckResponse": {
+        "type": "object",
+        "required": ["status", "timestamp"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["healthy", "unhealthy", "degraded"],
+            "example": "healthy"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2024-02-28T10:30:00.000Z"
+          },
+          "services": {
+            "type": "object",
+            "properties": {
+              "errorTracking": {
+                "type": "string",
+                "enum": ["operational", "degraded", "down"],
+                "example": "operational"
+              },
+              "performanceMonitoring": {
+                "type": "string",
+                "enum": ["operational", "degraded", "down"],
+                "example": "operational"
+              },
+              "storage": {
+                "type": "string",
+                "enum": ["operational", "degraded", "down"],
+                "example": "operational"
+              }
+            }
+          }
+        }
+      },
+      "MonitoringSubmissionResponse": {
+        "type": "object",
+        "required": ["success", "message", "timestamp"],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "error data received"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2024-02-28T10:30:00.000Z"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error type or category",
+            "example": "Bad Request"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable error message",
+            "example": "Description is required and must be a string"
+          },
+          "details": {
+            "type": "string",
+            "description": "Additional error details",
+            "example": "Description is required and must be a string"
+          },
+          "code": {
+            "type": "string",
+            "description": "Machine-readable error code",
+            "example": "VALIDATION_ERROR"
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Bad Request - Invalid input parameters",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "missingDescription": {
+                "summary": "Missing description",
+                "value": {
+                  "error": "Bad Request",
+                  "details": "Description is required and must be a string"
+                }
+              },
+              "invalidPomodoroDuration": {
+                "summary": "Invalid Pomodoro duration",
+                "value": {
+                  "error": "Bad Request",
+                  "details": "Pomodoro duration must be between 1 and 120 minutes"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized - Invalid or missing authentication",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "invalidToken": {
+                "summary": "Invalid authentication token",
+                "value": {
+                  "error": "Unauthorized",
+                  "details": "Invalid authentication token"
+                }
+              }
+            }
+          }
+        }
+      },
+      "RequestTimeout": {
+        "description": "Request Timeout - Request took too long to process",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "claudeTimeout": {
+                "summary": "Claude API timeout",
+                "value": {
+                  "error": "Request Timeout",
+                  "message": "Claude API request timed out. Please try again."
+                }
+              }
+            }
+          }
+        }
+      },
+      "RateLimitExceeded": {
+        "description": "Rate Limit Exceeded - Too many requests",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "resetTime": {
+                      "type": "integer",
+                      "description": "Timestamp when rate limit resets",
+                      "example": 1699123456789
+                    }
+                  }
+                }
+              ]
+            },
+            "examples": {
+              "rateLimitExceeded": {
+                "summary": "Rate limit exceeded",
+                "value": {
+                  "error": "Rate limit exceeded",
+                  "details": "Too many requests. Please try again later.",
+                  "resetTime": 1699123456789
+                }
+              }
+            }
+          }
+        },
+        "headers": {
+          "Retry-After": {
+            "description": "Number of seconds to wait before retrying",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "InternalServerError": {
+        "description": "Internal Server Error - Unexpected server error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "serverError": {
+                "summary": "Generic server error",
+                "value": {
+                  "error": "Internal Server Error",
+                  "message": "An unexpected error occurred processing your request"
+                }
+              }
+            }
+          }
+        }
+      },
+      "BadGateway": {
+        "description": "Bad Gateway - External service error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "claudeApiError": {
+                "summary": "Claude API error",
+                "value": {
+                  "error": "AI Response Format Error",
+                  "message": "Claude API returned invalid JSON format"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ServiceUnavailable": {
+        "description": "Service Unavailable - Service temporarily unavailable",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "configurationError": {
+                "summary": "Configuration error",
+                "value": {
+                  "error": "Configuration Error",
+                  "message": "Claude model is not configured"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "AI",
+      "description": "AI-powered features using Claude"
+    },
+    {
+      "name": "Tasks",
+      "description": "Task management operations"
+    },
+    {
+      "name": "Monitoring",
+      "description": "Application monitoring and health checks"
+    }
+  ]
+}
