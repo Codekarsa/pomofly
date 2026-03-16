@@ -8,6 +8,7 @@ import { useClaudeAI } from '@/hooks/useClaudeAI';
 import { Checkbox } from './ui/checkbox';
 import { Pencil, Trash2, X } from 'lucide-react';
 import { Combobox } from './ui/combobox';
+import { sanitizeTaskTitle } from '@/lib/security';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -96,9 +97,13 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
     if (!Array.isArray(breakdownResult)) return;
     const newTasks = [...breakdownResult];
     if (field === 'title') {
-      newTasks[index].title = value;
+      // Sanitize task title input to prevent XSS
+      const sanitizedTitle = sanitizeTaskTitle(value);
+      newTasks[index].title = sanitizedTitle;
     } else {
-      newTasks[index].estimatedPomodoros = parseInt(value, 10) || 1;
+      const numValue = parseInt(value, 10);
+      // Validate estimated pomodoros range
+      newTasks[index].estimatedPomodoros = Math.max(1, Math.min(100, isNaN(numValue) ? 1 : numValue));
     }
     setBreakdownResult(newTasks);
   };
@@ -123,11 +128,23 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
               <Textarea
                 id="description"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe your task or project..."
-                className="min-h-[100px]"
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Limit input length and prevent basic XSS patterns
+                  if (value.length <= 2000 && !/<script|javascript:|vbscript:|on\w+=/i.test(value)) {
+                    setDescription(value);
+                  }
+                }}
+                placeholder="Describe your complex task (max 2000 characters)..."
+                required
+                maxLength={2000}
+                className="min-h-[100px] resize-none"
+                rows={3}
                 autoFocus
               />
+              <div className="text-sm text-muted-foreground mt-1">
+                {description.length}/2000 characters
+              </div>
             </div>
             
             <details className="text-sm">

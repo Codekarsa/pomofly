@@ -1,7 +1,9 @@
-'use client'
+'use client';
 
-import React, { Component, ReactNode } from 'react'
-import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
+import React, { Component, ReactNode } from 'react';
+import { monitoring } from '@/lib/monitoring';
+import { Button } from '@/components/ui/button';
+import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
 interface Props {
   children: ReactNode
@@ -34,20 +36,16 @@ export class ErrorBoundary extends Component<Props, State> {
       console.error('ErrorBoundary caught an error:', error, errorInfo)
     }
 
-    // Log to external service in production
-    if (process.env.NODE_ENV === 'production') {
-      try {
-        // Send to monitoring service (placeholder for future integration)
-        console.error('Production error:', {
-          message: error.message,
-          stack: error.stack,
-          componentStack: errorInfo.componentStack,
-          timestamp: new Date().toISOString(),
-          level: this.props.level || 'component'
-        })
-      } catch (loggingError) {
-        console.error('Failed to log error:', loggingError)
-      }
+    // Report error to monitoring system
+    try {
+      monitoring.reportError(error, {
+        component: 'ErrorBoundary',
+        level: this.props.level || 'component',
+        componentStack: errorInfo.componentStack,
+        action: 'error_boundary_catch'
+      });
+    } catch (monitoringError) {
+      console.error('Failed to report error to monitoring:', monitoringError);
     }
 
     this.setState({
