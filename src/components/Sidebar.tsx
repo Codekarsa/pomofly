@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Settings, Timer, CheckSquare, FolderOpen, LogIn, User } from 'lucide-react';
+import { Settings, Timer, CheckSquare, FolderOpen, LogIn, User, Calendar } from 'lucide-react';
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -27,6 +27,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onSettingsClick, onSignIn }) => {
       href: '/tasks',
       icon: CheckSquare,
       description: 'Task Management'
+    },
+    {
+      name: 'Calendar',
+      href: '/calendar',
+      icon: Calendar,
+      description: 'Weekly Calendar View'
     },
     {
       name: 'Projects',

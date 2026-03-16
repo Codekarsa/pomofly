@@ -30,9 +30,15 @@ interface PomodoroTimerProps {
 const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) => {
   const { user } = useAuth();
   const { event } = useGoogleAnalytics();
+  const [isHydrated, setIsHydrated] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>(() => {
     return SelectedTaskIdsCache.get();
   });
+  
+  // Track hydration to prevent hydration mismatch
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
   const {
     tasks,
     loading,
@@ -257,28 +263,9 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     event('timer_restore_notification_dismissed', {});
   }, [clearRestoreFlag, event]);
 
-  if (loading) {
-    return (
-      <Card className="w-full mx-auto">
-        <CardHeader>
-          <CardTitle>Pomodoro Timer</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-8">
-            <TimerProgress
-              progress={25}
-              variant="default"
-              size={280}
-              strokeWidth={12}
-            >
-              <div className="text-6xl font-bold text-gray-300 animate-pulse">--:--</div>
-              <div className="text-lg text-muted-foreground mt-2 animate-pulse">Loading...</div>
-            </TimerProgress>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  // Only show loading skeleton if we're truly waiting for essential data
+  // Don't show loading for timer display to prevent hydration mismatch
+  const showTasksLoading = loading && user;
 
   return (
     <>
@@ -307,26 +294,11 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
           ))}
         </div>
 
-        <div className="flex flex-col items-center justify-center mb-4 py-6">
-          <TimerProgress
-            progress={
-              phase === 'pomodoro' 
-                ? ((settings.pomodoro * 60 - (minutes * 60 + seconds)) / (settings.pomodoro * 60)) * 100
-                : phase === 'shortBreak'
-                ? ((settings.shortBreak * 60 - (minutes * 60 + seconds)) / (settings.shortBreak * 60)) * 100
-                : ((settings.longBreak * 60 - (minutes * 60 + seconds)) / (settings.longBreak * 60)) * 100
-            }
-            variant={phase === 'pomodoro' ? 'pomodoro' : phase === 'shortBreak' ? 'shortBreak' : 'longBreak'}
-            size={280}
-            strokeWidth={12}
-          >
-            <div className="text-6xl font-bold text-center">
-              {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
-            </div>
-            <div className="text-lg text-muted-foreground mt-2 capitalize">
-              {phase === 'shortBreak' ? 'Short Break' : phase === 'longBreak' ? 'Long Break' : 'Pomodoro'}
-            </div>
-          </TimerProgress>
+        <div className="text-8xl font-bold mb-4 text-center py-6">
+          {isHydrated 
+            ? `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+            : `${settings.pomodoro.toString().padStart(2, '0')}:00`
+          }
         </div>
 
         <TimerPerformanceIndicator
@@ -367,15 +339,25 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
 
         {/* Task Selection - available for authenticated users, always enabled */}
         {user && (
-          <SelectedTasksList
-            tasks={tasks}
-            projects={projects}
-            selectedTaskIds={selectedTaskIds}
-            onAddTask={handleAddTask}
-            onRemoveTask={handleRemoveTask}
-            getElapsedTime={getElapsedTime}
-            formatTime={formatTime}
-          />
+          showTasksLoading ? (
+            <div className="mt-6 p-4 border rounded-lg bg-muted/50">
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="w-4 h-4 bg-muted animate-pulse rounded"></div>
+                <div className="w-32 h-4 bg-muted animate-pulse rounded"></div>
+              </div>
+              <div className="w-full h-8 bg-muted animate-pulse rounded"></div>
+            </div>
+          ) : (
+            <SelectedTasksList
+              tasks={tasks}
+              projects={projects}
+              selectedTaskIds={selectedTaskIds}
+              onAddTask={handleAddTask}
+              onRemoveTask={handleRemoveTask}
+              getElapsedTime={getElapsedTime}
+              formatTime={formatTime}
+            />
+          )
         )}
       </CardContent>
       <TimerRestoreNotification 
