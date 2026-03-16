@@ -1,0 +1,286 @@
+name: Bundle Size Monitoring
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'yarn.lock'
+      - 'next.config.mjs'
+      - 'tailwind.config.js'
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      update_baseline:
+        description: 'Update bundle size baseline'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  bundle-analysis:
+    name: Bundle Size Analysis
+    runs-on: ubuntu-latest
+    
+    outputs:
+      budget-status: ${{ steps.budget-check.outputs.status }}
+      size-change: ${{ steps.comparison.outputs.size-change }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'yarn'
+          
+      - name: Install dependencies
+        run: |
+          yarn install --frozen-lockfile
+          
+      - name: Download baseline bundle stats
+        if: github.event_name == 'pull_request'
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: bundle-size-monitoring.yml
+          branch: ${{ github.base_ref }}
+          name: bundle-baseline
+          path: baseline/
+          if_no_artifact_found: warn
+          
+      - name: Build application
+        run: |
+          npm run build:prod
+        env:
+          NODE_ENV: production
+          
+      - name: Generate bundle analysis
+        run: |
+          npm run bundle:analyze:json
+          
+      - name: Check bundle budgets
+        id: budget-check
+        run: |
+          if npm run bundle:budget; then
+            echo "status=passed" >> $GITHUB_OUTPUT
+            echo "✅ Bundle budgets: PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "❌ Bundle budgets: FAILED" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+        continue-on-error: true
+        
+      - name: Compare bundle sizes
+        id: comparison
+        if: github.event_name == 'pull_request' && hashFiles('baseline/bundle-stats.json') != ''
+        run: |
+          cp baseline/bundle-stats.json bundle-stats-baseline.json
+          
+          # Run comparison and capture output
+          if npm run bundle:compare > bundle-comparison-output.txt 2>&1; then
+            echo "comparison=success" >> $GITHUB_OUTPUT
+          else
+            echo "comparison=failed" >> $GITHUB_OUTPUT
+          fi
+          
+          # Extract size change information
+          if grep -q "Total Bundle Size:" bundle-comparison-output.txt; then
+            SIZE_LINE=$(grep "Total Bundle Size:" bundle-comparison-output.txt)
+            echo "size-change=${SIZE_LINE}" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Generate bundle size report
+        run: |
+          echo "# 📊 Bundle Size Analysis Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "bundle-stats.json" ]; then
+            echo "## Summary" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            jq '.summary' bundle-stats.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -f "budget-report.json" ]; then
+            echo "## Budget Report" >> $GITHUB_STEP_SUMMARY
+            VIOLATIONS=$(jq '.summary.violations' budget-report.json)
+            WARNINGS=$(jq '.summary.warnings' budget-report.json)
+            echo "- Violations: ${VIOLATIONS}" >> $GITHUB_STEP_SUMMARY
+            echo "- Warnings: ${WARNINGS}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -f "bundle-comparison-output.txt" ] && [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "## Size Comparison" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat bundle-comparison-output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          
+      - name: Update baseline (on main branch)
+        if: github.ref == 'refs/heads/main' || github.event.inputs.update_baseline == 'true'
+        run: |
+          npm run bundle:compare -- --update-baseline
+          
+      - name: Upload bundle analysis artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-reports
+          path: |
+            bundle-stats.json
+            budget-report.json
+            bundle-comparison.json
+            .next/bundle-size-report.json
+          retention-days: 30
+          
+      - name: Upload baseline (for main branch)
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-baseline
+          path: |
+            bundle-stats.json
+            .next/bundle-size-report.json
+          retention-days: 90
+          
+  # Comment on PR with bundle size information
+  pr-comment:
+    name: PR Bundle Size Comment
+    runs-on: ubuntu-latest
+    needs: bundle-analysis
+    if: github.event_name == 'pull_request'
+    
+    permissions:
+      pull-requests: write
+      
+    steps:
+      - name: Download bundle reports
+        uses: actions/download-artifact@v4
+        with:
+          name: bundle-reports
+          path: reports/
+          
+      - name: Create PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let comment = '## 📦 Bundle Size Analysis\n\n';
+            
+            // Add budget status
+            const budgetStatus = '${{ needs.bundle-analysis.outputs.budget-status }}';
+            if (budgetStatus === 'passed') {
+              comment += '✅ **Budget Check**: All bundle sizes are within limits\n\n';
+            } else {
+              comment += '❌ **Budget Check**: Some bundles exceed size limits\n\n';
+            }
+            
+            // Add size comparison if available
+            const sizeChange = '${{ needs.bundle-analysis.outputs.size-change }}';
+            if (sizeChange) {
+              comment += '### Size Changes\n```\n' + sizeChange + '\n```\n\n';
+            }
+            
+            // Add summary from bundle stats
+            try {
+              const bundleStats = JSON.parse(fs.readFileSync('reports/bundle-stats.json', 'utf8'));
+              if (bundleStats.summary) {
+                comment += '### Current Bundle Sizes\n';
+                comment += `- **First Load JS**: ${bundleStats.summary.firstLoadJSKB || 'N/A'} KB\n`;
+                comment += `- **Total CSS**: ${bundleStats.summary.totalCSSSizeKB || 'N/A'} KB\n`;
+                comment += `- **Total Media**: ${bundleStats.summary.totalMediaSizeKB || 'N/A'} KB\n\n`;
+              }
+            } catch (error) {
+              console.log('Could not read bundle stats:', error.message);
+            }
+            
+            // Add budget violations if any
+            try {
+              const budgetReport = JSON.parse(fs.readFileSync('reports/budget-report.json', 'utf8'));
+              if (budgetReport.violations && budgetReport.violations.length > 0) {
+                comment += '### ⚠️ Budget Violations\n';
+                budgetReport.violations.forEach(violation => {
+                  comment += `- **${violation.metric}**: ${violation.actual} KB (exceeds ${violation.budget} KB budget)\n`;
+                });
+                comment += '\n';
+              }
+              
+              if (budgetReport.warnings && budgetReport.warnings.length > 0) {
+                comment += '### ⚡ Warnings\n';
+                budgetReport.warnings.forEach(warning => {
+                  comment += `- **${warning.metric}**: ${warning.actual} KB (exceeds ${warning.budget} KB warning threshold)\n`;
+                });
+                comment += '\n';
+              }
+            } catch (error) {
+              console.log('Could not read budget report:', error.message);
+            }
+            
+            comment += '---\n';
+            comment += '<details>\n<summary>💡 Optimization Tips</summary>\n\n';
+            comment += '- Use dynamic imports for code splitting\n';
+            comment += '- Optimize images with next/image and WebP\n';
+            comment += '- Remove unused dependencies\n';
+            comment += '- Use tree shaking for better bundle optimization\n';
+            comment += '</details>';
+            
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const existingComment = comments.find(c => 
+              c.user.login === 'github-actions[bot]' && 
+              c.body.includes('📦 Bundle Size Analysis')
+            );
+            
+            if (existingComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: comment
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment
+              });
+            }
+            
+  # Fail the workflow if budget check failed
+  budget-enforcement:
+    name: Enforce Bundle Budgets
+    runs-on: ubuntu-latest
+    needs: bundle-analysis
+    if: always()
+    
+    steps:
+      - name: Check budget status
+        run: |
+          if [ "${{ needs.bundle-analysis.outputs.budget-status }}" = "failed" ]; then
+            echo "❌ Bundle size budget check failed"
+            echo "Some bundles exceed the configured size limits."
+            echo "Please optimize your code or adjust the budgets if necessary."
+            exit 1
+          else
+            echo "✅ Bundle size budgets are within limits"
+          fi
