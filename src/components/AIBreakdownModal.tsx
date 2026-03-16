@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -6,9 +6,10 @@ import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { useClaudeAI } from '@/hooks/useClaudeAI';
 import { Checkbox } from './ui/checkbox';
-import { Pencil, Trash2, X } from 'lucide-react';
+import { Pencil, Trash2, X, Loader2, AlertTriangle, RefreshCw, Clock } from 'lucide-react';
 import { Combobox } from './ui/combobox';
-import { sanitizeTaskTitle } from '@/lib/security';
+import { Alert, AlertDescription } from './ui/alert';
+import { Progress } from './ui/progress';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -31,7 +32,6 @@ interface AIBreakdownModalProps {
 }
 
 export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onClose, onSave, settings, projects }) => {
-  const [step, setStep] = useState<'input' | 'review'>('input');
   const [description, setDescription] = useState('');
   const [useCustomDates, setUseCustomDates] = useState(false);
   const [startDate, setStartDate] = useState('');
@@ -45,9 +45,50 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
   const [longBreakDuration, setLongBreakDuration] = useState(settings.longBreak);
   
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  
+  // Enhanced loading states
+  const [requestProgress, setRequestProgress] = useState(0);
+  const [requestTime, setRequestTime] = useState(0);
+  const [showSuccessConfirm, setShowSuccessConfirm] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const adjustTextareaHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      const newHeight = Math.min(textarea.scrollHeight, 8 * 24);
+      textarea.style.height = `${newHeight}px`;
+    }
+  };
+
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [description]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Reset states
+    setRequestProgress(0);
+    setRequestTime(0);
+    setShowSuccessConfirm(false);
+    setBreakdownResult(null);
+    
+    // Progress simulation
+    const progressInterval = setInterval(() => {
+      setRequestProgress(prev => {
+        if (prev >= 90) return prev; // Cap at 90% until real completion
+        return prev + Math.random() * 15;
+      });
+    }, 500);
+    
+    // Timer for elapsed time
+    const timeInterval = setInterval(() => {
+      setRequestTime(prev => prev + 1);
+    }, 1000);
+    
     try {
       const result = await getTaskBreakdown(
         description,
@@ -57,36 +98,42 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
         shortBreakDuration,
         longBreakDuration
       );
+      
+      // Complete progress and show success
+      setRequestProgress(100);
       setBreakdownResult(result.tasks);
-      setStep('review');
+      setShowSuccessConfirm(true);
+      setRetryCount(0);
+      
     } catch (err) {
       console.error('Failed to get task breakdown:', err);
+      setRequestProgress(0);
+    } finally {
+      clearInterval(progressInterval);
+      clearInterval(timeInterval);
     }
-  };
-
-  const handleRefine = async () => {
-    const refinedDescription = `${description}\n\nPrevious breakdown:\n${breakdownResult?.map(t => `- ${t.title} (${t.estimatedPomodoros} pomodoros)`).join('\n')}\n\nPlease refine this breakdown - make it more granular or adjust estimates.`;
-    setDescription(refinedDescription);
-    await handleSubmit();
   };
 
   const handleSave = () => {
     if (breakdownResult && selectedProject) {
       onSave(breakdownResult, selectedProject);
-      handleClose();
+      // Reset state
+      setDescription('');
+      setBreakdownResult(null);
+      setShowSuccessConfirm(false);
+      setRequestProgress(0);
+      setRequestTime(0);
+      onClose();
     }
   };
-
-  const handleClose = () => {
-    setStep('input');
-    setBreakdownResult(null);
-    setDescription('');
-    setUseCustomDates(false);
-    setStartDate('');
-    setEndDate('');
-    setEditingIndex(null);
-    setSelectedProject(null);
-    onClose();
+  
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+    handleSubmit(new Event('submit') as any);
+  };
+  
+  const confirmAndContinue = () => {
+    setShowSuccessConfirm(false);
   };
 
   const handleEditTask = (index: number) => {
@@ -97,13 +144,9 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
     if (!Array.isArray(breakdownResult)) return;
     const newTasks = [...breakdownResult];
     if (field === 'title') {
-      // Sanitize task title input to prevent XSS
-      const sanitizedTitle = sanitizeTaskTitle(value);
-      newTasks[index].title = sanitizedTitle;
+      newTasks[index].title = value;
     } else {
-      const numValue = parseInt(value, 10);
-      // Validate estimated pomodoros range
-      newTasks[index].estimatedPomodoros = Math.max(1, Math.min(100, isNaN(numValue) ? 1 : numValue));
+      newTasks[index].estimatedPomodoros = parseInt(value, 10);
     }
     setBreakdownResult(newTasks);
   };
@@ -115,138 +158,171 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Break Down Your Work with AI</DialogTitle>
         </DialogHeader>
-        
-        {step === 'input' && (
+        <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="description">What do you need to accomplish?</Label>
+              <Label htmlFor="description">Work Description</Label>
               <Textarea
                 id="description"
+                ref={textareaRef}
                 value={description}
                 onChange={(e) => {
-                  const value = e.target.value;
-                  // Limit input length and prevent basic XSS patterns
-                  if (value.length <= 2000 && !/<script|javascript:|vbscript:|on\w+=/i.test(value)) {
-                    setDescription(value);
-                  }
+                  setDescription(e.target.value);
+                  adjustTextareaHeight();
                 }}
-                placeholder="Describe your complex task (max 2000 characters)..."
+                placeholder="Describe your complex task..."
                 required
-                maxLength={2000}
-                className="min-h-[100px] resize-none"
+                className="resize-none overflow-hidden"
                 rows={3}
-                autoFocus
               />
-              <div className="text-sm text-muted-foreground mt-1">
-                {description.length}/2000 characters
+            </div>
+            <div className="flex space-x-4">
+              <div className="flex-1">
+                <Label htmlFor="pomodoroDuration">Pomodoro Duration (minutes)</Label>
+                <Input
+                  id="pomodoroDuration"
+                  type="number"
+                  value={pomodoroDuration}
+                  onChange={(e) => setPomodoroDuration(parseInt(e.target.value, 10))}
+                  min="1"
+                />
+              </div>
+              <div className="flex-1">
+                <Label htmlFor="shortBreakDuration">Short Break Duration (minutes)</Label>
+                <Input
+                  id="shortBreakDuration"
+                  type="number"
+                  value={shortBreakDuration}
+                  onChange={(e) => setShortBreakDuration(parseInt(e.target.value, 10))}
+                  min="1"
+                />
+              </div>
+              <div className="flex-1">
+                <Label htmlFor="longBreakDuration">Long Break Duration (minutes)</Label>
+                <Input
+                  id="longBreakDuration"
+                  type="number"
+                  value={longBreakDuration}
+                  onChange={(e) => setLongBreakDuration(parseInt(e.target.value, 10))}
+                  min="1"
+                />
               </div>
             </div>
-            
-            <details className="text-sm">
-              <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                Advanced options
-              </summary>
-              <div className="mt-3 space-y-3 pl-2 border-l-2">
-                <div>
-                  <Label htmlFor="projectSelect">Select Project</Label>
-                  <Combobox
-                    options={projects.map(project => ({ value: project.id, label: project.name }))}
-                    value={selectedProject || ''}
-                    onChange={(value) => setSelectedProject(value)}
-                    placeholder="Select a project"
-                  />
-                </div>
-                
+            <div>
+              <Label htmlFor="projectSelect">Select Project</Label>
+              <Combobox
+                options={projects.map(project => ({ value: project.id, label: project.name }))}
+                value={selectedProject || ''}
+                onChange={(value) => setSelectedProject(value)}
+                placeholder="Select a project"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="useCustomDates"
+                checked={useCustomDates}
+                onCheckedChange={(checked) => setUseCustomDates(checked as boolean)}
+              />
+              <Label htmlFor="useCustomDates">Use custom date range</Label>
+            </div>
+            {useCustomDates && (
+              <>
                 <div className="flex space-x-4">
                   <div className="flex-1">
-                    <Label htmlFor="pomodoroDuration">Pomodoro Duration (minutes)</Label>
+                    <Label htmlFor="startDate">Start Date</Label>
                     <Input
-                      id="pomodoroDuration"
-                      type="number"
-                      value={pomodoroDuration}
-                      onChange={(e) => setPomodoroDuration(parseInt(e.target.value, 10) || 1)}
-                      min="1"
+                      id="startDate"
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
                     />
                   </div>
                   <div className="flex-1">
-                    <Label htmlFor="shortBreakDuration">Short Break Duration (minutes)</Label>
+                    <Label htmlFor="endDate">End Date</Label>
                     <Input
-                      id="shortBreakDuration"
-                      type="number"
-                      value={shortBreakDuration}
-                      onChange={(e) => setShortBreakDuration(parseInt(e.target.value, 10) || 1)}
-                      min="1"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <Label htmlFor="longBreakDuration">Long Break Duration (minutes)</Label>
-                    <Input
-                      id="longBreakDuration"
-                      type="number"
-                      value={longBreakDuration}
-                      onChange={(e) => setLongBreakDuration(parseInt(e.target.value, 10) || 1)}
-                      min="1"
+                      id="endDate"
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      required={!!startDate}
                     />
                   </div>
                 </div>
-                
+              </>
+            )}
+          </div>
+          <DialogFooter className="mt-4">
+            <Button type="submit" disabled={loading} className="bg-primary text-primary-foreground hover:bg-primary/90">
+              {loading ? (
                 <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="useCustomDates"
-                    checked={useCustomDates}
-                    onCheckedChange={(checked) => setUseCustomDates(checked as boolean)}
-                  />
-                  <Label htmlFor="useCustomDates">Use custom date range</Label>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Processing...</span>
                 </div>
-                
-                {useCustomDates && (
-                  <div className="flex space-x-4">
-                    <div className="flex-1">
-                      <Label htmlFor="startDate">Start Date</Label>
-                      <Input
-                        id="startDate"
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <Label htmlFor="endDate">End Date</Label>
-                      <Input
-                        id="endDate"
-                        type="date"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        required={!!startDate}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </details>
-            
-            <Button onClick={handleSubmit} disabled={loading || !description.trim()}>
-              {loading ? 'Analyzing...' : 'Get Breakdown →'}
+              ) : 'Get Breakdown'}
             </Button>
-            
-            {error && <p className="text-red-500 mt-2">{error}</p>}
+          </DialogFooter>
+        </form>
+        
+        {/* Loading Progress */}
+        {loading && (
+          <div className="mt-4 space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center space-x-2">
+                <Clock className="h-4 w-4" />
+                <span>AI is analyzing your task...</span>
+              </span>
+              <span className="text-muted-foreground">{requestTime}s</span>
+            </div>
+            <Progress value={requestProgress} className="h-2" />
+            <div className="text-xs text-muted-foreground">
+              {requestProgress < 30 && "Breaking down your task into subtasks..."}
+              {requestProgress >= 30 && requestProgress < 60 && "Estimating time requirements..."}
+              {requestProgress >= 60 && requestProgress < 90 && "Optimizing pomodoro sessions..."}
+              {requestProgress >= 90 && "Finalizing breakdown..."}
+            </div>
           </div>
         )}
-
-        {step === 'review' && breakdownResult && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Here's my suggestion:</h3>
-              <span className="text-sm text-muted-foreground">
-                Total: {breakdownResult.reduce((sum, t) => sum + t.estimatedPomodoros, 0)} 🍅
-              </span>
-            </div>
-            
+        
+        {/* Error State with Retry */}
+        {error && (
+          <Alert className="mt-4" variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription className="flex items-center justify-between">
+              <span>{error} {retryCount > 0 && `(Attempt ${retryCount + 1})`}</span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRetry}
+                className="ml-2"
+              >
+                <RefreshCw className="h-4 w-4 mr-1" />
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {/* Success Confirmation */}
+        {showSuccessConfirm && breakdownResult && (
+          <Alert className="mt-4">
+            <AlertDescription>
+              <div className="flex items-center justify-between">
+                <span>✅ Successfully generated {breakdownResult.length} tasks! Review and edit below, then save.</span>
+                <Button variant="outline" size="sm" onClick={confirmAndContinue}>
+                  Got it
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+        {breakdownResult && (
+          <div className="mt-4">
+            <h3 className="font-semibold mb-4 text-lg">Task Breakdown:</h3>
             <ul className="space-y-2">
               {breakdownResult.map((task, index) => (
                 <li key={index} className="flex items-center justify-between p-4 border-b border-border rounded-md hover:bg-muted transition">
@@ -312,18 +388,13 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
                 </li>
               ))}
             </ul>
-            
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStep('input')}>
-                ← Back
-              </Button>
-              <Button variant="outline" onClick={handleRefine}>
-                Refine with AI
-              </Button>
-              <Button onClick={handleSave} disabled={!selectedProject}>
-                Save Tasks
-              </Button>
-            </div>
+            <Button 
+              onClick={handleSave} 
+              className="mt-4 w-full bg-primary text-primary-foreground hover:bg-primary/90"
+              disabled={!selectedProject}
+            >
+              Save Breakdown
+            </Button>
           </div>
         )}
       </DialogContent>

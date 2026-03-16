@@ -41,6 +41,33 @@ export const useClaudeAI = () => {
         throw new Error('User must be authenticated to use AI features');
       }
 
+      // Add timeout to the fetch request (30 seconds)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+      const response = await fetch('/api/claude-breakdown', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          description,
+          startDate,
+          endDate,
+          pomodoroDuration,
+          shortBreakDuration,
+          longBreakDuration,
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.details || `Request failed (${response.status})`);
+      }
+
       // Client-side rate limiting (5 requests per minute)
       const rateLimitCheck = checkClientRateLimit(user.uid, 5, 60000);
       if (!rateLimitCheck.allowed) {
@@ -131,20 +158,18 @@ export const useClaudeAI = () => {
       });
       return result;
     } catch (err) {
-      let errorMessage: string;
-      
       if (err instanceof Error) {
         if (err.name === 'AbortError') {
-          errorMessage = 'Request timed out. Please try again with a shorter description.';
+          setError('Request timed out. The AI service might be busy - please try again.');
+        } else if (err.message.includes('Failed to fetch')) {
+          setError('Network error. Please check your connection and try again.');
         } else {
-          errorMessage = err.message;
+          setError(err.message);
         }
       } else {
-        errorMessage = 'An unexpected error occurred';
+        setError('An unexpected error occurred. Please try again.');
       }
-      
-      setError(errorMessage);
-      throw new Error(errorMessage);
+      throw err;
     } finally {
       setLoading(false);
     }
