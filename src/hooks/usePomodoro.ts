@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useHighPrecisionTimer } from './useHighPrecisionTimer';
-import { useTimerPersistence } from './useTimerPersistence';
-import { PomodoroSettingsCache } from '@/lib/appCache';
+import { safeLocalStorage } from '@/lib/safeLocalStorage';
 
 type PomodoroPhase = 'pomodoro' | 'shortBreak' | 'longBreak';
 
@@ -20,7 +18,6 @@ export const defaultSettings: PomodoroSettings = {
 };
 
 export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () => void) {
-  const [wasRestored, setWasRestored] = useState(false);
   const [phase, setPhase] = useState<PomodoroPhase>('pomodoro');
   const [minutes, setMinutes] = useState(initialSettings[phase]);
   const [seconds, setSeconds] = useState(0);
@@ -37,28 +34,6 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
   useEffect(() => {
     onCompleteRef.current = onComplete;
   }, [onComplete]);
-
-  // Timer persistence
-  const { clearPersistedState } = useTimerPersistence(
-    phase,
-    minutes,
-    seconds,
-    isActive,
-    sessionsCompleted,
-    timerStartedAt,
-    pausedTimeRemaining,
-    (restoredState) => {
-      // Restore state from localStorage
-      setPhase(restoredState.phase);
-      setMinutes(restoredState.minutes);
-      setSeconds(restoredState.seconds);
-      setIsActive(restoredState.isActive);
-      setSessionsCompleted(restoredState.sessionsCompleted);
-      setTimerStartedAt(restoredState.timerStartedAt);
-      setPausedTimeRemaining(restoredState.pausedTimeRemaining);
-      setWasRestored(true);
-    }
-  );
 
   // Calculate remaining time from timestamp (accurate, no drift)
   const getRemainingTime = useCallback((): number => {
@@ -100,37 +75,37 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
 
   const updateSettings = useCallback((newSettings: PomodoroSettings) => {
     setSettings(newSettings);
-    PomodoroSettingsCache.set(newSettings);
+    safeLocalStorage.setItem('pomodoroSettings', newSettings);
   }, []);
 
-  // High precision timer callbacks
-  const handleTimerTick = useCallback((timeRemaining: number) => {
-    const mins = Math.floor(timeRemaining / 60);
-    const secs = timeRemaining % 60;
-    setMinutes(mins);
-    setSeconds(secs);
-  }, []);
+  // Timer display update effect - uses timestamp for accuracy
+  useEffect(() => {
+    if (!isActive) return;
 
-  const handleTimerComplete = useCallback(() => {
-    setIsActive(false);
-    setTimerStartedAt(null);
-    setPausedTimeRemaining(null);
-    handlePhaseComplete();
-  }, [handlePhaseComplete]);
+    const updateDisplay = () => {
+      const remaining = getRemainingTime();
+      const mins = Math.floor(remaining / 60);
+      const secs = remaining % 60;
 
-  const getCurrentDuration = useCallback(() => {
-    return settings[phase] * 60; // Convert minutes to seconds
-  }, [settings, phase]);
+      setMinutes(mins);
+      setSeconds(secs);
 
-  // Use high precision timer
-  const { timingStats, performanceMode } = useHighPrecisionTimer({
-    onTick: handleTimerTick,
-    onComplete: handleTimerComplete,
-    getDuration: getCurrentDuration,
-    isActive,
-    startTime: timerStartedAt,
-    pausedTime: pausedTimeRemaining
-  });
+      if (remaining <= 0) {
+        setIsActive(false);
+        setTimerStartedAt(null);
+        setPausedTimeRemaining(null);
+        handlePhaseComplete();
+      }
+    };
+
+    // Update immediately
+    updateDisplay();
+
+    // Then update every 100ms for smooth display
+    const interval = setInterval(updateDisplay, 100);
+
+    return () => clearInterval(interval);
+  }, [isActive, getRemainingTime, handlePhaseComplete]);
 
   const toggleTimer = useCallback(() => {
     if (!isActive) {
@@ -160,8 +135,7 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     setPausedTimeRemaining(null);
     setMinutes(settings[phase]);
     setSeconds(0);
-    clearPersistedState(); // Clear persistence when manually resetting
-  }, [phase, settings, clearPersistedState]);
+  }, [phase, settings]);
 
   const switchPhase = useCallback((newPhase: PomodoroPhase) => {
     setPhase(newPhase);
@@ -180,10 +154,6 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     }
   }, [settings, phase, isActive, timerStartedAt, pausedTimeRemaining]);
 
-  const clearRestoreFlag = useCallback(() => {
-    setWasRestored(false);
-  }, []);
-
   return {
     phase,
     minutes,
@@ -193,10 +163,6 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     resetTimer,
     switchPhase,
     settings,
-    updateSettings,
-    timingStats,
-    performanceMode,
-    wasRestored,
-    clearRestoreFlag
+    updateSettings
   };
 }

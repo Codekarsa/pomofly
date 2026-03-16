@@ -6,7 +6,7 @@ import TaskList from '@/components/TaskList';
 import TodayFocusSection from '@/components/TodayFocusSection';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { defaultSettings } from '@/hooks/usePomodoro';
-import { PomodoroSettingsCache } from '@/lib/appCache';
+import { safeLocalStorage } from '@/lib/safeLocalStorage';
 
 export default function TasksPage() {
   const { user } = useAuth();
@@ -14,9 +14,9 @@ export default function TasksPage() {
   const [settings, setSettings] = useState(defaultSettings);
 
   useEffect(() => {
-    const savedSettings = PomodoroSettingsCache.get();
-    if (savedSettings) {
-      setSettings(savedSettings);
+    const parsedSettings = safeLocalStorage.getItem('pomodoroSettings', null);
+    if (parsedSettings) {
+      setSettings(parsedSettings);
     }
   }, []);
 
@@ -28,14 +28,14 @@ export default function TasksPage() {
 
   return (
     <AppLayout>
-      <div className="container mx-auto px-4 py-4 sm:py-8">
+      <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          <div className="mb-6 sm:mb-8 px-2">
-            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Tasks</h1>
-            <p className="text-muted-foreground text-sm sm:text-base">Manage your tasks and focus on what matters most.</p>
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold mb-2">Tasks</h1>
+            <p className="text-muted-foreground">Manage your tasks and focus on what matters most.</p>
           </div>
           
-          <div className="space-y-6 sm:space-y-8">
+          <div className="space-y-8">
             <TodayFocusSection settings={settings} />
             <TaskList settings={settings} />
           </div>
