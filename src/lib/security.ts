@@ -136,64 +136,151 @@ export function sanitizeRichContent(content: string): string {
 }
 
 /**
- * Validates AI response structure and sanitizes content
+ * Validates AI response structure and sanitizes content with comprehensive error handling
  */
 export function sanitizeAIResponse(response: any): {
   isValid: boolean;
   sanitizedData?: { tasks: Array<{ title: string; estimatedPomodoros: number }> };
   error?: string;
 } {
-  if (!response || typeof response !== 'object') {
-    return { isValid: false, error: 'Invalid response structure' };
-  }
-
-  if (!response.tasks || !Array.isArray(response.tasks)) {
-    return { isValid: false, error: 'Response must contain tasks array' };
-  }
-
-  if (response.tasks.length === 0) {
-    return { isValid: false, error: 'Response must contain at least one task' };
-  }
-
-  if (response.tasks.length > 50) {
-    return { isValid: false, error: 'Too many tasks in response (max 50)' };
-  }
-
-  const sanitizedTasks = response.tasks.map((task: any, index: number) => {
-    // Validate task structure
-    if (!task || typeof task !== 'object') {
-      throw new Error(`Task at index ${index} is not a valid object`);
+  try {
+    // Basic structure validation
+    if (!response || typeof response !== 'object') {
+      return { isValid: false, error: 'AI response must be a valid JSON object' };
     }
 
-    if (typeof task.title !== 'string') {
-      throw new Error(`Task at index ${index} must have a string title`);
+    if (!response.tasks || !Array.isArray(response.tasks)) {
+      return { isValid: false, error: 'AI response must contain a "tasks" array' };
     }
 
-    if (typeof task.estimatedPomodoros !== 'number' || task.estimatedPomodoros < 1 || task.estimatedPomodoros > 100) {
-      throw new Error(`Task at index ${index} must have valid estimatedPomodoros (1-100)`);
+    if (response.tasks.length === 0) {
+      return { isValid: false, error: 'AI response must contain at least one task' };
     }
 
-    // Sanitize task title
-    const sanitizedTitle = sanitizeTaskTitle(task.title);
-    
-    if (sanitizedTitle.length === 0) {
-      throw new Error(`Task at index ${index} title is empty after sanitization`);
+    if (response.tasks.length > 50) {
+      return { isValid: false, error: 'AI response contains too many tasks (maximum 50 allowed)' };
     }
 
-    if (sanitizedTitle.length > 200) {
-      throw new Error(`Task at index ${index} title is too long (max 200 characters)`);
+    // Enhanced task validation with better error handling
+    const sanitizedTasks: Array<{ title: string; estimatedPomodoros: number }> = [];
+    const validationErrors: string[] = [];
+
+    for (let i = 0; i < response.tasks.length; i++) {
+      const task = response.tasks[i];
+      const taskIndex = i + 1;
+
+      // Validate task object structure
+      if (!task || typeof task !== 'object') {
+        validationErrors.push(`Task ${taskIndex}: Must be a valid object`);
+        continue;
+      }
+
+      // Validate title field
+      if (task.title === undefined || task.title === null) {
+        validationErrors.push(`Task ${taskIndex}: Missing required "title" field`);
+        continue;
+      }
+
+      if (typeof task.title !== 'string') {
+        validationErrors.push(`Task ${taskIndex}: Title must be a string (got ${typeof task.title})`);
+        continue;
+      }
+
+      // Check for empty/whitespace-only titles before sanitization
+      const trimmedTitle = task.title.trim();
+      if (trimmedTitle.length === 0) {
+        validationErrors.push(`Task ${taskIndex}: Title cannot be empty or contain only whitespace`);
+        continue;
+      }
+
+      if (trimmedTitle.length > 500) {
+        validationErrors.push(`Task ${taskIndex}: Title too long (${trimmedTitle.length} chars, maximum 500)`);
+        continue;
+      }
+
+      // Validate estimatedPomodoros field
+      if (task.estimatedPomodoros === undefined || task.estimatedPomodoros === null) {
+        validationErrors.push(`Task ${taskIndex}: Missing required "estimatedPomodoros" field`);
+        continue;
+      }
+
+      if (typeof task.estimatedPomodoros !== 'number') {
+        validationErrors.push(`Task ${taskIndex}: estimatedPomodoros must be a number (got ${typeof task.estimatedPomodoros})`);
+        continue;
+      }
+
+      // Enhanced numeric validation - check for NaN, infinity, and reasonable ranges
+      if (Number.isNaN(task.estimatedPomodoros)) {
+        validationErrors.push(`Task ${taskIndex}: estimatedPomodoros cannot be NaN`);
+        continue;
+      }
+
+      if (!Number.isFinite(task.estimatedPomodoros)) {
+        validationErrors.push(`Task ${taskIndex}: estimatedPomodoros must be a finite number`);
+        continue;
+      }
+
+      if (task.estimatedPomodoros < 1) {
+        validationErrors.push(`Task ${taskIndex}: estimatedPomodoros must be at least 1 (got ${task.estimatedPomodoros})`);
+        continue;
+      }
+
+      if (task.estimatedPomodoros > 20) {
+        validationErrors.push(`Task ${taskIndex}: estimatedPomodoros cannot exceed 20 (got ${task.estimatedPomodoros})`);
+        continue;
+      }
+
+      if (!Number.isInteger(task.estimatedPomodoros)) {
+        // Auto-round to nearest integer with warning in logs
+        console.warn(`Task ${taskIndex}: Rounding estimatedPomodoros from ${task.estimatedPomodoros} to ${Math.round(task.estimatedPomodoros)}`);
+      }
+
+      // Sanitize task title
+      const sanitizedTitle = sanitizeTaskTitle(trimmedTitle);
+      
+      if (sanitizedTitle.length === 0) {
+        validationErrors.push(`Task ${taskIndex}: Title is empty after security sanitization`);
+        continue;
+      }
+
+      if (sanitizedTitle.length > 200) {
+        validationErrors.push(`Task ${taskIndex}: Title too long after sanitization (${sanitizedTitle.length} chars, maximum 200)`);
+        continue;
+      }
+
+      // Task passed all validation - add to sanitized results
+      sanitizedTasks.push({
+        title: sanitizedTitle,
+        estimatedPomodoros: Math.round(task.estimatedPomodoros), // Ensure integer
+      });
+    }
+
+    // Check if we have any valid tasks after validation
+    if (sanitizedTasks.length === 0) {
+      const errorSummary = validationErrors.length > 0 
+        ? `All tasks failed validation: ${validationErrors.slice(0, 3).join('; ')}${validationErrors.length > 3 ? '...' : ''}`
+        : 'No valid tasks found after validation';
+      return { isValid: false, error: errorSummary };
+    }
+
+    // If some tasks failed but we have valid ones, log warnings but continue
+    if (validationErrors.length > 0) {
+      console.warn(`AI Response Validation: ${validationErrors.length} tasks failed validation:`, validationErrors);
     }
 
     return {
-      title: sanitizedTitle,
-      estimatedPomodoros: Math.floor(task.estimatedPomodoros), // Ensure integer
+      isValid: true,
+      sanitizedData: { tasks: sanitizedTasks },
     };
-  });
 
-  return {
-    isValid: true,
-    sanitizedData: { tasks: sanitizedTasks },
-  };
+  } catch (error) {
+    // Catch any unexpected errors during validation
+    console.error('Unexpected error during AI response validation:', error);
+    return { 
+      isValid: false, 
+      error: 'Unexpected error during response validation. Please try again.' 
+    };
+  }
 }
 
 /**
