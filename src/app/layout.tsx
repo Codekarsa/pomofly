@@ -6,6 +6,7 @@ import GoogleAnalytics from '@/components/GoogleAnalytics'
 import { GlobalErrorBoundary } from '@/components/ErrorBoundary'
 import { GlobalErrorHandlerProvider } from '@/components/GlobalErrorHandlerProvider'
 import PWAServiceWorker from '@/components/PWAServiceWorker'
+import CacheInitializer from '@/components/CacheInitializer'
 import { Suspense } from 'react'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -76,6 +77,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.className} bg-gray-100`}>
         <GlobalErrorBoundary>
+          <CacheInitializer />
           <AuthProvider>
             <GlobalErrorHandlerProvider>
               <Suspense fallback={<div>Loading...</div>}>

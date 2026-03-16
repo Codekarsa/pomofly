@@ -5,16 +5,19 @@ import PomodoroTimer from '@/components/PomodoroTimer';
 import { ComponentErrorBoundary } from '@/components/ErrorBoundary';
 import { defaultSettings } from '@/hooks/usePomodoro';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
+import { PomodoroSettingsCache, AppCacheManager } from '@/lib/appCache';
 
 export default function HomePage() {
   const [settings, setSettings] = useState(defaultSettings);
   const { event } = useGoogleAnalytics();
 
   useEffect(() => {
-    const savedSettings = localStorage.getItem('pomodoroSettings');
+    // Initialize cache management
+    AppCacheManager.initialize();
+
+    const savedSettings = PomodoroSettingsCache.get();
     if (savedSettings) {
-      const parsedSettings = JSON.parse(savedSettings);
-      setSettings(parsedSettings);
+      setSettings(savedSettings);
     }
   }, []);
 

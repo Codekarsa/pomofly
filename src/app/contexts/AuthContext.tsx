@@ -3,6 +3,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { auth } from '@/lib/firebase';
 import { User } from 'firebase/auth';
+import { AppCacheManager } from '@/lib/appCache';
 
 interface AuthContextType {
   user: User | null;
@@ -17,8 +18,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
+      const prevUser = user;
       setUser(user);
       setLoading(false);
+
+      // Handle cache invalidation on auth state change
+      if (user && !prevUser) {
+        // User logged in
+        AppCacheManager.onUserLogin();
+      } else if (!user && prevUser) {
+        // User logged out
+        AppCacheManager.onUserLogout();
+      }
     });
 
     return unsubscribe;

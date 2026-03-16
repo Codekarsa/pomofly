@@ -12,6 +12,7 @@ import SelectedTasksList from './SelectedTasksList';
 import { TimerPerformanceIndicator } from './TimerPerformanceIndicator';
 import { TimerRestoreNotification } from './TimerRestoreNotification';
 import { TimerProgress } from './CircularProgress';
+import { SelectedTaskIdsCache, AppCacheManager } from '@/lib/appCache';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -30,11 +31,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   const { user } = useAuth();
   const { event } = useGoogleAnalytics();
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('selectedTaskIds');
-      return saved ? JSON.parse(saved) : [];
-    }
-    return [];
+    return SelectedTaskIdsCache.get();
   });
   const {
     tasks,
@@ -62,25 +59,25 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     tasksRef.current = tasks;
   }, [tasks]);
 
-  // Persist selectedTaskIds to localStorage and session
+  // Persist selectedTaskIds using cache system
   useEffect(() => {
-    localStorage.setItem('selectedTaskIds', JSON.stringify(selectedTaskIds));
-    TimerPersistence.updateSessionTaskIds(selectedTaskIds);
+    SelectedTaskIdsCache.set(selectedTaskIds);
   }, [selectedTaskIds]);
 
-  // Filter out invalid/stale task IDs (deleted or completed tasks)
+  // Filter out invalid/stale task IDs (deleted or completed tasks) using enhanced cache validation
   useEffect(() => {
     if (!loading && tasks.length > 0 && selectedTaskIds.length > 0) {
-      const validTaskIds = selectedTaskIds.filter(id => {
-        const task = tasks.find(t => t.id === id);
-        return task && !task.completed;
-      });
+      const availableTaskIds = tasks
+        .filter(task => !task.completed)
+        .map(task => task.id);
+      
+      const validTaskIds = SelectedTaskIdsCache.validateAgainstTasks(availableTaskIds);
+      
       if (validTaskIds.length !== selectedTaskIds.length) {
         setSelectedTaskIds(validTaskIds);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, tasks]);
+  }, [loading, tasks, selectedTaskIds]);
 
   // Stable callback that uses refs - won't cause usePomodoro to reset
   const handlePomodoroComplete = useCallback(() => {
@@ -255,23 +252,10 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     });
   }, [toggleTimer, isActive, phase, selectedTaskIds.length, event]);
 
-  const handleRestoreSession = useCallback((session: PersistedTimerSession) => {
-    // Restore selected task IDs if available
-    if (session.selectedTaskIds && Array.isArray(session.selectedTaskIds)) {
-      setSelectedTaskIds(session.selectedTaskIds);
-    }
-    restoreSession(session);
-    event('timer_session_restored', {
-      phase: session.phase,
-      was_active: session.isActive,
-      tasks_count: session.selectedTaskIds?.length || 0
-    });
-  }, [restoreSession, event]);
-
-  const handleStartFresh = useCallback(() => {
-    startFresh();
-    event('timer_session_start_fresh', {});
-  }, [startFresh, event]);
+  const handleClearRestoreFlag = useCallback(() => {
+    clearRestoreFlag();
+    event('timer_restore_notification_dismissed', {});
+  }, [clearRestoreFlag, event]);
 
   if (loading) {
     return (
@@ -298,16 +282,6 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
 
   return (
     <>
-      {/* Timer Recovery Modal */}
-      {showRecoveryModal && persistedSession && (
-        <TimerRecoveryModal
-          isOpen={showRecoveryModal}
-          session={persistedSession}
-          onRestore={handleRestoreSession}
-          onStartFresh={handleStartFresh}
-        />
-      )}
-
       <Card className="w-full mx-auto">
       <CardHeader>
         <CardTitle>Pomodoro Timer</CardTitle>
@@ -406,7 +380,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
       </CardContent>
       <TimerRestoreNotification 
         show={wasRestored}
-        onDismiss={clearRestoreFlag}
+        onDismiss={handleClearRestoreFlag}
       />
     </Card>
     </>

@@ -21,6 +21,7 @@ const SettingsModal = lazy(() => import('./SettingsModal'));
 const MonitoringDashboard = lazy(() => import('./MonitoringDashboard'));
 
 import { TaskListLoader, ProjectListLoader, TodayFocusLoader } from '@/components/ui/loading';
+import { PomodoroSettingsCache } from '@/lib/appCache';
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
@@ -33,22 +34,14 @@ export default function Dashboard() {
   const { updateSettings } = usePomodoro(settings);
 
   useEffect(() => {
-    const savedSettings = localStorage.getItem('pomodoroSettings');
+    const savedSettings = PomodoroSettingsCache.get();
     if (savedSettings) {
-      const parsedSettings = JSON.parse(savedSettings);
-      setSettings(parsedSettings);
-    }
-  }, []);
-
-  useEffect(() => {
-    const savedSettings = localStorage.getItem('pomodoroSettings');
-    if (savedSettings) {
-      const parsedSettings = JSON.parse(savedSettings);
+      setSettings(savedSettings);
       event('settings_loaded', {
-        pomodoro: parsedSettings.pomodoro,
-        shortBreak: parsedSettings.shortBreak,
-        longBreak: parsedSettings.longBreak,
-        longBreakInterval: parsedSettings.longBreakInterval
+        pomodoro: savedSettings.pomodoro,
+        shortBreak: savedSettings.shortBreak,
+        longBreak: savedSettings.longBreak,
+        longBreakInterval: savedSettings.longBreakInterval
       });
     } else {
       event('default_settings_used', {});

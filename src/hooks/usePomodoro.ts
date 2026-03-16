@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useHighPrecisionTimer } from './useHighPrecisionTimer';
 import { useTimerPersistence } from './useTimerPersistence';
+import { PomodoroSettingsCache } from '@/lib/appCache';
 
 type PomodoroPhase = 'pomodoro' | 'shortBreak' | 'longBreak';
 
@@ -99,7 +100,7 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
 
   const updateSettings = useCallback((newSettings: PomodoroSettings) => {
     setSettings(newSettings);
-    localStorage.setItem('pomodoroSettings', JSON.stringify(newSettings));
+    PomodoroSettingsCache.set(newSettings);
   }, []);
 
   // High precision timer callbacks
