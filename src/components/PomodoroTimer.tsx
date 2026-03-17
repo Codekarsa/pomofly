@@ -5,11 +5,13 @@ import { useTasks } from '@/hooks/useTasks';
 import { useProjects } from '@/hooks/useProjects';
 import { useTimeTracking } from '@/hooks/useTimeTracking';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
+import useKeyboardShortcuts from '@/hooks/useKeyboardShortcuts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
+import { Play, Pause, RotateCcw, CheckCircle, Keyboard } from 'lucide-react';
 import SelectedTasksList from './SelectedTasksList';
 import { TimerRecoveryModal } from './TimerRecoveryModal';
+import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
 import { TimerPersistence } from '@/lib/timerPersistence';
 
 interface PomodoroSettings {
@@ -44,6 +46,9 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   const { getElapsedTime, formatTime } = useTimeTracking(tasks);
 
   const [completedSessions, setCompletedSessions] = useState<{ date: string }[]>([]);
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+  const [currentTaskIndex, setCurrentTaskIndex] = useState(-1);
+  const [currentDuration, setCurrentDuration] = useState(settings.pomodoro);
   const wasActiveRef = useRef(false);
 
   // Use refs to avoid callback dependency issues that cause timer to reset
@@ -270,6 +275,74 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     event('timer_session_start_fresh');
   }, [startFresh, event]);
 
+  // Keyboard shortcuts implementation
+  const handleQuickDuration = useCallback((minutes: number) => {
+    setCurrentDuration(minutes);
+    resetTimer();
+    event('quick_duration_set', { minutes });
+  }, [resetTimer, event]);
+
+  const handleTaskNavigation = useCallback((direction: 'up' | 'down') => {
+    if (!user || tasks.length === 0) return;
+
+    const availableTasks = tasks.filter(task => !task.completed && !selectedTaskIds.includes(task.id));
+    if (availableTasks.length === 0) return;
+
+    setCurrentTaskIndex(prev => {
+      if (direction === 'up') {
+        return prev <= 0 ? availableTasks.length - 1 : prev - 1;
+      } else {
+        return prev >= availableTasks.length - 1 ? 0 : prev + 1;
+      }
+    });
+  }, [user, tasks, selectedTaskIds]);
+
+  const handleTaskSelect = useCallback(() => {
+    if (!user || tasks.length === 0 || currentTaskIndex === -1) return;
+
+    const availableTasks = tasks.filter(task => !task.completed && !selectedTaskIds.includes(task.id));
+    const task = availableTasks[currentTaskIndex];
+    
+    if (task) {
+      handleAddTask(task.id);
+      setCurrentTaskIndex(-1);
+    }
+  }, [user, tasks, currentTaskIndex, selectedTaskIds, handleAddTask]);
+
+  const handleStop = useCallback(() => {
+    if (isActive) {
+      toggleTimer(); // Pause the timer
+    }
+    resetTimer(); // Reset to beginning
+    event('timer_stopped_via_keyboard');
+  }, [isActive, toggleTimer, resetTimer, event]);
+
+  useKeyboardShortcuts({
+    enabled: !loading,
+    shortcuts: {
+      onPlayPause: handleToggleTimer,
+      onReset: resetTimer,
+      onStop: handleStop,
+      onToggleHelp: () => setShowKeyboardHelp(prev => !prev),
+      onSwitchToPomodoro: () => {
+        switchPhase('pomodoro');
+        event('keyboard_phase_switch', { phase: 'pomodoro' });
+      },
+      onSwitchToShortBreak: () => {
+        switchPhase('shortBreak');
+        event('keyboard_phase_switch', { phase: 'shortBreak' });
+      },
+      onSwitchToLongBreak: () => {
+        switchPhase('longBreak');
+        event('keyboard_phase_switch', { phase: 'longBreak' });
+      },
+      onQuickDuration: handleQuickDuration,
+      onDoneNext: isActive ? handleDoneNext : undefined,
+      onTaskNavigation: handleTaskNavigation,
+      onTaskSelect: handleTaskSelect,
+    },
+  });
+
   if (loading) {
     return (
       <Card className="w-full mx-auto">
@@ -305,9 +378,24 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
         />
       )}
 
+      {/* Keyboard Shortcuts Help Modal */}
+      <KeyboardShortcutsHelp
+        isOpen={showKeyboardHelp}
+        onClose={() => setShowKeyboardHelp(false)}
+      />
+
       <Card className="w-full mx-auto">
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Pomodoro Timer</CardTitle>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowKeyboardHelp(true)}
+          className="text-muted-foreground hover:text-foreground"
+          title="Keyboard Shortcuts (Press ? for help)"
+        >
+          <Keyboard className="h-4 w-4" />
+        </Button>
       </CardHeader>
       <CardContent>
         <div className="mb-4 text-lg">
