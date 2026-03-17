@@ -11,6 +11,7 @@ import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
 import SelectedTasksList from './SelectedTasksList';
 import { TimerRecoveryModal } from './TimerRecoveryModal';
 import { TimerPersistence } from '@/lib/timerPersistence';
+import TimerAccuracyIndicator from './TimerAccuracyIndicator';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -143,7 +144,15 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     showRecoveryModal,
     persistedSession,
     restoreSession,
-    startFresh
+    startFresh,
+    // Timer accuracy features
+    currentAccuracy,
+    currentDrift,
+    showAccuracyWarning,
+    driftCompensationEnabled,
+    toggleDriftCompensation,
+    getAccuracyStatus,
+    resetAccuracy
   } = usePomodoro(settings, handlePomodoroComplete);
 
   // Handle timer start/pause - manage time tracking
@@ -362,6 +371,21 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
             </Button>
           )}
         </div>
+
+        {/* Timer Accuracy Indicator - only show when timer is active or has accuracy data */}
+        {(isActive || currentAccuracy < 100 || Math.abs(currentDrift) > 0) && (
+          <div className="mb-4">
+            <TimerAccuracyIndicator
+              accuracy={currentAccuracy}
+              drift={currentDrift}
+              showWarning={showAccuracyWarning}
+              compensationEnabled={driftCompensationEnabled}
+              onToggleCompensation={toggleDriftCompensation}
+              onResetAccuracy={resetAccuracy}
+              getAccuracyStatus={getAccuracyStatus}
+            />
+          </div>
+        )}
 
         {/* Task Selection - available for authenticated users, always enabled */}
         {user && (

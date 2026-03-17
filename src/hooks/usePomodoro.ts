@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { TimerPersistence, PersistedTimerSession } from '@/lib/timerPersistence';
+import { useTimerAccuracy, timerAccuracy } from '@/lib/timerAccuracy';
 
 type PomodoroPhase = 'pomodoro' | 'shortBreak' | 'longBreak';
 
@@ -29,9 +30,25 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null);
   const [pausedTimeRemaining, setPausedTimeRemaining] = useState<number | null>(null);
 
+  // Timer accuracy and drift compensation state
+  const [currentAccuracy, setCurrentAccuracy] = useState<number>(100);
+  const [currentDrift, setCurrentDrift] = useState<number>(0);
+  const [showAccuracyWarning, setShowAccuracyWarning] = useState(false);
+  const [driftCompensationEnabled, setDriftCompensationEnabled] = useState(true);
+
   // Session recovery state
   const [persistedSession, setPersistedSession] = useState<PersistedTimerSession | null>(null);
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+
+  // Timer accuracy hooks
+  const {
+    startMonitoring,
+    stopMonitoring,
+    measureAndCompensate,
+    handleSystemEvent,
+    getAccuracyStatus,
+    resetAccuracy
+  } = useTimerAccuracy();
 
   // Use ref for onComplete to prevent dependency changes from resetting timer
   const onCompleteRef = useRef(onComplete);
@@ -73,23 +90,70 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     persistCurrentSession();
   }, [persistCurrentSession]);
 
-  // Calculate remaining time from timestamp (accurate, no drift)
-  const getRemainingTime = useCallback((): number => {
+  // Calculate remaining time from timestamp with drift compensation
+  const getRemainingTime = useCallback((): { 
+    remaining: number; 
+    accuracy: number; 
+    drift: number; 
+    compensated: boolean;
+  } => {
     if (pausedTimeRemaining !== null) {
-      return pausedTimeRemaining;
+      return {
+        remaining: pausedTimeRemaining,
+        accuracy: 100,
+        drift: 0,
+        compensated: false
+      };
     }
 
     if (!timerStartedAt) {
       // Not started - return full duration
-      return settings[phase] * 60; // in seconds
+      return {
+        remaining: settings[phase] * 60,
+        accuracy: 100,
+        drift: 0,
+        compensated: false
+      };
     }
 
     const totalDuration = settings[phase] * 60; // in seconds
-    const elapsed = Math.floor((Date.now() - timerStartedAt) / 1000);
-    const remaining = totalDuration - elapsed;
-
-    return Math.max(0, remaining);
-  }, [timerStartedAt, pausedTimeRemaining, settings, phase]);
+    const currentTime = Date.now();
+    
+    if (driftCompensationEnabled && isActive) {
+      // Use drift compensation
+      const compensation = measureAndCompensate(
+        timerStartedAt,
+        totalDuration * 1000,
+        currentTime
+      );
+      
+      const compensatedElapsed = Math.floor(compensation.compensatedElapsed / 1000);
+      const remaining = totalDuration - compensatedElapsed;
+      
+      // Update accuracy state
+      setCurrentAccuracy(compensation.accuracy);
+      setCurrentDrift(compensation.drift);
+      setShowAccuracyWarning(compensation.shouldAlert);
+      
+      return {
+        remaining: Math.max(0, remaining),
+        accuracy: compensation.accuracy,
+        drift: compensation.drift,
+        compensated: true
+      };
+    } else {
+      // Standard calculation without compensation
+      const elapsed = Math.floor((currentTime - timerStartedAt) / 1000);
+      const remaining = totalDuration - elapsed;
+      
+      return {
+        remaining: Math.max(0, remaining),
+        accuracy: 100,
+        drift: 0,
+        compensated: false
+      };
+    }
+  }, [timerStartedAt, pausedTimeRemaining, settings, phase, driftCompensationEnabled, isActive, measureAndCompensate]);
 
   const handlePhaseComplete = useCallback(() => {
     if (phase === 'pomodoro') {
@@ -116,19 +180,30 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     localStorage.setItem('pomodoroSettings', JSON.stringify(newSettings));
   }, []);
 
-  // Timer display update effect - uses timestamp for accuracy
+  // Timer display update effect - uses timestamp with drift compensation
   useEffect(() => {
     if (!isActive) return;
 
     const updateDisplay = () => {
-      const remaining = getRemainingTime();
+      const timeData = getRemainingTime();
+      const remaining = timeData.remaining;
       const mins = Math.floor(remaining / 60);
       const secs = remaining % 60;
 
       setMinutes(mins);
       setSeconds(secs);
 
+      // Update accuracy indicators
+      if (timeData.compensated) {
+        setCurrentAccuracy(timeData.accuracy);
+        setCurrentDrift(timeData.drift);
+      }
+
       if (remaining <= 0) {
+        // Stop accuracy monitoring before completing
+        const finalMetrics = stopMonitoring();
+        console.log('📊 Final timer accuracy metrics:', finalMetrics);
+        
         setIsActive(false);
         setTimerStartedAt(null);
         setPausedTimeRemaining(null);
@@ -143,37 +218,91 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     const interval = setInterval(updateDisplay, 100);
 
     return () => clearInterval(interval);
-  }, [isActive, getRemainingTime, handlePhaseComplete]);
+  }, [isActive, getRemainingTime, handlePhaseComplete, stopMonitoring]);
 
   const toggleTimer = useCallback(() => {
     if (!isActive) {
       // Starting timer
+      const currentTime = Date.now();
+      
       if (pausedTimeRemaining !== null) {
         // Resuming - calculate new start time based on remaining time
         const elapsedBeforePause = settings[phase] * 60 - pausedTimeRemaining;
-        const newStartTime = Date.now() - (elapsedBeforePause * 1000);
+        const newStartTime = currentTime - (elapsedBeforePause * 1000);
         setTimerStartedAt(newStartTime);
         setPausedTimeRemaining(null);
+        
+        // Resume accuracy monitoring from the adjusted start time
+        if (driftCompensationEnabled) {
+          startMonitoring(newStartTime);
+        }
       } else {
         // Fresh start
-        setTimerStartedAt(Date.now());
+        setTimerStartedAt(currentTime);
+        
+        // Start accuracy monitoring
+        if (driftCompensationEnabled) {
+          startMonitoring(currentTime);
+          console.log('🎯 Timer accuracy monitoring started');
+        }
       }
+      
+      // Handle system event
+      handleSystemEvent('focus', {
+        startedAt: currentTime,
+        remainingTime: pausedTimeRemaining || (settings[phase] * 60),
+        isActive: true
+      });
+      
     } else {
       // Pausing - save remaining time
-      const remaining = getRemainingTime();
-      setPausedTimeRemaining(remaining);
+      const timeData = getRemainingTime();
+      setPausedTimeRemaining(timeData.remaining);
       setTimerStartedAt(null);
+      
+      // Stop accuracy monitoring temporarily
+      if (driftCompensationEnabled) {
+        const metrics = stopMonitoring();
+        console.log('⏸️  Timer paused, accuracy metrics:', metrics);
+      }
+      
+      // Handle system event
+      handleSystemEvent('blur', {
+        startedAt: 0,
+        remainingTime: timeData.remaining,
+        isActive: false
+      });
     }
     setIsActive(!isActive);
-  }, [isActive, pausedTimeRemaining, settings, phase, getRemainingTime]);
+  }, [
+    isActive, 
+    pausedTimeRemaining, 
+    settings, 
+    phase, 
+    getRemainingTime, 
+    driftCompensationEnabled, 
+    startMonitoring, 
+    stopMonitoring,
+    handleSystemEvent
+  ]);
 
   const resetTimer = useCallback(() => {
+    // Stop accuracy monitoring if active
+    if (isActive && driftCompensationEnabled) {
+      stopMonitoring();
+    }
+    
     setIsActive(false);
     setTimerStartedAt(null);
     setPausedTimeRemaining(null);
     setMinutes(settings[phase]);
     setSeconds(0);
-  }, [phase, settings]);
+    
+    // Reset accuracy indicators
+    setCurrentAccuracy(100);
+    setCurrentDrift(0);
+    setShowAccuracyWarning(false);
+  }, [phase, settings, isActive, driftCompensationEnabled, stopMonitoring]);
 
   const switchPhase = useCallback((newPhase: PomodoroPhase) => {
     setPhase(newPhase);
@@ -232,6 +361,19 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     showRecoveryModal,
     persistedSession,
     restoreSession,
-    startFresh
+    startFresh,
+    // Timer accuracy and drift compensation
+    currentAccuracy,
+    currentDrift,
+    showAccuracyWarning,
+    driftCompensationEnabled,
+    toggleDriftCompensation: () => setDriftCompensationEnabled(!driftCompensationEnabled),
+    getAccuracyStatus,
+    resetAccuracy: () => {
+      resetAccuracy();
+      setCurrentAccuracy(100);
+      setCurrentDrift(0);
+      setShowAccuracyWarning(false);
+    }
   };
 }
