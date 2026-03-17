@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { securityMiddleware } from '@/lib/security-middleware';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -113,9 +114,15 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   // Endpoint for receiving monitoring data from external sources
   // This would be used if you want to collect monitoring data server-side
+  
+  // Apply security middleware (request size limits + rate limiting)
+  const securityResult = await securityMiddleware(request);
+  if (!securityResult.allowed) {
+    return securityResult.response!;
+  }
   
   try {
     const body = await request.json();

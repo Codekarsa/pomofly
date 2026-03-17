@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { securityMiddleware } from '@/lib/security-middleware';
 
 /**
  * CSP violation reporting endpoint
  * Logs CSP violations for security monitoring
  */
 export async function POST(request: NextRequest) {
+  // Apply security middleware (request size limits + rate limiting)
+  const securityResult = await securityMiddleware(request);
+  if (!securityResult.allowed) {
+    return securityResult.response!;
+  }
+
   try {
     const report = await request.json();
     

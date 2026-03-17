@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import { validateAuth, checkRateLimit } from '@/lib/auth-middleware';
+import { validateAuth } from '@/lib/auth-middleware';
+import { securityMiddleware } from '@/lib/security-middleware';
 import { sanitizeServerInput, validateServerInput, sanitizeAIResponse } from '@/lib/security';
 
 interface TaskBreakdown {
@@ -48,22 +49,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Rate limiting check
-  const rateLimitResult = checkRateLimit(authResult.uid!, 5, 60000); // 5 requests per minute
-  if (!rateLimitResult.allowed) {
-    return NextResponse.json(
-      { 
-        error: 'Rate limit exceeded', 
-        details: 'Too many requests. Please try again later.',
-        resetTime: rateLimitResult.resetTime
-      },
-      { 
-        status: 429,
-        headers: {
-          'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString()
-        }
-      }
-    );
+  // Enhanced security middleware (request size limits + enhanced rate limiting + DoS protection)
+  const securityResult = await securityMiddleware(request, authResult.uid);
+  if (!securityResult.allowed) {
+    return securityResult.response!;
   }
   try {
     const body = await request.json();
