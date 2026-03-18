@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { TimerPersistence, PersistedTimerSession } from '@/lib/timerPersistence';
+import { PrecisionTimer, validateTimerPrecision } from '@/lib/timerPrecision';
 
 type PomodoroPhase = 'pomodoro' | 'shortBreak' | 'longBreak';
 
@@ -25,7 +26,8 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
   const [settings, setSettings] = useState(initialSettings);
 
-  // Timestamp-based timing state
+  // Precision timer state
+  const precisionTimer = useRef<PrecisionTimer>(new PrecisionTimer());
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null);
   const [pausedTimeRemaining, setPausedTimeRemaining] = useState<number | null>(null);
 
@@ -80,7 +82,7 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     persistCurrentSession();
   }, [persistCurrentSession]);
 
-  // Calculate remaining time from timestamp (accurate, no drift)
+  // Calculate remaining time with precision compensation
   const getRemainingTime = useCallback((): number => {
     if (pausedTimeRemaining !== null) {
       return pausedTimeRemaining;
@@ -92,13 +94,22 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     }
 
     const totalDuration = settings[phase] * 60; // in seconds
-    const elapsed = Math.floor((Date.now() - timerStartedAt) / 1000);
+    const elapsed = precisionTimer.current.getElapsedTime();
     const remaining = totalDuration - elapsed;
+
+    // Validate precision periodically
+    if (Math.random() < 0.1) { // 10% chance to validate
+      validateTimerPrecision(precisionTimer.current);
+    }
 
     return Math.max(0, remaining);
   }, [timerStartedAt, pausedTimeRemaining, settings, phase]);
 
   const handlePhaseComplete = useCallback(() => {
+    // Get final precision metrics before completing
+    const metrics = precisionTimer.current.getMetrics();
+    console.log('Phase completed with precision metrics:', metrics);
+    
     if (phase === 'pomodoro') {
       setSessionsCompleted(prev => prev + 1);
       if (sessionsCompleted + 1 >= settings.longBreakInterval) {
@@ -113,6 +124,7 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
       setMinutes(settings.pomodoro);
     }
     setSeconds(0);
+    precisionTimer.current.reset();
     setTimerStartedAt(null);
     setPausedTimeRemaining(null);
     onCompleteRef.current?.();
@@ -156,26 +168,31 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     if (!isActive) {
       // Starting timer
       if (pausedTimeRemaining !== null) {
-        // Resuming - calculate new start time based on remaining time
-        const elapsedBeforePause = settings[phase] * 60 - pausedTimeRemaining;
-        const newStartTime = Date.now() - (elapsedBeforePause * 1000);
-        setTimerStartedAt(newStartTime);
+        // Resuming - start precision timer with remaining time
+        const totalDuration = settings[phase] * 60;
+        const elapsedBeforePause = totalDuration - pausedTimeRemaining;
+        precisionTimer.current.start(elapsedBeforePause);
+        setTimerStartedAt(Date.now());
         setPausedTimeRemaining(null);
       } else {
         // Fresh start
+        precisionTimer.current.start();
         setTimerStartedAt(Date.now());
       }
     } else {
-      // Pausing - save remaining time
-      const remaining = getRemainingTime();
-      setPausedTimeRemaining(remaining);
+      // Pausing - save remaining time and pause precision timer
+      const remaining = precisionTimer.current.pause();
+      const totalDuration = settings[phase] * 60;
+      const remainingTime = Math.max(0, totalDuration - remaining);
+      setPausedTimeRemaining(remainingTime);
       setTimerStartedAt(null);
     }
     setIsActive(!isActive);
-  }, [isActive, pausedTimeRemaining, settings, phase, getRemainingTime]);
+  }, [isActive, pausedTimeRemaining, settings, phase]);
 
   const resetTimer = useCallback(() => {
     setIsActive(false);
+    precisionTimer.current.reset();
     setTimerStartedAt(null);
     setPausedTimeRemaining(null);
     setMinutes(settings[phase]);
@@ -184,6 +201,7 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
 
   const switchPhase = useCallback((newPhase: PomodoroPhase) => {
     setPhase(newPhase);
+    precisionTimer.current.reset();
     setTimerStartedAt(null);
     setPausedTimeRemaining(null);
     setMinutes(settings[newPhase]);
