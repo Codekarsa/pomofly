@@ -19,7 +19,12 @@
     "pwa:icons": "node scripts/create-placeholder-icons.js",
     "pwa:icons:generate": "node scripts/generate-icons.js",
     "pwa:test": "lighthouse https://pomofly.com --view",
-    "pwa:validate": "pwa-asset-generator validate"
+    "pwa:validate": "pwa-asset-generator validate",
+    "audit": "npm audit",
+    "audit:fix": "npm audit fix",
+    "security:check": "npm audit --audit-level moderate",
+    "security:report": "npm audit --json > security-report.json",
+    "security:full-check": "node scripts/security-check.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.29.0",

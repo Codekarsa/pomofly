@@ -1,0 +1,57 @@
+version: 2
+updates:
+  # Enable version updates for npm
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    # Security updates only - focus on vulnerabilities
+    open-pull-requests-limit: 10
+    target-branch: "main"
+    # Enable security-only updates for faster patching
+    allow:
+      - dependency-type: "direct"
+        update-type: "security"
+      - dependency-type: "indirect"
+        update-type: "security"
+    # Auto-merge security updates for patch and minor versions
+    reviewers:
+      - "Codekarsa"
+    assignees:
+      - "Codekarsa"
+    commit-message:
+      prefix: "security"
+      include: "scope"
+    # Group related security updates
+    groups:
+      security-patches:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
+    # Custom labels for better tracking
+    labels:
+      - "dependencies"
+      - "security"
+      - "automated"
+
+  # GitHub Actions updates
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "Codekarsa"
+    assignees:
+      - "Codekarsa"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "ci"
+      - "dependencies"
+      - "automated"
