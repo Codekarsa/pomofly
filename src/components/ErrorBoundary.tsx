@@ -2,6 +2,7 @@
 
 import React, { Component, ReactNode } from 'react';
 import { monitoring } from '@/lib/monitoring';
+import { ApplicationError, ErrorType, ErrorSeverity, useErrorHandler } from '@/lib/errorHandling';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw, Home } from 'lucide-react';
 
@@ -30,27 +31,45 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: any) {
-    // Generate unique error ID for this occurrence
-    const errorId = `boundary-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+    // Create enhanced error with context
+    const appError = error instanceof ApplicationError 
+      ? error 
+      : new ApplicationError(
+          error.message,
+          ErrorType.UNKNOWN,
+          ErrorSeverity.HIGH,
+          {
+            component: this.props.name || 'ErrorBoundary',
+            action: 'component_error',
+            metadata: {
+              ...errorInfo,
+              componentStack: errorInfo.componentStack,
+              errorBoundary: true
+            }
+          }
+        );
     
     // Report error to monitoring service
-    monitoring.reportError(error, {
+    monitoring.reportError(appError, {
       component: this.props.name || 'ErrorBoundary',
       action: 'component_error',
       severity: 'high',
-      tags: ['error_boundary', 'react_error']
+      tags: ['error_boundary', 'react_error'],
+      errorType: appError.type,
+      errorId: appError.errorId
     });
 
     this.setState({
-      error,
+      error: appError,
       errorInfo,
-      errorId
+      errorId: appError.errorId
     });
 
     // Log detailed error info in development
     if (process.env.NODE_ENV === 'development') {
-      console.error('Error Boundary caught an error:', error);
+      console.error('Error Boundary caught an error:', appError);
       console.error('Error Info:', errorInfo);
+      console.error('Error Context:', appError.context);
     }
   }
 
