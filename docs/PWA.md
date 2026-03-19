@@ -5,24 +5,28 @@ Pomofly is implemented as a Progressive Web App (PWA) to provide a native app-li
 ## PWA Features
 
 ### ✅ Installable
+
 - **Add to Home Screen**: Users can install Pomofly on their device
 - **Standalone Mode**: Runs as a standalone app without browser chrome
 - **App Icons**: Proper icons for all device sizes and platforms
 - **Installation Prompts**: Smart prompts guide users to install the app
 
 ### ✅ Offline Capable
+
 - **Service Worker**: Caches essential resources for offline use
 - **Offline Timer**: Core Pomodoro functionality works without internet
 - **Background Sync**: Syncs data when connection is restored
 - **Graceful Degradation**: Clear feedback when features require internet
 
 ### ✅ Responsive Design
+
 - **Mobile-First**: Optimized for mobile devices
 - **Cross-Platform**: Works on Android, iOS, Windows, macOS, Linux
 - **Touch-Friendly**: Proper touch targets and gestures
 - **Adaptive UI**: Adjusts to different screen sizes and orientations
 
 ### ✅ App-Like Experience
+
 - **Fast Loading**: Cached resources load instantly
 - **Smooth Transitions**: Native-like animations and interactions
 - **Push Notifications**: (Future enhancement for Pomodoro alerts)
@@ -31,6 +35,7 @@ Pomofly is implemented as a Progressive Web App (PWA) to provide a native app-li
 ## Technical Implementation
 
 ### Web App Manifest (`/manifest.json`)
+
 ```json
 {
   "name": "Pomofly - Elegant Pomodoro Timer",
@@ -44,48 +49,57 @@ Pomofly is implemented as a Progressive Web App (PWA) to provide a native app-li
 ```
 
 ### Service Worker (`/sw.js`)
+
 - **Caching Strategy**: Network-first with cache fallback
 - **Core Assets**: Essential files cached for offline access
 - **API Caching**: Limited caching of API responses
 - **Update Management**: Automatic updates with user notification
 
 ### App Icons
+
 Complete icon set for all platforms:
+
 - **Android**: 72px to 512px (maskable and standard)
 - **iOS**: 180px Apple Touch Icon
 - **Windows**: Metro tile icons
 - **Favicons**: 16px and 32px for browser tabs
 
 ### Meta Tags
+
 Comprehensive PWA meta tags for optimal installation:
+
 ```html
-<meta name="theme-color" content="#3b82f6">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Pomofly">
+<meta name="theme-color" content="#3b82f6" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Pomofly" />
 ```
 
 ## Installation Guide
 
 ### Android (Chrome)
+
 1. Visit Pomofly in Chrome
 2. Tap the "Add to Home Screen" notification
 3. Or use the browser menu → "Add to Home screen"
 4. Confirm installation
 
 ### iOS (Safari)
+
 1. Visit Pomofly in Safari
 2. Tap the Share button (□↑)
 3. Scroll down and tap "Add to Home Screen"
 4. Confirm installation
 
 ### Desktop (Chrome/Edge)
+
 1. Visit Pomofly in Chrome or Edge
 2. Click the install icon (⊕) in the address bar
 3. Or use browser menu → "Install Pomofly"
 4. Confirm installation
 
 ### Windows
+
 1. Install via Edge or Chrome
 2. Pin to Start Menu for easy access
 3. Use as a standalone app
@@ -93,12 +107,15 @@ Comprehensive PWA meta tags for optimal installation:
 ## PWA Compliance
 
 ### Lighthouse PWA Score
+
 The app meets all PWA requirements:
+
 - ✅ Fast and reliable (Service Worker)
 - ✅ Installable (Web App Manifest)
 - ✅ PWA optimized (Best practices)
 
 ### Core PWA Requirements
+
 - ✅ HTTPS (required for service worker)
 - ✅ Web App Manifest with proper icons
 - ✅ Service Worker for offline functionality
@@ -108,18 +125,21 @@ The app meets all PWA requirements:
 ## Offline Functionality
 
 ### What Works Offline
+
 - **Pomodoro Timer**: Full timer functionality
 - **Local Tasks**: Tasks stored locally remain accessible
 - **Settings**: User preferences persist offline
 - **UI**: Complete interface available
 
 ### What Requires Internet
+
 - **Authentication**: Sign in/out requires connection
 - **Data Sync**: Syncing with Firebase
 - **AI Features**: Claude API for task breakdown
 - **Analytics**: Google Analytics tracking
 
 ### Offline Strategy
+
 1. **Essential Resources**: Cached for immediate access
 2. **Smart Fallbacks**: Graceful handling of network failures
 3. **Background Sync**: Data syncs when connection returns
@@ -128,12 +148,14 @@ The app meets all PWA requirements:
 ## Performance Optimizations
 
 ### Caching Strategy
+
 - **Shell Caching**: App shell loads instantly
 - **Resource Caching**: Images and styles cached
 - **API Caching**: Limited caching of API responses
 - **Dynamic Caching**: User-generated content cached intelligently
 
 ### Loading Performance
+
 - **Critical Path**: Essential resources prioritized
 - **Lazy Loading**: Non-critical resources loaded on demand
 - **Compression**: Assets compressed for faster transfer
@@ -142,6 +164,7 @@ The app meets all PWA requirements:
 ## Development
 
 ### Testing PWA Features
+
 ```bash
 # Install PWA testing tools
 npm install -g @pwa/cli
@@ -154,12 +177,14 @@ lighthouse https://your-pomofly-url.com --view
 ```
 
 ### PWA Development Tools
+
 - **Chrome DevTools**: Application tab for PWA debugging
 - **Lighthouse**: PWA compliance auditing
 - **PWA Builder**: Microsoft's PWA testing platform
 - **Web App Manifest Validator**: Validate manifest.json
 
 ### Service Worker Development
+
 ```javascript
 // Register service worker
 if ('serviceWorker' in navigator) {
@@ -175,19 +200,24 @@ navigator.serviceWorker.addEventListener('controllerchange', () => {
 ## Deployment Considerations
 
 ### HTTPS Requirement
+
 PWAs require HTTPS for security:
+
 - ✅ Service Worker requires secure context
 - ✅ Installation only works over HTTPS
 - ✅ Use Cloudflare or similar for free HTTPS
 
 ### Hosting Optimization
+
 - **Static Hosting**: Next.js static export for optimal performance
 - **CDN**: Global distribution for fast loading
 - **Gzip/Brotli**: Compression for smaller payloads
 - **Cache Headers**: Proper caching for static assets
 
 ### Cross-Platform Testing
+
 Test installation and functionality on:
+
 - ✅ Android Chrome
 - ✅ iOS Safari
 - ✅ Desktop Chrome/Edge
@@ -197,17 +227,20 @@ Test installation and functionality on:
 ## Future Enhancements
 
 ### Notification Support
+
 - **Timer Alerts**: Push notifications for Pomodoro completion
 - **Break Reminders**: Notifications for break time
 - **Background Notifications**: Even when app is closed
 
 ### Advanced PWA Features
+
 - **Web Share API**: Share tasks and achievements
 - **Clipboard API**: Quick task creation
 - **Badge API**: Show pending tasks count
 - **Shortcuts**: App shortcuts for quick actions
 
 ### Platform Integration
+
 - **Android**: Adaptive icons and dynamic shortcuts
 - **iOS**: Widgets and Siri shortcuts
 - **Windows**: Live tiles and notifications
@@ -218,24 +251,28 @@ Test installation and functionality on:
 ### Common Issues
 
 **Installation not appearing:**
+
 - Ensure HTTPS is enabled
 - Check manifest.json is valid
 - Verify service worker is registered
 - Test on supported browsers
 
 **Offline features not working:**
+
 - Check service worker registration
 - Verify cache strategy
 - Test network disconnection
 - Review browser developer tools
 
 **Icons not displaying:**
+
 - Validate icon sizes and formats
 - Check manifest.json icon paths
 - Ensure icons are accessible
 - Test on target platforms
 
 ### Debug Tools
+
 - Chrome DevTools Application tab
 - Service Worker inspection
 - Cache storage examination

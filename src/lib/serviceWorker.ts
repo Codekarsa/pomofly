@@ -15,17 +15,23 @@ export function registerServiceWorker() {
   window.addEventListener('load', async () => {
     try {
       const registration = await navigator.serviceWorker.register('/sw.js', {
-        scope: '/'
+        scope: '/',
       });
 
-      console.log('Service Worker registered successfully:', registration.scope);
+      console.log(
+        'Service Worker registered successfully:',
+        registration.scope
+      );
 
       // Handle service worker updates
       registration.addEventListener('updatefound', () => {
         const newWorker = registration.installing;
         if (newWorker) {
           newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            if (
+              newWorker.state === 'installed' &&
+              navigator.serviceWorker.controller
+            ) {
               // New service worker is available
               console.log('New version available! Please refresh.');
               showUpdateAvailableNotification();
@@ -40,7 +46,6 @@ export function registerServiceWorker() {
           console.log('App is ready to work offline');
         }
       });
-
     } catch (error) {
       console.error('Service Worker registration failed:', error);
     }
@@ -66,7 +71,10 @@ function showUpdateAvailableNotification() {
 
 // Background sync registration
 export function registerBackgroundSync(tag: string) {
-  if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
+  if (
+    'serviceWorker' in navigator &&
+    'sync' in window.ServiceWorkerRegistration.prototype
+  ) {
     navigator.serviceWorker.ready.then((registration) => {
       return (registration as ServiceWorkerRegistrationWithSync).sync.register(tag);
     });

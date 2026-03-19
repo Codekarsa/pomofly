@@ -1,4 +1,4 @@
-import '@testing-library/jest-dom'
+import '@testing-library/jest-dom';
 
 // Mock Next.js router
 jest.mock('next/router', () => ({
@@ -20,9 +20,9 @@ jest.mock('next/router', () => ({
         emit: jest.fn(),
       },
       isFallback: false,
-    }
+    };
   },
-}))
+}));
 
 // Mock Firebase
 jest.mock('@/lib/firebase', () => ({
@@ -34,10 +34,10 @@ jest.mock('@/lib/firebase', () => ({
   },
   db: {},
   googleProvider: {},
-}))
+}));
 
 // Mock Google Analytics
-global.gtag = jest.fn()
+global.gtag = jest.fn();
 
 // Mock localStorage
 const localStorageMock = {
@@ -45,13 +45,13 @@ const localStorageMock = {
   setItem: jest.fn(),
   removeItem: jest.fn(),
   clear: jest.fn(),
-}
-global.localStorage = localStorageMock
+};
+global.localStorage = localStorageMock;
 
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: jest.fn().mockImplementation(query => ({
+  value: jest.fn().mockImplementation((query) => ({
     matches: false,
     media: query,
     onchange: null,
@@ -61,4 +61,4 @@ Object.defineProperty(window, 'matchMedia', {
     removeEventListener: jest.fn(),
     dispatchEvent: jest.fn(),
   })),
-}) 
+});

@@ -1,23 +1,43 @@
-'use client'
+'use client';
 import React, { useState, useEffect } from 'react';
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { 
-  Upload, 
-  Trash2, 
-  Loader2, 
-  CheckCircle, 
-  AlertCircle, 
-  Info, 
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  Upload,
+  Trash2,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  Info,
   ArrowRight,
   X,
-  RefreshCw
+  RefreshCw,
 } from 'lucide-react';
+<<<<<<< HEAD
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { getGuestTasks, getGuestProjects, clearGuestData } from '@/lib/guestStorage';
 import { collection, addDoc } from "firebase/firestore";
+=======
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import {
+  getGuestTasks,
+  getGuestProjects,
+  clearGuestData,
+} from '@/lib/guestStorage';
+import { collection, addDoc } from 'firebase/firestore';
+>>>>>>> dc46537 (feat: implement comprehensive Prettier code formatting integration)
 import { db, auth } from '@/lib/firebase';
 import { Task, Project } from '@/lib/validation';
 
@@ -28,11 +48,11 @@ interface DataMigrationModalProps {
   projectCount: number;
 }
 
-type MigrationStep = 
-  | 'preview' 
-  | 'importing' 
-  | 'success' 
-  | 'error' 
+type MigrationStep =
+  | 'preview'
+  | 'importing'
+  | 'success'
+  | 'error'
   | 'confirm-skip';
 
 interface MigrationProgress {
@@ -51,10 +71,14 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
   isOpen,
   onClose,
   taskCount,
-  projectCount
+  projectCount,
 }) => {
   const [currentStep, setCurrentStep] = useState<MigrationStep>('preview');
-  const [progress, setProgress] = useState<MigrationProgress>({ step: '', completed: 0, total: 0 });
+  const [progress, setProgress] = useState<MigrationProgress>({
+    step: '',
+    completed: 0,
+    total: 0,
+  });
   const [error, setError] = useState<MigrationError | null>(null);
   const [guestDataPreview, setGuestDataPreview] = useState<{
     tasks: Task[];
@@ -84,7 +108,8 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
       setError({
         type: 'auth',
         message: 'Authentication Error',
-        details: 'You must be signed in to import data. Please refresh the page and try again.'
+        details:
+          'You must be signed in to import data. Please refresh the page and try again.',
       });
       return;
     }
@@ -101,8 +126,12 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
       const projectIdMap: Record<string, string> = {};
 
       // Step 1: Import projects
-      setProgress({ step: 'Importing projects...', completed: 0, total: totalSteps });
-      
+      setProgress({
+        step: 'Importing projects...',
+        completed: 0,
+        total: totalSteps,
+      });
+
       for (let i = 0; i < guestProjects.length; i++) {
         const project = guestProjects[i];
         try {
@@ -111,24 +140,26 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
             userId: user.uid,
             createdAt: project.createdAt,
           };
-          const docRef = await addDoc(collection(db, "projects"), newProject);
+          const docRef = await addDoc(collection(db, 'projects'), newProject);
           projectIdMap[project.id] = docRef.id;
-          
-          setProgress({ 
-            step: `Imported project: ${project.name}`, 
-            completed: i + 1, 
-            total: totalSteps 
+
+          setProgress({
+            step: `Imported project: ${project.name}`,
+            completed: i + 1,
+            total: totalSteps,
           });
         } catch (err) {
-          throw new Error(`Failed to import project "${project.name}": ${(err as Error).message}`);
+          throw new Error(
+            `Failed to import project "${project.name}": ${(err as Error).message}`
+          );
         }
       }
 
       // Step 2: Import tasks
-      setProgress({ 
-        step: 'Importing tasks...', 
-        completed: guestProjects.length, 
-        total: totalSteps 
+      setProgress({
+        step: 'Importing tasks...',
+        completed: guestProjects.length,
+        total: totalSteps,
       });
 
       for (let i = 0; i < guestTasks.length; i++) {
@@ -148,38 +179,39 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
             manualTimeSpent: task.manualTimeSpent || 0,
             trackingStartedAt: null, // Reset tracking on import
           };
-          await addDoc(collection(db, "tasks"), newTask);
-          
-          setProgress({ 
-            step: `Imported task: ${task.title}`, 
-            completed: guestProjects.length + i + 1, 
-            total: totalSteps 
+          await addDoc(collection(db, 'tasks'), newTask);
+
+          setProgress({
+            step: `Imported task: ${task.title}`,
+            completed: guestProjects.length + i + 1,
+            total: totalSteps,
           });
         } catch (err) {
-          throw new Error(`Failed to import task "${task.title}": ${(err as Error).message}`);
+          throw new Error(
+            `Failed to import task "${task.title}": ${(err as Error).message}`
+          );
         }
       }
 
       // Step 3: Clean up guest data
-      setProgress({ 
-        step: 'Cleaning up local data...', 
-        completed: totalSteps - 1, 
-        total: totalSteps 
+      setProgress({
+        step: 'Cleaning up local data...',
+        completed: totalSteps - 1,
+        total: totalSteps,
       });
-      
+
       clearGuestData();
-      
-      setProgress({ 
-        step: 'Import completed successfully!', 
-        completed: totalSteps, 
-        total: totalSteps 
+
+      setProgress({
+        step: 'Import completed successfully!',
+        completed: totalSteps,
+        total: totalSteps,
       });
 
       setCurrentStep('success');
-      
     } catch (err) {
-      console.error("Error importing data:", err);
-      
+      console.error('Error importing data:', err);
+
       let errorType: MigrationError['type'] = 'unknown';
       let errorMessage = 'An unexpected error occurred during import.';
       const errorDetails = (err as Error).message;
@@ -187,7 +219,10 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
       if (errorDetails.includes('network') || errorDetails.includes('fetch')) {
         errorType = 'network';
         errorMessage = 'Network connection error occurred during import.';
-      } else if (errorDetails.includes('auth') || errorDetails.includes('permission')) {
+      } else if (
+        errorDetails.includes('auth') ||
+        errorDetails.includes('permission')
+      ) {
         errorType = 'auth';
         errorMessage = 'Authentication error occurred during import.';
       } else if (errorDetails.includes('Failed to import')) {
@@ -198,7 +233,7 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
       setError({
         type: errorType,
         message: errorMessage,
-        details: errorDetails
+        details: errorDetails,
       });
       setCurrentStep('error');
     }
@@ -230,25 +265,30 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Info className="w-5 h-5 text-blue-500" />
+                <Info className="h-5 w-5 text-blue-500" />
                 Import your local data?
               </DialogTitle>
               <DialogDescription>
-                We found data from your guest session. Review what will be imported to your account.
+                We found data from your guest session. Review what will be
+                imported to your account.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="py-4 space-y-4">
+            <div className="space-y-4 py-4">
               {/* Data Summary */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="font-medium text-blue-900 mb-3">Data Summary</h4>
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                <h4 className="mb-3 font-medium text-blue-900">Data Summary</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600">{taskCount}</div>
+                    <div className="text-2xl font-bold text-blue-600">
+                      {taskCount}
+                    </div>
                     <div className="text-sm text-blue-700">Tasks</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600">{projectCount}</div>
+                    <div className="text-2xl font-bold text-blue-600">
+                      {projectCount}
+                    </div>
                     <div className="text-sm text-blue-700">Projects</div>
                   </div>
                 </div>
@@ -257,7 +297,9 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
               {/* Data Preview */}
               {guestDataPreview.projects.length > 0 && (
                 <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-gray-700">Projects to import:</h4>
+                  <h4 className="text-sm font-medium text-gray-700">
+                    Projects to import:
+                  </h4>
                   <div className="flex flex-wrap gap-1">
                     {guestDataPreview.projects.slice(0, 3).map((project, i) => (
                       <Badge key={i} variant="secondary" className="text-xs">
@@ -275,10 +317,12 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
 
               {guestDataPreview.tasks.length > 0 && (
                 <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-gray-700">Recent tasks:</h4>
+                  <h4 className="text-sm font-medium text-gray-700">
+                    Recent tasks:
+                  </h4>
                   <div className="space-y-1">
                     {guestDataPreview.tasks.slice(0, 3).map((task, i) => (
-                      <div key={i} className="text-xs text-gray-600 truncate">
+                      <div key={i} className="truncate text-xs text-gray-600">
                         • {task.title}
                       </div>
                     ))}
@@ -296,31 +340,35 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
                 <AlertDescription className="text-sm">
                   <strong>What happens during import:</strong>
                   <ul className="mt-2 space-y-1 text-xs">
-                    <li>• Your tasks and projects will be saved to your account</li>
+                    <li>
+                      • Your tasks and projects will be saved to your account
+                    </li>
                     <li>• Time tracking data will be preserved</li>
-                    <li>• Local data will be automatically removed after import</li>
+                    <li>
+                      • Local data will be automatically removed after import
+                    </li>
                     <li>• You can continue where you left off</li>
                   </ul>
                 </AlertDescription>
               </Alert>
             </div>
 
-            <DialogFooter className="flex-col sm:flex-row gap-2">
+            <DialogFooter className="flex-col gap-2 sm:flex-row">
               <Button
                 variant="outline"
                 onClick={handleSkip}
                 className="flex items-center gap-2"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="h-4 w-4" />
                 Start fresh instead
               </Button>
               <Button
                 onClick={handleImport}
                 className="flex items-center gap-2"
               >
-                <Upload className="w-4 h-4" />
+                <Upload className="h-4 w-4" />
                 Import data
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="h-4 w-4" />
               </Button>
             </DialogFooter>
           </>
@@ -331,22 +379,25 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
                 Importing your data...
               </DialogTitle>
               <DialogDescription>
-                Please wait while we import your tasks and projects. This may take a moment.
+                Please wait while we import your tasks and projects. This may
+                take a moment.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="py-6 space-y-4">
+            <div className="space-y-4 py-6">
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>{progress.step}</span>
-                  <span className="text-gray-500">{progress.completed}/{progress.total}</span>
+                  <span className="text-gray-500">
+                    {progress.completed}/{progress.total}
+                  </span>
                 </div>
-                <Progress 
-                  value={(progress.completed / progress.total) * 100} 
+                <Progress
+                  value={(progress.completed / progress.total) * 100}
                   className="h-2"
                 />
               </div>
@@ -366,7 +417,7 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-green-600">
-                <CheckCircle className="w-5 h-5" />
+                <CheckCircle className="h-5 w-5" />
                 Import completed successfully!
               </DialogTitle>
               <DialogDescription>
@@ -378,8 +429,8 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
               <Alert className="border-green-200 bg-green-50">
                 <CheckCircle className="h-4 w-4 text-green-600" />
                 <AlertDescription className="text-green-800">
-                  <strong>Success!</strong> Imported {taskCount} tasks and {projectCount} projects.
-                  Your local data has been cleared.
+                  <strong>Success!</strong> Imported {taskCount} tasks and{' '}
+                  {projectCount} projects. Your local data has been cleared.
                 </AlertDescription>
               </Alert>
             </div>
@@ -397,7 +448,7 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-red-600">
-                <AlertCircle className="w-5 h-5" />
+                <AlertCircle className="h-5 w-5" />
                 Import failed
               </DialogTitle>
               <DialogDescription>
@@ -412,17 +463,23 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
                   <strong>{error?.message}</strong>
                   {error?.details && (
                     <details className="mt-2">
-                      <summary className="text-xs cursor-pointer">Technical details</summary>
-                      <p className="text-xs mt-1 text-red-700">{error.details}</p>
+                      <summary className="cursor-pointer text-xs">
+                        Technical details
+                      </summary>
+                      <p className="mt-1 text-xs text-red-700">
+                        {error.details}
+                      </p>
                     </details>
                   )}
                 </AlertDescription>
               </Alert>
 
-              <div className="mt-4 p-3 bg-gray-50 rounded border text-sm space-y-2">
+              <div className="mt-4 space-y-2 rounded border bg-gray-50 p-3 text-sm">
                 <p className="font-medium">What you can do:</p>
                 <ul className="space-y-1 text-xs text-gray-600">
-                  <li>• Try the import again (your data is still safe locally)</li>
+                  <li>
+                    • Try the import again (your data is still safe locally)
+                  </li>
                   <li>• Check your internet connection</li>
                   <li>• Start fresh and manually re-create important items</li>
                   <li>• Contact support if the problem persists</li>
@@ -430,20 +487,17 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
               </div>
             </div>
 
-            <DialogFooter className="flex-col sm:flex-row gap-2">
+            <DialogFooter className="flex-col gap-2 sm:flex-row">
               <Button
                 variant="outline"
                 onClick={handleSkip}
                 className="flex items-center gap-2"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="h-4 w-4" />
                 Start fresh
               </Button>
-              <Button
-                onClick={handleRetry}
-                className="flex items-center gap-2"
-              >
-                <RefreshCw className="w-4 h-4" />
+              <Button onClick={handleRetry} className="flex items-center gap-2">
+                <RefreshCw className="h-4 w-4" />
                 Try again
               </Button>
             </DialogFooter>
@@ -455,11 +509,12 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-orange-600">
-                <AlertCircle className="w-5 h-5" />
+                <AlertCircle className="h-5 w-5" />
                 Start fresh?
               </DialogTitle>
               <DialogDescription>
-                This will permanently delete your local tasks and projects. This action cannot be undone.
+                This will permanently delete your local tasks and projects. This
+                action cannot be undone.
               </DialogDescription>
             </DialogHeader>
 
@@ -467,19 +522,19 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
               <Alert className="border-orange-200 bg-orange-50">
                 <AlertCircle className="h-4 w-4 text-orange-600" />
                 <AlertDescription className="text-orange-800">
-                  <strong>Warning:</strong> You will lose {taskCount} tasks and {projectCount} projects.
-                  Consider importing your data instead.
+                  <strong>Warning:</strong> You will lose {taskCount} tasks and{' '}
+                  {projectCount} projects. Consider importing your data instead.
                 </AlertDescription>
               </Alert>
             </div>
 
-            <DialogFooter className="flex-col sm:flex-row gap-2">
+            <DialogFooter className="flex-col gap-2 sm:flex-row">
               <Button
                 variant="outline"
                 onClick={() => setCurrentStep('preview')}
                 className="flex items-center gap-2"
               >
-                <X className="w-4 h-4" />
+                <X className="h-4 w-4" />
                 Cancel
               </Button>
               <Button
@@ -487,7 +542,7 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
                 variant="destructive"
                 className="flex items-center gap-2"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="h-4 w-4" />
                 Delete data and start fresh
               </Button>
             </DialogFooter>
@@ -500,10 +555,11 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={currentStep === 'importing' ? undefined : handleClose}>
-      <DialogContent className="sm:max-w-md">
-        {renderContent()}
-      </DialogContent>
+    <Dialog
+      open={isOpen}
+      onOpenChange={currentStep === 'importing' ? undefined : handleClose}
+    >
+      <DialogContent className="sm:max-w-md">{renderContent()}</DialogContent>
     </Dialog>
   );
 };

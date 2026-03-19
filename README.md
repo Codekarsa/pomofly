@@ -28,18 +28,21 @@ PomoFly is a productivity application that combines the Pomodoro Technique with 
 ### Installation
 
 1. Clone the repository:
+
    ```
    git clone https://github.com/yourusername/pomofly.git
    cd pomofly
    ```
 
 2. Install dependencies:
+
    ```
    npm install
    ```
 
 3. Set up environment variables:
    Create a `.env.local` file in the root directory and add your Firebase configuration:
+
    ```
    NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
@@ -51,6 +54,7 @@ PomoFly is a productivity application that combines the Pomodoro Technique with 
    ```
 
 4. Run the development server:
+
    ```
    npm run dev
    ```
@@ -62,6 +66,7 @@ PomoFly is a productivity application that combines the Pomodoro Technique with 
 This project is set up for deployment on Firebase Hosting. To deploy:
 
 1. Build the project:
+
    ```
    npm run build
    ```

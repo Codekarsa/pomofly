@@ -41,13 +41,15 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
   // Get selected tasks
   const selectedTasks = useMemo(() => {
     return selectedTaskIds
-      .map(id => tasks.find(t => t.id === id))
+      .map((id) => tasks.find((t) => t.id === id))
       .filter((t): t is Task => t !== undefined);
   }, [selectedTaskIds, tasks]);
 
   // Get available tasks (incomplete and not selected)
   const availableTasks = useMemo(() => {
-    return tasks.filter(task => !task.completed && !selectedTaskIds.includes(task.id));
+    return tasks.filter(
+      (task) => !task.completed && !selectedTaskIds.includes(task.id)
+    );
   }, [tasks, selectedTaskIds]);
 
   // Filter by search and sort focused tasks first
@@ -55,7 +57,7 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
     let filtered = availableTasks;
     if (search.trim()) {
       const searchLower = search.toLowerCase();
-      filtered = availableTasks.filter(task =>
+      filtered = availableTasks.filter((task) =>
         task.title.toLowerCase().includes(searchLower)
       );
     }
@@ -68,7 +70,7 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
   }, [availableTasks, search]);
 
   const getProjectName = (projectId: string) => {
-    const project = projects.find(p => p.id === projectId);
+    const project = projects.find((p) => p.id === projectId);
     return project?.name || '';
   };
 
@@ -79,16 +81,16 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
   };
 
   return (
-    <div className="border rounded-lg bg-card">
+    <div className="rounded-lg border bg-card">
       {/* Header */}
-      <div className="px-4 py-3 border-b bg-muted/50">
-        <span className="font-medium text-sm">Working on:</span>
+      <div className="border-b bg-muted/50 px-4 py-3">
+        <span className="text-sm font-medium">Working on:</span>
       </div>
 
       {/* Selected Tasks List */}
       <div className="p-2">
         {selectedTasks.length === 0 ? (
-          <div className="px-4 py-6 text-center text-muted-foreground text-sm">
+          <div className="px-4 py-6 text-center text-sm text-muted-foreground">
             No tasks selected. Add a task to track your work.
           </div>
         ) : (
@@ -101,37 +103,43 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
               return (
                 <div
                   key={task.id}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20"
+                  className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3"
                 >
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-medium truncate">
+                      <span className="truncate text-sm font-medium">
                         {task.title}
                       </span>
                       {task.focus && (
-                        <Star className="w-3 h-3 text-amber-500 flex-shrink-0" fill="currentColor" />
+                        <Star
+                          className="h-3 w-3 flex-shrink-0 text-amber-500"
+                          fill="currentColor"
+                        />
                       )}
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="mt-1 flex items-center gap-2">
                       {projectName && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground truncate max-w-[100px]">
+                        <span className="max-w-[100px] truncate rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                           {projectName}
                         </span>
                       )}
                       <span className="text-xs text-muted-foreground">
-                        ({task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0})
+                        ({task.totalPomodoroSessions || 0}/
+                        {task.estimatedPomodoros || 0})
                       </span>
                     </div>
                   </div>
 
                   {/* Timer Display */}
-                  <div className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-mono ${
-                    isTracking
-                      ? 'bg-blue-100 text-blue-700 animate-pulse'
-                      : elapsedTime > 0
-                        ? 'bg-gray-100 text-gray-700'
-                        : 'text-gray-400'
-                  }`}>
+                  <div
+                    className={`flex items-center gap-1 rounded px-2 py-1 font-mono text-xs ${
+                      isTracking
+                        ? 'animate-pulse bg-blue-100 text-blue-700'
+                        : elapsedTime > 0
+                          ? 'bg-gray-100 text-gray-700'
+                          : 'text-gray-400'
+                    }`}
+                  >
                     <Clock className="h-3 w-3" />
                     {formatTime(elapsedTime)}
                   </div>
@@ -159,21 +167,24 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
                 variant="outline"
                 className="w-full justify-center text-muted-foreground hover:text-foreground"
               >
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className="mr-2 h-4 w-4" />
                 Add Task
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="center">
+            <PopoverContent
+              className="w-[var(--radix-popover-trigger-width)] p-0"
+              align="center"
+            >
               {/* Search Input */}
-              <div className="p-3 border-b">
+              <div className="border-b p-3">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     type="text"
                     placeholder="Search tasks..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="pl-9 h-9"
+                    className="h-9 pl-9"
                     autoFocus
                   />
                 </div>
@@ -182,7 +193,7 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
               {/* Task Options */}
               <div className="max-h-[240px] overflow-y-auto">
                 {filteredTasks.length === 0 ? (
-                  <div className="px-4 py-6 text-center text-muted-foreground text-sm">
+                  <div className="px-4 py-6 text-center text-sm text-muted-foreground">
                     {search ? 'No tasks found' : 'No more tasks available'}
                   </div>
                 ) : (
@@ -193,23 +204,27 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
                         <button
                           key={task.id}
                           onClick={() => handleAddTask(task.id)}
-                          className="w-full flex items-center gap-3 p-3 rounded-md hover:bg-accent text-left transition-colors"
+                          className="flex w-full items-center gap-3 rounded-md p-3 text-left transition-colors hover:bg-accent"
                         >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 text-sm font-medium truncate">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 truncate text-sm font-medium">
                               {task.title}
                               {task.focus && (
-                                <Star className="w-3 h-3 text-amber-500 flex-shrink-0" fill="currentColor" />
+                                <Star
+                                  className="h-3 w-3 flex-shrink-0 text-amber-500"
+                                  fill="currentColor"
+                                />
                               )}
                             </div>
-                            <div className="flex items-center gap-2 mt-0.5">
+                            <div className="mt-0.5 flex items-center gap-2">
                               {projectName && (
-                                <span className="text-xs text-muted-foreground truncate max-w-[120px]">
+                                <span className="max-w-[120px] truncate text-xs text-muted-foreground">
                                   {projectName}
                                 </span>
                               )}
                               <span className="text-xs text-muted-foreground">
-                                ({task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0})
+                                ({task.totalPomodoroSessions || 0}/
+                                {task.estimatedPomodoros || 0})
                               </span>
                             </div>
                           </div>

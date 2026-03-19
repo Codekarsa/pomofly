@@ -1,4 +1,4 @@
-'use client'
+'use client';
 
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { auth } from '@/lib/firebase';
@@ -11,14 +11,22 @@ interface AuthContextType {
   retry: () => void;
 }
 
+<<<<<<< HEAD
 const AuthContext = createContext<AuthContextType>({ 
   user: null, 
   loading: true, 
   error: null,
   retry: () => {}
+=======
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  loading: true,
+>>>>>>> dc46537 (feat: implement comprehensive Prettier code formatting integration)
 });
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

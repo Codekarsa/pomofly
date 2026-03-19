@@ -1,4 +1,4 @@
-'use client'
+'use client';
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -33,18 +33,18 @@ import {
   Timer,
   Trash2,
   X,
-  Check
+  Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function TaskDetailClient() {
   const router = useRouter();
   const { event } = useGoogleAnalytics();
-  
+
   // Extract task ID from the actual browser URL instead of params
   // This works around the redirect issue where params.id becomes '_'
   const [taskId, setTaskId] = useState<string>('');
-  
+
   useEffect(() => {
     // Get the actual URL path from the browser
     const path = window.location.pathname;
@@ -54,25 +54,36 @@ export default function TaskDetailClient() {
     }
   }, []);
 
-  const { tasks, loading, error, toggleTaskCompletion, toggleTaskFocus, deleteTask, updateTask, setTaskDeadline } = useTasks();
+  const {
+    tasks,
+    loading,
+    error,
+    toggleTaskCompletion,
+    toggleTaskFocus,
+    deleteTask,
+    updateTask,
+    setTaskDeadline,
+  } = useTasks();
   const { projects } = useProjects();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
-  const [editEstimatedPomodoros, setEditEstimatedPomodoros] = useState<number | undefined>(undefined);
+  const [editEstimatedPomodoros, setEditEstimatedPomodoros] = useState<
+    number | undefined
+  >(undefined);
   const [editDeadline, setEditDeadline] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const task = useMemo(() => {
     if (!taskId) return undefined;
-    return tasks.find(t => t.id === taskId);
+    return tasks.find((t) => t.id === taskId);
   }, [tasks, taskId]);
-  const taskArray = useMemo(() => task ? [task] : [], [task]);
+  const taskArray = useMemo(() => (task ? [task] : []), [task]);
   const { getElapsedTime } = useTimeTracking(taskArray);
 
   const project = useMemo(() => {
     if (!task?.projectId) return null;
-    return projects.find(p => p.id === task.projectId);
+    return projects.find((p) => p.id === task.projectId);
   }, [task, projects]);
 
   const handleStartEdit = useCallback(() => {
@@ -94,7 +105,8 @@ export default function TaskDetailClient() {
     try {
       const updates: Record<string, unknown> = {};
       if (editTitle !== task.title) updates.title = editTitle;
-      if (editEstimatedPomodoros !== task.estimatedPomodoros) updates.estimatedPomodoros = editEstimatedPomodoros;
+      if (editEstimatedPomodoros !== task.estimatedPomodoros)
+        updates.estimatedPomodoros = editEstimatedPomodoros;
 
       if (Object.keys(updates).length > 0) {
         await updateTask(task.id, updates);
@@ -109,7 +121,15 @@ export default function TaskDetailClient() {
     } catch (err) {
       console.error('Failed to update task:', err);
     }
-  }, [task, editTitle, editEstimatedPomodoros, editDeadline, updateTask, setTaskDeadline, event]);
+  }, [
+    task,
+    editTitle,
+    editEstimatedPomodoros,
+    editDeadline,
+    updateTask,
+    setTaskDeadline,
+    event,
+  ]);
 
   const handleDelete = useCallback(async () => {
     if (!task) return;
@@ -126,13 +146,19 @@ export default function TaskDetailClient() {
   const handleToggleCompletion = useCallback(async () => {
     if (!task) return;
     await toggleTaskCompletion(task.id, task.completed);
-    event('task_completion_toggled_from_detail', { task_id: task.id, completed: !task.completed });
+    event('task_completion_toggled_from_detail', {
+      task_id: task.id,
+      completed: !task.completed,
+    });
   }, [task, toggleTaskCompletion, event]);
 
   const handleToggleFocus = useCallback(async () => {
     if (!task) return;
     await toggleTaskFocus(task.id, task.focus || false);
-    event('task_focus_toggled_from_detail', { task_id: task.id, focus: !task.focus });
+    event('task_focus_toggled_from_detail', {
+      task_id: task.id,
+      focus: !task.focus,
+    });
   }, [task, toggleTaskFocus, event]);
 
   // Format time spent
@@ -149,11 +175,13 @@ export default function TaskDetailClient() {
     return (
       <AppLayout>
         <div className="container mx-auto px-4 py-8">
-          <Card className="max-w-2xl mx-auto">
+          <Card className="mx-auto max-w-2xl">
             <CardContent className="py-12">
               <div className="flex flex-col items-center justify-center">
-                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                <p className="text-sm text-muted-foreground mt-3">Loading task...</p>
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Loading task...
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -166,9 +194,11 @@ export default function TaskDetailClient() {
     return (
       <AppLayout>
         <div className="container mx-auto px-4 py-8">
-          <Card className="max-w-2xl mx-auto border-red-200 bg-red-50">
+          <Card className="mx-auto max-w-2xl border-red-200 bg-red-50">
             <CardContent className="py-6">
-              <p className="text-sm text-red-600 text-center">Error loading task: {error.message}</p>
+              <p className="text-center text-sm text-red-600">
+                Error loading task: {error.message}
+              </p>
               <div className="mt-4 text-center">
                 <Link href="/tasks">
                   <Button variant="outline">Back to Tasks</Button>
@@ -185,13 +215,13 @@ export default function TaskDetailClient() {
     return (
       <AppLayout>
         <div className="container mx-auto px-4 py-8">
-          <Card className="max-w-2xl mx-auto">
+          <Card className="mx-auto max-w-2xl">
             <CardContent className="py-12">
               <div className="text-center">
-                <p className="text-muted-foreground mb-4">Task not found</p>
+                <p className="mb-4 text-muted-foreground">Task not found</p>
                 <Link href="/tasks">
                   <Button variant="outline">
-                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to Tasks
                   </Button>
                 </Link>
@@ -208,10 +238,13 @@ export default function TaskDetailClient() {
   return (
     <AppLayout>
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto">
+        <div className="mx-auto max-w-2xl">
           {/* Back Button */}
-          <Link href="/tasks" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6">
-            <ArrowLeft className="w-4 h-4 mr-2" />
+          <Link
+            href="/tasks"
+            className="mb-6 inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Tasks
           </Link>
 
@@ -227,16 +260,18 @@ export default function TaskDetailClient() {
                       autoFocus
                     />
                   ) : (
-                    <CardTitle className={cn(
-                      "text-xl",
-                      task.completed && "line-through text-muted-foreground"
-                    )}>
+                    <CardTitle
+                      className={cn(
+                        'text-xl',
+                        task.completed && 'text-muted-foreground line-through'
+                      )}
+                    >
                       {task.title}
                     </CardTitle>
                   )}
                   {project && (
-                    <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                      <FolderOpen className="w-4 h-4" />
+                    <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                      <FolderOpen className="h-4 w-4" />
                       {project.name}
                     </div>
                   )}
@@ -244,17 +279,29 @@ export default function TaskDetailClient() {
                 <div className="flex items-center gap-2">
                   {isEditing ? (
                     <>
-                      <Button variant="ghost" size="icon" onClick={handleCancelEdit}>
-                        <X className="w-4 h-4" />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleCancelEdit}
+                      >
+                        <X className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={handleSaveEdit}>
-                        <Check className="w-4 h-4" />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleSaveEdit}
+                      >
+                        <Check className="h-4 w-4" />
                       </Button>
                     </>
                   ) : (
                     <>
-                      <Button variant="ghost" size="icon" onClick={handleStartEdit}>
-                        <Pencil className="w-4 h-4" />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleStartEdit}
+                      >
+                        <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -262,7 +309,7 @@ export default function TaskDetailClient() {
                         onClick={() => setShowDeleteConfirm(true)}
                         className="text-red-500 hover:text-red-600"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </>
                   )}
@@ -274,21 +321,28 @@ export default function TaskDetailClient() {
               {/* Status Buttons */}
               <div className="flex items-center gap-3">
                 <Button
-                  variant={task.completed ? "default" : "outline"}
+                  variant={task.completed ? 'default' : 'outline'}
                   size="sm"
                   onClick={handleToggleCompletion}
-                  className={cn(task.completed && "bg-green-500 hover:bg-green-600")}
+                  className={cn(
+                    task.completed && 'bg-green-500 hover:bg-green-600'
+                  )}
                 >
-                  <CheckCircle className="w-4 h-4 mr-2" />
+                  <CheckCircle className="mr-2 h-4 w-4" />
                   {task.completed ? 'Completed' : 'Mark Complete'}
                 </Button>
                 <Button
-                  variant={task.focus ? "default" : "outline"}
+                  variant={task.focus ? 'default' : 'outline'}
                   size="sm"
                   onClick={handleToggleFocus}
-                  className={cn(task.focus && "bg-amber-500 hover:bg-amber-600")}
+                  className={cn(
+                    task.focus && 'bg-amber-500 hover:bg-amber-600'
+                  )}
                 >
-                  <Star className="w-4 h-4 mr-2" fill={task.focus ? "currentColor" : "none"} />
+                  <Star
+                    className="mr-2 h-4 w-4"
+                    fill={task.focus ? 'currentColor' : 'none'}
+                  />
                   {task.focus ? 'Focused' : 'Add to Focus'}
                 </Button>
               </div>
@@ -296,9 +350,9 @@ export default function TaskDetailClient() {
               {/* Task Details Grid */}
               <div className="grid grid-cols-2 gap-4">
                 {/* Deadline */}
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                    <Calendar className="w-4 h-4" />
+                <div className="rounded-lg bg-muted/50 p-4">
+                  <div className="mb-1 flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
                     Deadline
                   </div>
                   {isEditing ? (
@@ -310,33 +364,39 @@ export default function TaskDetailClient() {
                     />
                   ) : (
                     <p className="font-medium">
-                      {task.deadline ? new Date(task.deadline).toLocaleDateString() : 'No deadline'}
+                      {task.deadline
+                        ? new Date(task.deadline).toLocaleDateString()
+                        : 'No deadline'}
                     </p>
                   )}
                 </div>
 
                 {/* Time Spent */}
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                    <Clock className="w-4 h-4" />
+                <div className="rounded-lg bg-muted/50 p-4">
+                  <div className="mb-1 flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4" />
                     Time Spent
                   </div>
-                  <p className="font-medium">{formatTimeSpent(totalTimeSpent)}</p>
+                  <p className="font-medium">
+                    {formatTimeSpent(totalTimeSpent)}
+                  </p>
                 </div>
 
                 {/* Pomodoro Sessions */}
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                    <Timer className="w-4 h-4" />
+                <div className="rounded-lg bg-muted/50 p-4">
+                  <div className="mb-1 flex items-center gap-2 text-sm text-muted-foreground">
+                    <Timer className="h-4 w-4" />
                     Pomodoro Sessions
                   </div>
-                  <p className="font-medium">{task.totalPomodoroSessions || 0} completed</p>
+                  <p className="font-medium">
+                    {task.totalPomodoroSessions || 0} completed
+                  </p>
                 </div>
 
                 {/* Estimated Pomodoros */}
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                    <Timer className="w-4 h-4" />
+                <div className="rounded-lg bg-muted/50 p-4">
+                  <div className="mb-1 flex items-center gap-2 text-sm text-muted-foreground">
+                    <Timer className="h-4 w-4" />
                     Estimated
                   </div>
                   {isEditing ? (
@@ -344,19 +404,25 @@ export default function TaskDetailClient() {
                       type="number"
                       min="0"
                       value={editEstimatedPomodoros || ''}
-                      onChange={(e) => setEditEstimatedPomodoros(e.target.value ? parseInt(e.target.value) : undefined)}
+                      onChange={(e) =>
+                        setEditEstimatedPomodoros(
+                          e.target.value ? parseInt(e.target.value) : undefined
+                        )
+                      }
                       className="mt-1"
                       placeholder="0"
                     />
                   ) : (
-                    <p className="font-medium">{task.estimatedPomodoros || 0} pomodoros</p>
+                    <p className="font-medium">
+                      {task.estimatedPomodoros || 0} pomodoros
+                    </p>
                   )}
                 </div>
               </div>
 
               {/* Progress Bar */}
-              <div className="pt-4 border-t">
-                <p className="text-sm text-muted-foreground mb-2">Progress</p>
+              <div className="border-t pt-4">
+                <p className="mb-2 text-sm text-muted-foreground">Progress</p>
                 <PomodoroProgressBar
                   completed={task.totalPomodoroSessions || 0}
                   estimated={task.estimatedPomodoros || 0}
@@ -375,12 +441,16 @@ export default function TaskDetailClient() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Task</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{task.title}&quot;? This action cannot be undone.
+              Are you sure you want to delete &quot;{task.title}&quot;? This
+              action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-red-500 hover:bg-red-600"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

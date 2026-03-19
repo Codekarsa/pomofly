@@ -30,7 +30,7 @@ export function useOnlineStatus() {
         // Try to fetch a small resource to verify actual connectivity
         const response = await fetch('/favicon.ico', {
           method: 'HEAD',
-          cache: 'no-cache'
+          cache: 'no-cache',
         });
         setIsOnline(response.ok);
       } catch {

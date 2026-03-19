@@ -36,7 +36,7 @@ export class TimerPersistence {
       if (session) {
         const updatedSession = {
           ...session,
-          selectedTaskIds
+          selectedTaskIds,
         };
         this.saveSession(updatedSession);
       }
@@ -51,7 +51,7 @@ export class TimerPersistence {
       if (!stored) return null;
 
       const session = JSON.parse(stored) as PersistedTimerSession;
-      
+
       // Check if session is too old
       const sessionAge = Date.now() - session.sessionCreatedAt;
       if (sessionAge > MAX_SESSION_AGE) {
@@ -82,6 +82,7 @@ export class TimerPersistence {
     }
   }
 
+<<<<<<< HEAD
   static isValidSession(session: unknown): session is PersistedTimerSession {
     if (!session || typeof session !== 'object') {
       return false;
@@ -110,6 +111,27 @@ export class TimerPersistence {
     if (typeof settings.longBreakInterval !== 'number') return false;
     
     return true;
+=======
+  static isValidSession(session: any): session is PersistedTimerSession {
+    return (
+      session &&
+      typeof session === 'object' &&
+      ['pomodoro', 'shortBreak', 'longBreak'].includes(session.phase) &&
+      typeof session.isActive === 'boolean' &&
+      (session.timerStartedAt === null ||
+        typeof session.timerStartedAt === 'number') &&
+      (session.pausedTimeRemaining === null ||
+        typeof session.pausedTimeRemaining === 'number') &&
+      typeof session.sessionsCompleted === 'number' &&
+      typeof session.sessionCreatedAt === 'number' &&
+      session.settings &&
+      typeof session.settings === 'object' &&
+      typeof session.settings.pomodoro === 'number' &&
+      typeof session.settings.shortBreak === 'number' &&
+      typeof session.settings.longBreak === 'number' &&
+      typeof session.settings.longBreakInterval === 'number'
+    );
+>>>>>>> dc46537 (feat: implement comprehensive Prettier code formatting integration)
   }
 
   static calculateRemainingTime(session: PersistedTimerSession): number {

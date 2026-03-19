@@ -1,9 +1,11 @@
 # Fix for Task Detail Page 404 Error - Summary
 
 ## Root Cause
+
 The issue was with how dynamic routes work in Next.js static exports combined with Cloudflare Pages redirects.
 
 ### Original Problem:
+
 1. `next.config.mjs` has `output: 'export'` for static site generation
 2. Dynamic routes like `/tasks/[id]` don't work by default with static export
 3. The `generateStaticParams()` creates a page at `/tasks/_`
@@ -14,6 +16,7 @@ The issue was with how dynamic routes work in Next.js static exports combined wi
 ## Solution Implemented
 
 ### 1. Client-Side URL Parsing
+
 Modified `TaskDetailClient.tsx` to extract the task ID directly from `window.location.pathname` instead of relying on `useParams()`:
 
 ```typescript
@@ -32,6 +35,7 @@ useEffect(() => {
 ```
 
 ### 2. Updated Loading Logic
+
 Modified the loading condition to handle the case where `taskId` is being extracted:
 
 ```typescript
@@ -41,16 +45,18 @@ if (loading || !taskId) {
 ```
 
 ### 3. Safe Task Finding
+
 Updated task finding logic to handle empty `taskId`:
 
 ```typescript
 const task = useMemo(() => {
   if (!taskId) return undefined;
-  return tasks.find(t => t.id === taskId);
+  return tasks.find((t) => t.id === taskId);
 }, [tasks, taskId]);
 ```
 
 ### 4. Proper Redirect Configuration
+
 Updated `_redirects` to use the correct HTML extension:
 
 ```
@@ -83,6 +89,7 @@ Updated `_redirects` to use the correct HTML extension:
 ## Testing
 
 Created URL extraction test that confirms the logic works correctly:
+
 - `/tasks/task-123` → `task-123` ✅
 - `/tasks/abc-def-456` → `abc-def-456` ✅
 - `/tasks/_` → `_` ✅
