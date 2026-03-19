@@ -67,13 +67,13 @@ export function createIntersectionObserver(
  */
 export function memoize<T extends (...args: any[]) => any>(fn: T): T {
   const cache = new Map();
-  
+
   return ((...args: any[]) => {
     const key = JSON.stringify(args);
     if (cache.has(key)) {
       return cache.get(key);
     }
-    
+
     const result = fn(...args);
     cache.set(key, result);
     return result;
@@ -95,16 +95,16 @@ export function calculateVirtualScrollRange(
   config: VirtualScrollConfig
 ) {
   const { itemHeight, containerHeight, overscan = 5 } = config;
-  
+
   const visibleStart = Math.floor(scrollTop / itemHeight);
   const visibleEnd = Math.min(
     visibleStart + Math.ceil(containerHeight / itemHeight),
     totalItems - 1
   );
-  
+
   const start = Math.max(0, visibleStart - overscan);
   const end = Math.min(totalItems - 1, visibleEnd + overscan);
-  
+
   return {
     start,
     end,
@@ -120,11 +120,14 @@ export function preloadComponent(componentImport: () => Promise<any>) {
   if (typeof window !== 'undefined') {
     // Preload on user interaction or idle time
     const preload = () => componentImport();
-    
+
     // Preload on mouse hover or focus
-    document.addEventListener('mouseover', preload, { once: true, passive: true });
+    document.addEventListener('mouseover', preload, {
+      once: true,
+      passive: true,
+    });
     document.addEventListener('focus', preload, { once: true, passive: true });
-    
+
     // Preload on idle
     if ('requestIdleCallback' in window) {
       requestIdleCallback(preload);
@@ -146,7 +149,7 @@ export function addResourceHints() {
     'https://fonts.gstatic.com',
   ];
 
-  preconnectLinks.forEach(href => {
+  preconnectLinks.forEach((href) => {
     const link = document.createElement('link');
     link.rel = 'preconnect';
     link.href = href;

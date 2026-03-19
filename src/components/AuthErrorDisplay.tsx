@@ -1,4 +1,4 @@
-'use client'
+'use client';
 
 import React from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
@@ -11,9 +11,9 @@ interface AuthErrorDisplayProps {
   className?: string;
 }
 
-export const AuthErrorDisplay: React.FC<AuthErrorDisplayProps> = ({ 
-  showRetry = true, 
-  className = '' 
+export const AuthErrorDisplay: React.FC<AuthErrorDisplayProps> = ({
+  showRetry = true,
+  className = '',
 }) => {
   const { error, clearError, retryAuth } = useAuth();
 
@@ -33,9 +33,9 @@ export const AuthErrorDisplay: React.FC<AuthErrorDisplayProps> = ({
               variant="outline"
               size="sm"
               onClick={retryAuth}
-              className="text-destructive border-destructive hover:bg-destructive hover:text-white"
+              className="border-destructive text-destructive hover:bg-destructive hover:text-white"
             >
-              <RefreshCw className="h-3 w-3 mr-1" />
+              <RefreshCw className="mr-1 h-3 w-3" />
               Retry
             </Button>
           )}
@@ -43,14 +43,14 @@ export const AuthErrorDisplay: React.FC<AuthErrorDisplayProps> = ({
             variant="outline"
             size="sm"
             onClick={clearError}
-            className="text-destructive border-destructive hover:bg-destructive hover:text-white"
+            className="border-destructive text-destructive hover:bg-destructive hover:text-white"
           >
-            <X className="h-3 w-3 mr-1" />
+            <X className="mr-1 h-3 w-3" />
             Dismiss
           </Button>
         </div>
         {error.code && (
-          <p className="text-xs text-muted-foreground mt-2">
+          <p className="mt-2 text-xs text-muted-foreground">
             Error Code: {error.code}
           </p>
         )}

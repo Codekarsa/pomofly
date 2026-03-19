@@ -1,18 +1,26 @@
-import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
-import './globals.css'
-import { AuthProvider } from './contexts/AuthContext'
-import GoogleAnalytics from '@/components/GoogleAnalytics'
-import ErrorBoundary from '@/components/ErrorBoundary'
-import PWAServiceWorker from '@/components/PWAServiceWorker'
-import { Suspense } from 'react'
+import type { Metadata, Viewport } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import { AuthProvider } from './contexts/AuthContext';
+import GoogleAnalytics from '@/components/GoogleAnalytics';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import PWAServiceWorker from '@/components/PWAServiceWorker';
+import { Suspense } from 'react';
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Pomofly - Elegant Pomodoro Timer',
   description: 'An elegant and minimal Pomodoro timer for productive focus',
-  keywords: ['pomodoro', 'timer', 'productivity', 'focus', 'time management', 'work', 'break'],
+  keywords: [
+    'pomodoro',
+    'timer',
+    'productivity',
+    'focus',
+    'time management',
+    'work',
+    'break',
+  ],
   authors: [{ name: 'Codekarsa' }],
   creator: 'Codekarsa',
   publisher: 'Pomofly',
@@ -35,7 +43,11 @@ export const metadata: Metadata = {
       { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
     ],
     apple: [
-      { url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+      {
+        url: '/icons/apple-touch-icon.png',
+        sizes: '180x180',
+        type: 'image/png',
+      },
     ],
     other: [
       { url: '/icons/icon-72x72.png', sizes: '72x72', type: 'image/png' },
@@ -54,7 +66,7 @@ export const metadata: Metadata = {
     'apple-mobile-web-app-status-bar-style': 'default',
     'apple-mobile-web-app-title': 'Pomofly',
   },
-}
+};
 
 export const viewport: Viewport = {
   themeColor: [
@@ -64,20 +76,27 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-}
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="en">
       <body className={`${inter.className} bg-gray-100`}>
-        <ErrorBoundary name="RootLayout" showDetails={process.env.NODE_ENV === 'development'}>
+        <ErrorBoundary
+          name="RootLayout"
+          showDetails={process.env.NODE_ENV === 'development'}
+        >
           <AuthProvider>
             <Suspense fallback={<div>Loading...</div>}>
-              <GoogleAnalytics GA_MEASUREMENT_ID={process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!} />
+              <GoogleAnalytics
+                GA_MEASUREMENT_ID={
+                  process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!
+                }
+              />
             </Suspense>
             {children}
             <PWAServiceWorker />
@@ -85,5 +104,5 @@ export default function RootLayout({
         </ErrorBoundary>
       </body>
     </html>
-  )
+  );
 }

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { validateAuth, checkRateLimit } from '@/lib/auth-middleware';
-import { sanitizeServerInput, validateServerInput, sanitizeAIResponse } from '@/lib/security';
+import {
+  sanitizeServerInput,
+  validateServerInput,
+  sanitizeAIResponse,
+} from '@/lib/security';
 
 interface TaskBreakdown {
   tasks: {
@@ -52,22 +56,24 @@ export async function POST(request: NextRequest) {
   const rateLimitResult = checkRateLimit(authResult.uid!, 5, 60000); // 5 requests per minute
   if (!rateLimitResult.allowed) {
     return NextResponse.json(
-      { 
-        error: 'Rate limit exceeded', 
+      {
+        error: 'Rate limit exceeded',
         details: 'Too many requests. Please try again later.',
-        resetTime: rateLimitResult.resetTime
+        resetTime: rateLimitResult.resetTime,
       },
-      { 
+      {
         status: 429,
         headers: {
-          'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString()
-        }
+          'Retry-After': Math.ceil(
+            (rateLimitResult.resetTime - Date.now()) / 1000
+          ).toString(),
+        },
       }
     );
   }
   try {
     const body = await request.json();
-    
+
     // Input validation
     const {
       description,
@@ -81,7 +87,10 @@ export async function POST(request: NextRequest) {
     // Validate required fields
     if (!description || typeof description !== 'string') {
       return NextResponse.json(
-        { error: 'Bad Request', details: 'Description is required and must be a string' },
+        {
+          error: 'Bad Request',
+          details: 'Description is required and must be a string',
+        },
         { status: 400 }
       );
     }
@@ -99,35 +108,59 @@ export async function POST(request: NextRequest) {
     const sanitizedDescription = sanitizeServerInput(description);
 
     // Validate numeric fields
-    if (pomodoroDuration && (typeof pomodoroDuration !== 'number' || pomodoroDuration < 1 || pomodoroDuration > 120)) {
+    if (
+      pomodoroDuration &&
+      (typeof pomodoroDuration !== 'number' ||
+        pomodoroDuration < 1 ||
+        pomodoroDuration > 120)
+    ) {
       return NextResponse.json(
-        { error: 'Bad Request', details: 'Pomodoro duration must be between 1 and 120 minutes' },
+        {
+          error: 'Bad Request',
+          details: 'Pomodoro duration must be between 1 and 120 minutes',
+        },
         { status: 400 }
       );
     }
 
-    if (shortBreakDuration && (typeof shortBreakDuration !== 'number' || shortBreakDuration < 1 || shortBreakDuration > 60)) {
+    if (
+      shortBreakDuration &&
+      (typeof shortBreakDuration !== 'number' ||
+        shortBreakDuration < 1 ||
+        shortBreakDuration > 60)
+    ) {
       return NextResponse.json(
-        { error: 'Bad Request', details: 'Short break duration must be between 1 and 60 minutes' },
+        {
+          error: 'Bad Request',
+          details: 'Short break duration must be between 1 and 60 minutes',
+        },
         { status: 400 }
       );
     }
 
-    if (longBreakDuration && (typeof longBreakDuration !== 'number' || longBreakDuration < 1 || longBreakDuration > 120)) {
+    if (
+      longBreakDuration &&
+      (typeof longBreakDuration !== 'number' ||
+        longBreakDuration < 1 ||
+        longBreakDuration > 120)
+    ) {
       return NextResponse.json(
-        { error: 'Bad Request', details: 'Long break duration must be between 1 and 120 minutes' },
+        {
+          error: 'Bad Request',
+          details: 'Long break duration must be between 1 and 120 minutes',
+        },
         { status: 400 }
       );
     }
 
     const apiKey = process.env.CLAUDE_API_KEY;
     const claudeModel = process.env.CLAUDE_MODEL;
-    
+
     if (!apiKey) {
       return NextResponse.json(
-        { 
-          error: 'Configuration Error', 
-          message: 'Claude API is not properly configured' 
+        {
+          error: 'Configuration Error',
+          message: 'Claude API is not properly configured',
         },
         { status: 503 }
       );
@@ -135,9 +168,9 @@ export async function POST(request: NextRequest) {
 
     if (!claudeModel) {
       return NextResponse.json(
-        { 
-          error: 'Configuration Error', 
-          message: 'Claude model is not configured' 
+        {
+          error: 'Configuration Error',
+          message: 'Claude model is not configured',
         },
         { status: 503 }
       );
@@ -146,9 +179,9 @@ export async function POST(request: NextRequest) {
     // Validate required inputs
     if (!description?.trim()) {
       return NextResponse.json(
-        { 
-          error: 'Validation Error', 
-          message: 'Task description is required' 
+        {
+          error: 'Validation Error',
+          message: 'Task description is required',
         },
         { status: 400 }
       );
@@ -207,9 +240,9 @@ IMPORTANT: Task titles should be plain text only, no HTML tags, scripts, or spec
 
     if (!message.content || message.content.length === 0) {
       return NextResponse.json(
-        { 
-          error: 'API Response Error', 
-          message: 'Claude API returned empty response' 
+        {
+          error: 'API Response Error',
+          message: 'Claude API returned empty response',
         },
         { status: 502 }
       );
@@ -221,13 +254,13 @@ IMPORTANT: Task titles should be plain text only, no HTML tags, scripts, or spec
 
     let taskBreakdown: any;
     try {
-      taskBreakdown = JSON.parse(aiContent); 
+      taskBreakdown = JSON.parse(aiContent);
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
       return NextResponse.json(
-        { 
-          error: 'AI Response Format Error', 
-          message: 'Claude API returned invalid JSON format' 
+        {
+          error: 'AI Response Format Error',
+          message: 'Claude API returned invalid JSON format',
         },
         { status: 502 }
       );
@@ -238,9 +271,11 @@ IMPORTANT: Task titles should be plain text only, no HTML tags, scripts, or spec
     if (!sanitizationResult.isValid) {
       console.error('AI response validation failed:', sanitizationResult.error);
       return NextResponse.json(
-        { 
-          error: 'AI Response Validation Error', 
-          message: sanitizationResult.error || 'Claude API response failed security validation' 
+        {
+          error: 'AI Response Validation Error',
+          message:
+            sanitizationResult.error ||
+            'Claude API response failed security validation',
         },
         { status: 502 }
       );
@@ -253,9 +288,9 @@ IMPORTANT: Task titles should be plain text only, no HTML tags, scripts, or spec
     // Handle different error types with appropriate responses
     if (error instanceof TimeoutError) {
       return NextResponse.json(
-        { 
-          error: 'Request Timeout', 
-          message: 'Claude API request timed out. Please try again.' 
+        {
+          error: 'Request Timeout',
+          message: 'Claude API request timed out. Please try again.',
         },
         { status: 408 }
       );
@@ -264,9 +299,9 @@ IMPORTANT: Task titles should be plain text only, no HTML tags, scripts, or spec
     if (error instanceof Anthropic.APIError) {
       if (error.status === 401) {
         return NextResponse.json(
-          { 
-            error: 'Authentication Error', 
-            message: 'Invalid Claude API key' 
+          {
+            error: 'Authentication Error',
+            message: 'Invalid Claude API key',
           },
           { status: 401 }
         );
@@ -274,9 +309,9 @@ IMPORTANT: Task titles should be plain text only, no HTML tags, scripts, or spec
 
       if (error.status === 429) {
         return NextResponse.json(
-          { 
-            error: 'Rate Limit Exceeded', 
-            message: 'Claude API rate limit exceeded. Please try again later.' 
+          {
+            error: 'Rate Limit Exceeded',
+            message: 'Claude API rate limit exceeded. Please try again later.',
           },
           { status: 429 }
         );
@@ -284,18 +319,18 @@ IMPORTANT: Task titles should be plain text only, no HTML tags, scripts, or spec
 
       if (error.status === 400) {
         return NextResponse.json(
-          { 
-            error: 'Bad Request', 
-            message: 'Invalid request to Claude API' 
+          {
+            error: 'Bad Request',
+            message: 'Invalid request to Claude API',
           },
           { status: 400 }
         );
       }
 
       return NextResponse.json(
-        { 
-          error: 'Claude API Error', 
-          message: `Claude API returned error: ${error.message}` 
+        {
+          error: 'Claude API Error',
+          message: `Claude API returned error: ${error.message}`,
         },
         { status: error.status || 502 }
       );
@@ -303,9 +338,9 @@ IMPORTANT: Task titles should be plain text only, no HTML tags, scripts, or spec
 
     if (error instanceof Anthropic.APIConnectionError) {
       return NextResponse.json(
-        { 
-          error: 'Connection Error', 
-          message: 'Failed to connect to Claude API. Please try again.' 
+        {
+          error: 'Connection Error',
+          message: 'Failed to connect to Claude API. Please try again.',
         },
         { status: 503 }
       );
@@ -313,9 +348,9 @@ IMPORTANT: Task titles should be plain text only, no HTML tags, scripts, or spec
 
     // Generic error fallback
     return NextResponse.json(
-      { 
-        error: 'Internal Server Error', 
-        message: 'An unexpected error occurred processing your request' 
+      {
+        error: 'Internal Server Error',
+        message: 'An unexpected error occurred processing your request',
       },
       { status: 500 }
     );

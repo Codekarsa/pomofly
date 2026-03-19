@@ -1,5 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
-import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+} from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import {
   getGuestProjects,
@@ -7,13 +16,13 @@ import {
   updateGuestProject,
   deleteGuestProject,
 } from '../lib/guestStorage';
-import { 
-  transformFirebaseProject, 
-  validateProjectCreate, 
+import {
+  transformFirebaseProject,
+  validateProjectCreate,
   validateProjectUpdate,
   type Project,
   type ProjectCreate,
-  type ProjectUpdate 
+  type ProjectUpdate,
 } from '../lib/validation';
 
 // Project interface now imported from validation.ts
@@ -38,7 +47,10 @@ export function useProjects() {
     }
 
     setIsGuest(false);
-    const projectsQuery = query(collection(db, "projects"), where("userId", "==", user.uid));
+    const projectsQuery = query(
+      collection(db, 'projects'),
+      where('userId', '==', user.uid)
+    );
 
     const unsubscribe = onSnapshot(
       projectsQuery,
@@ -46,10 +58,16 @@ export function useProjects() {
         const projectList: Project[] = [];
         querySnapshot.forEach((doc) => {
           try {
-            const validatedProject = transformFirebaseProject({ id: doc.id, ...doc.data() });
+            const validatedProject = transformFirebaseProject({
+              id: doc.id,
+              ...doc.data(),
+            });
             projectList.push(validatedProject);
           } catch (validationError) {
-            console.error(`Invalid project data for document ${doc.id}:`, validationError);
+            console.error(
+              `Invalid project data for document ${doc.id}:`,
+              validationError
+            );
             // Skip invalid projects but continue processing others
           }
         });
@@ -57,7 +75,7 @@ export function useProjects() {
         setLoading(false);
       },
       (err) => {
-        console.error("Error fetching projects:", err);
+        console.error('Error fetching projects:', err);
         setError(err);
         setLoading(false);
       }
@@ -79,7 +97,7 @@ export function useProjects() {
     if (!user) {
       // Guest mode
       const newProject = addGuestProject(name);
-      setProjects(prev => [...prev, newProject]);
+      setProjects((prev) => [...prev, newProject]);
       return newProject.id;
     }
 
@@ -88,16 +106,16 @@ export function useProjects() {
         name,
         userId: user.uid,
       });
-      
+
       const projectData = {
         ...validatedProject,
-        createdAt: new Date()
+        createdAt: new Date(),
       };
-      
-      const docRef = await addDoc(collection(db, "projects"), projectData);
+
+      const docRef = await addDoc(collection(db, 'projects'), projectData);
       return docRef.id;
     } catch (err) {
-      console.error("Error adding project:", err);
+      console.error('Error adding project:', err);
       throw err;
     }
   }, []);
@@ -114,13 +132,15 @@ export function useProjects() {
       if (!user) {
         // Guest mode
         updateGuestProject(id, updateData.name!);
-        setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updateData } : p));
+        setProjects((prev) =>
+          prev.map((p) => (p.id === id ? { ...p, ...updateData } : p))
+        );
         return;
       }
 
-      await updateDoc(doc(db, "projects", id), updateData);
+      await updateDoc(doc(db, 'projects', id), updateData);
     } catch (err) {
-      console.error("Error updating project:", err);
+      console.error('Error updating project:', err);
       throw err;
     }
   }, []);
@@ -131,14 +151,14 @@ export function useProjects() {
     if (!user) {
       // Guest mode
       deleteGuestProject(id);
-      setProjects(prev => prev.filter(p => p.id !== id));
+      setProjects((prev) => prev.filter((p) => p.id !== id));
       return;
     }
 
     try {
-      await deleteDoc(doc(db, "projects", id));
+      await deleteDoc(doc(db, 'projects', id));
     } catch (err) {
-      console.error("Error deleting project:", err);
+      console.error('Error deleting project:', err);
       throw err;
     }
   }, []);
@@ -151,6 +171,6 @@ export function useProjects() {
     addProject,
     updateProject,
     deleteProject,
-    refreshGuestProjects
+    refreshGuestProjects,
   };
 }

@@ -1,8 +1,8 @@
-import * as React from "react";
-import { Check, ChevronsUpDown, Plus } from "lucide-react";
+import * as React from 'react';
+import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import {
   Command,
   CommandEmpty,
@@ -10,12 +10,12 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/components/ui/command";
+} from '@/components/ui/command';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from '@/components/ui/popover';
 
 interface Option {
   value: string;
@@ -34,11 +34,11 @@ export const Combobox: React.FC<ComboboxProps> = ({
   options,
   value,
   onChange,
-  placeholder = "Select an option...",
+  placeholder = 'Select an option...',
   onCreateNew,
 }) => {
   const [open, setOpen] = React.useState(false);
-  const [searchValue, setSearchValue] = React.useState("");
+  const [searchValue, setSearchValue] = React.useState('');
 
   const hasExactMatch = options.some(
     (option) => option.label.toLowerCase() === searchValue.trim().toLowerCase()
@@ -68,22 +68,24 @@ export const Combobox: React.FC<ComboboxProps> = ({
             onValueChange={setSearchValue}
           />
           <CommandList>
-            {!showCreateOption && <CommandEmpty>No options found.</CommandEmpty>}
+            {!showCreateOption && (
+              <CommandEmpty>No options found.</CommandEmpty>
+            )}
             <CommandGroup>
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
                   value={option.value}
                   onSelect={(currentValue) => {
-                    onChange(currentValue === value ? "" : currentValue);
+                    onChange(currentValue === value ? '' : currentValue);
                     setOpen(false);
-                    setSearchValue("");
+                    setSearchValue('');
                   }}
                 >
                   <Check
                     className={cn(
-                      "mr-2 h-4 w-4",
-                      value === option.value ? "opacity-100" : "opacity-0"
+                      'mr-2 h-4 w-4',
+                      value === option.value ? 'opacity-100' : 'opacity-0'
                     )}
                   />
                   {option.label}
@@ -95,7 +97,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
                   onSelect={() => {
                     onCreateNew(searchValue.trim());
                     setOpen(false);
-                    setSearchValue("");
+                    setSearchValue('');
                   }}
                 >
                   <Plus className="mr-2 h-4 w-4" />

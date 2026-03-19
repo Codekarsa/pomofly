@@ -13,10 +13,14 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 const ProjectList = React.memo(() => {
-  const { projects, loading, error, addProject, updateProject, deleteProject } = useProjects();
+  const { projects, loading, error, addProject, updateProject, deleteProject } =
+    useProjects();
   const { event } = useGoogleAnalytics();
   const [newProjectName, setNewProjectName] = useState('');
-  const [editingProject, setEditingProject] = useState<{ id: string, name: string } | null>(null);
+  const [editingProject, setEditingProject] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 5;
 
@@ -26,60 +30,78 @@ const ProjectList = React.memo(() => {
     event('project_list_view', { total_projects: projects.length });
   }, [event, projects.length]);
 
-  const handleAddProject = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newProjectName.trim()) {
-      try {
-        await addProject(newProjectName);
-        event('project_added', { project_name: newProjectName });
-        setNewProjectName('');
-      } catch (err) {
-        console.error("Failed to add project:", err);
-        event('project_add_error', { error_message: (err as Error).message });
+  const handleAddProject = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (newProjectName.trim()) {
+        try {
+          await addProject(newProjectName);
+          event('project_added', { project_name: newProjectName });
+          setNewProjectName('');
+        } catch (err) {
+          console.error('Failed to add project:', err);
+          event('project_add_error', { error_message: (err as Error).message });
+        }
       }
-    }
-  }, [addProject, event, newProjectName]);
+    },
+    [addProject, event, newProjectName]
+  );
 
-  const handleUpdateProject = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingProject && editingProject.name.trim()) {
-      try {
-        await updateProject(editingProject.id, editingProject.name);
-        event('project_updated', { project_id: editingProject.id });
-        setEditingProject(null);
-      } catch (err) {
-        console.error("Failed to update project:", err);
-        event('project_update_error', { project_id: editingProject.id, error_message: (err as Error).message });
+  const handleUpdateProject = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (editingProject && editingProject.name.trim()) {
+        try {
+          await updateProject(editingProject.id, editingProject.name);
+          event('project_updated', { project_id: editingProject.id });
+          setEditingProject(null);
+        } catch (err) {
+          console.error('Failed to update project:', err);
+          event('project_update_error', {
+            project_id: editingProject.id,
+            error_message: (err as Error).message,
+          });
+        }
       }
-    }
-  }, [editingProject, updateProject, event]);
+    },
+    [editingProject, updateProject, event]
+  );
 
-  const handleDeleteProject = useCallback(async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this project?')) {
-      try {
-        await deleteProject(id);
-        event('project_deleted', { project_id: id });
-      } catch (err) {
-        console.error("Failed to delete project:", err);
-        event('project_delete_error', { project_id: id, error_message: (err as Error).message });
+  const handleDeleteProject = useCallback(
+    async (id: string) => {
+      if (window.confirm('Are you sure you want to delete this project?')) {
+        try {
+          await deleteProject(id);
+          event('project_deleted', { project_id: id });
+        } catch (err) {
+          console.error('Failed to delete project:', err);
+          event('project_delete_error', {
+            project_id: id,
+            error_message: (err as Error).message,
+          });
+        }
       }
-    }
-  }, [deleteProject, event]);
+    },
+    [deleteProject, event]
+  );
 
-  const handleEditProject = useCallback((project: { id: string, name: string }) => {
-    setEditingProject(project);
-    event('project_edit_started', { project_id: project.id });
-  }, [event]);
+  const handleEditProject = useCallback(
+    (project: { id: string; name: string }) => {
+      setEditingProject(project);
+      event('project_edit_started', { project_id: project.id });
+    },
+    [event]
+  );
 
   const loadMoreProjects = useCallback(() => {
     if ((currentPage + 1) * itemsPerPage < projects.length) {
-      setCurrentPage(prevPage => prevPage + 1);
+      setCurrentPage((prevPage) => prevPage + 1);
       event('load_more_projects', { new_page: currentPage + 1 });
     }
   }, [currentPage, itemsPerPage, projects.length, event]);
 
-  const displayedProjects = useMemo(() => 
-    memoizedProjects.slice(0, (currentPage + 1) * itemsPerPage),
+  const displayedProjects = useMemo(
+    () => memoizedProjects.slice(0, (currentPage + 1) * itemsPerPage),
     [memoizedProjects, currentPage, itemsPerPage]
   );
 
@@ -92,7 +114,10 @@ const ProjectList = React.memo(() => {
         <CardTitle>Your Projects</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleAddProject} className="flex items-center space-x-2 mb-6">
+        <form
+          onSubmit={handleAddProject}
+          className="mb-6 flex items-center space-x-2"
+        >
           <Input
             type="text"
             value={newProjectName}
@@ -101,24 +126,44 @@ const ProjectList = React.memo(() => {
             className="flex-grow"
           />
           <Button type="submit" size="sm">
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="mr-2 h-4 w-4" />
             Add Project
           </Button>
         </form>
 
         <ul className="space-y-2">
           {displayedProjects.map((project) => (
-            <li key={project.id} className="flex items-center justify-between p-2 hover:bg-accent rounded-md transition-colors">
+            <li
+              key={project.id}
+              className="flex items-center justify-between rounded-md p-2 transition-colors hover:bg-accent"
+            >
               {editingProject && editingProject.id === project.id ? (
-                <form onSubmit={handleUpdateProject} className="flex items-center space-x-2 w-full">
+                <form
+                  onSubmit={handleUpdateProject}
+                  className="flex w-full items-center space-x-2"
+                >
                   <Input
                     type="text"
                     value={editingProject.name}
-                    onChange={(e) => setEditingProject({ ...editingProject, name: e.target.value })}
+                    onChange={(e) =>
+                      setEditingProject({
+                        ...editingProject,
+                        name: e.target.value,
+                      })
+                    }
                     className="flex-grow"
                   />
-                  <Button type="submit" size="sm" variant="outline">Save</Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => setEditingProject(null)}>Cancel</Button>
+                  <Button type="submit" size="sm" variant="outline">
+                    Save
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setEditingProject(null)}
+                  >
+                    Cancel
+                  </Button>
                 </form>
               ) : (
                 <>
@@ -126,16 +171,20 @@ const ProjectList = React.memo(() => {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="w-4 h-4" />
+                        <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEditProject(project)}>
-                        <Pencil className="w-4 h-4 mr-2" />
+                      <DropdownMenuItem
+                        onClick={() => handleEditProject(project)}
+                      >
+                        <Pencil className="mr-2 h-4 w-4" />
                         Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDeleteProject(project.id)}>
-                        <Trash2 className="w-4 h-4 mr-2" />
+                      <DropdownMenuItem
+                        onClick={() => handleDeleteProject(project.id)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
                         Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -146,7 +195,7 @@ const ProjectList = React.memo(() => {
           ))}
         </ul>
         {displayedProjects.length < memoizedProjects.length && (
-          <div className="flex justify-center mt-4">
+          <div className="mt-4 flex justify-center">
             <Button onClick={loadMoreProjects} variant="outline">
               Load More
             </Button>

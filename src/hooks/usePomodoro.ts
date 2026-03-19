@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { TimerPersistence, PersistedTimerSession } from '@/lib/timerPersistence';
+import {
+  TimerPersistence,
+  PersistedTimerSession,
+} from '@/lib/timerPersistence';
 
 type PomodoroPhase = 'pomodoro' | 'shortBreak' | 'longBreak';
 
@@ -14,10 +17,13 @@ export const defaultSettings: PomodoroSettings = {
   pomodoro: 25,
   shortBreak: 5,
   longBreak: 15,
-  longBreakInterval: 4
+  longBreakInterval: 4,
 };
 
-export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () => void) {
+export function usePomodoro(
+  initialSettings: PomodoroSettings,
+  onComplete?: () => void
+) {
   const [phase, setPhase] = useState<PomodoroPhase>('pomodoro');
   const [minutes, setMinutes] = useState(initialSettings[phase]);
   const [seconds, setSeconds] = useState(0);
@@ -27,10 +33,13 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
 
   // Timestamp-based timing state
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null);
-  const [pausedTimeRemaining, setPausedTimeRemaining] = useState<number | null>(null);
+  const [pausedTimeRemaining, setPausedTimeRemaining] = useState<number | null>(
+    null
+  );
 
   // Session recovery state
-  const [persistedSession, setPersistedSession] = useState<PersistedTimerSession | null>(null);
+  const [persistedSession, setPersistedSession] =
+    useState<PersistedTimerSession | null>(null);
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
 
   // Use ref for onComplete to prevent dependency changes from resetting timer
@@ -59,14 +68,21 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
       sessionCreatedAt: Date.now(),
       settings,
     };
-    
+
     // Only persist if there's meaningful state to save
     if (isActive || timerStartedAt !== null || pausedTimeRemaining !== null) {
       TimerPersistence.saveSession(session);
     } else {
       TimerPersistence.clearSession();
     }
-  }, [phase, isActive, timerStartedAt, pausedTimeRemaining, sessionsCompleted, settings]);
+  }, [
+    phase,
+    isActive,
+    timerStartedAt,
+    pausedTimeRemaining,
+    sessionsCompleted,
+    settings,
+  ]);
 
   // Auto-persist when state changes
   useEffect(() => {
@@ -93,7 +109,7 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
 
   const handlePhaseComplete = useCallback(() => {
     if (phase === 'pomodoro') {
-      setSessionsCompleted(prev => prev + 1);
+      setSessionsCompleted((prev) => prev + 1);
       if (sessionsCompleted + 1 >= settings.longBreakInterval) {
         setPhase('longBreak');
         setMinutes(settings.longBreak);
@@ -151,7 +167,7 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
       if (pausedTimeRemaining !== null) {
         // Resuming - calculate new start time based on remaining time
         const elapsedBeforePause = settings[phase] * 60 - pausedTimeRemaining;
-        const newStartTime = Date.now() - (elapsedBeforePause * 1000);
+        const newStartTime = Date.now() - elapsedBeforePause * 1000;
         setTimerStartedAt(newStartTime);
         setPausedTimeRemaining(null);
       } else {
@@ -175,14 +191,17 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     setSeconds(0);
   }, [phase, settings]);
 
-  const switchPhase = useCallback((newPhase: PomodoroPhase) => {
-    setPhase(newPhase);
-    setTimerStartedAt(null);
-    setPausedTimeRemaining(null);
-    setMinutes(settings[newPhase]);
-    setSeconds(0);
-    setIsActive(false);
-  }, [settings]);
+  const switchPhase = useCallback(
+    (newPhase: PomodoroPhase) => {
+      setPhase(newPhase);
+      setTimerStartedAt(null);
+      setPausedTimeRemaining(null);
+      setMinutes(settings[newPhase]);
+      setSeconds(0);
+      setIsActive(false);
+    },
+    [settings]
+  );
 
   // Recovery functions
   const restoreSession = useCallback((session: PersistedTimerSession) => {
@@ -192,14 +211,14 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     setPausedTimeRemaining(session.pausedTimeRemaining);
     setSessionsCompleted(session.sessionsCompleted);
     setSettings(session.settings);
-    
+
     // Update display from restored state
     const remaining = TimerPersistence.calculateRemainingTime(session);
     const mins = Math.floor(remaining / 60);
     const secs = remaining % 60;
     setMinutes(mins);
     setSeconds(secs);
-    
+
     setShowRecoveryModal(false);
     setPersistedSession(null);
   }, []);
@@ -232,6 +251,6 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     showRecoveryModal,
     persistedSession,
     restoreSession,
-    startFresh
+    startFresh,
   };
 }

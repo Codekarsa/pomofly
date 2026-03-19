@@ -53,9 +53,7 @@ export function useMemoizedCallback<T extends (...args: any[]) => any>(
 /**
  * Hook for intersection observer
  */
-export function useIntersectionObserver(
-  options?: IntersectionObserverInit
-) {
+export function useIntersectionObserver(options?: IntersectionObserverInit) {
   const [isIntersecting, setIsIntersecting] = useState(false);
   const [entry, setEntry] = useState<IntersectionObserverEntry | null>(null);
   const elementRef = useRef<Element | null>(null);
@@ -64,14 +62,17 @@ export function useIntersectionObserver(
     const element = elementRef.current;
     if (!element) return;
 
-    const observer = new IntersectionObserver(([entry]) => {
-      setIsIntersecting(entry.isIntersecting);
-      setEntry(entry);
-    }, {
-      threshold: 0.1,
-      rootMargin: '50px 0px',
-      ...options,
-    });
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsIntersecting(entry.isIntersecting);
+        setEntry(entry);
+      },
+      {
+        threshold: 0.1,
+        rootMargin: '50px 0px',
+        ...options,
+      }
+    );
 
     observer.observe(element);
 

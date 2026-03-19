@@ -4,12 +4,15 @@ import { useEffect } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { GoogleTagManager } from '@next/third-parties/google';
 
-export default function GoogleAnalytics({ GA_MEASUREMENT_ID }: { GA_MEASUREMENT_ID: string }) {
+export default function GoogleAnalytics({
+  GA_MEASUREMENT_ID,
+}: {
+  GA_MEASUREMENT_ID: string;
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    
     const script = document.createElement('script');
     script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
     script.async = true;

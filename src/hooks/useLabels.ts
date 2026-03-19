@@ -1,5 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
-import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+} from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import {
   getGuestLabels,
@@ -46,7 +55,10 @@ export function useLabels() {
     }
 
     setIsGuest(false);
-    const labelsQuery = query(collection(db, "labels"), where("userId", "==", user.uid));
+    const labelsQuery = query(
+      collection(db, 'labels'),
+      where('userId', '==', user.uid)
+    );
 
     const unsubscribe = onSnapshot(
       labelsQuery,
@@ -59,7 +71,7 @@ export function useLabels() {
         setLoading(false);
       },
       (err) => {
-        console.error("Error fetching labels:", err);
+        console.error('Error fetching labels:', err);
         setError(err);
         setLoading(false);
       }
@@ -73,7 +85,7 @@ export function useLabels() {
 
     if (!user) {
       const newLabel = addGuestLabel(name, color);
-      setLabels(prev => [...prev, newLabel]);
+      setLabels((prev) => [...prev, newLabel]);
       return newLabel.id;
     }
 
@@ -84,44 +96,49 @@ export function useLabels() {
         userId: user.uid,
         createdAt: new Date(),
       };
-      const docRef = await addDoc(collection(db, "labels"), newLabel);
+      const docRef = await addDoc(collection(db, 'labels'), newLabel);
       return docRef.id;
     } catch (err) {
-      console.error("Error adding label:", err);
+      console.error('Error adding label:', err);
       throw err;
     }
   }, []);
 
-  const updateLabel = useCallback(async (id: string, updates: { name?: string; color?: string }) => {
-    const user = auth.currentUser;
+  const updateLabel = useCallback(
+    async (id: string, updates: { name?: string; color?: string }) => {
+      const user = auth.currentUser;
 
-    if (!user) {
-      updateGuestLabel(id, updates);
-      setLabels(prev => prev.map(l => l.id === id ? { ...l, ...updates } : l));
-      return;
-    }
+      if (!user) {
+        updateGuestLabel(id, updates);
+        setLabels((prev) =>
+          prev.map((l) => (l.id === id ? { ...l, ...updates } : l))
+        );
+        return;
+      }
 
-    try {
-      await updateDoc(doc(db, "labels", id), updates);
-    } catch (err) {
-      console.error("Error updating label:", err);
-      throw err;
-    }
-  }, []);
+      try {
+        await updateDoc(doc(db, 'labels', id), updates);
+      } catch (err) {
+        console.error('Error updating label:', err);
+        throw err;
+      }
+    },
+    []
+  );
 
   const deleteLabel = useCallback(async (id: string) => {
     const user = auth.currentUser;
 
     if (!user) {
       deleteGuestLabel(id);
-      setLabels(prev => prev.filter(l => l.id !== id));
+      setLabels((prev) => prev.filter((l) => l.id !== id));
       return;
     }
 
     try {
-      await deleteDoc(doc(db, "labels", id));
+      await deleteDoc(doc(db, 'labels', id));
     } catch (err) {
-      console.error("Error deleting label:", err);
+      console.error('Error deleting label:', err);
       throw err;
     }
   }, []);

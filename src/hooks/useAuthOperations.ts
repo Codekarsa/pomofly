@@ -1,4 +1,4 @@
-'use client'
+'use client';
 
 import { useState } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
@@ -11,7 +11,11 @@ interface AuthOperationState {
 
 interface AuthOperationResult {
   signInWithEmail: (email: string, password: string) => Promise<boolean>;
-  signUpWithEmail: (email: string, password: string, displayName?: string) => Promise<boolean>;
+  signUpWithEmail: (
+    email: string,
+    password: string,
+    displayName?: string
+  ) => Promise<boolean>;
   signOut: () => Promise<boolean>;
   sendPasswordReset: (email: string) => Promise<boolean>;
   state: AuthOperationState;
@@ -37,15 +41,18 @@ export const useAuthOperations = (): AuthOperationResult => {
     });
   };
 
-  const signInWithEmail = async (email: string, password: string): Promise<boolean> => {
+  const signInWithEmail = async (
+    email: string,
+    password: string
+  ): Promise<boolean> => {
     setState({ loading: true, error: null, success: false });
-    
+
     try {
       // Basic validation
       if (!email || !password) {
         throw new Error('Email and password are required');
       }
-      
+
       if (!isValidEmail(email)) {
         throw new Error('Please enter a valid email address');
       }
@@ -54,33 +61,34 @@ export const useAuthOperations = (): AuthOperationResult => {
       setState({ loading: false, error: null, success: true });
       return true;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Sign in failed';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Sign in failed';
       setState({ loading: false, error: errorMessage, success: false });
       return false;
     }
   };
 
   const signUpWithEmail = async (
-    email: string, 
-    password: string, 
+    email: string,
+    password: string,
     displayName?: string
   ): Promise<boolean> => {
     setState({ loading: true, error: null, success: false });
-    
+
     try {
       // Basic validation
       if (!email || !password) {
         throw new Error('Email and password are required');
       }
-      
+
       if (!isValidEmail(email)) {
         throw new Error('Please enter a valid email address');
       }
-      
+
       if (password.length < 6) {
         throw new Error('Password must be at least 6 characters long');
       }
-      
+
       if (displayName && displayName.trim().length < 2) {
         throw new Error('Display name must be at least 2 characters long');
       }
@@ -89,7 +97,8 @@ export const useAuthOperations = (): AuthOperationResult => {
       setState({ loading: false, error: null, success: true });
       return true;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Sign up failed';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Sign up failed';
       setState({ loading: false, error: errorMessage, success: false });
       return false;
     }
@@ -97,13 +106,14 @@ export const useAuthOperations = (): AuthOperationResult => {
 
   const signOut = async (): Promise<boolean> => {
     setState({ loading: true, error: null, success: false });
-    
+
     try {
       await logout();
       setState({ loading: false, error: null, success: true });
       return true;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Sign out failed';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Sign out failed';
       setState({ loading: false, error: errorMessage, success: false });
       return false;
     }
@@ -111,12 +121,12 @@ export const useAuthOperations = (): AuthOperationResult => {
 
   const sendPasswordReset = async (email: string): Promise<boolean> => {
     setState({ loading: true, error: null, success: false });
-    
+
     try {
       if (!email) {
         throw new Error('Email is required');
       }
-      
+
       if (!isValidEmail(email)) {
         throw new Error('Please enter a valid email address');
       }
@@ -125,7 +135,8 @@ export const useAuthOperations = (): AuthOperationResult => {
       setState({ loading: false, error: null, success: true });
       return true;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Password reset failed';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Password reset failed';
       setState({ loading: false, error: errorMessage, success: false });
       return false;
     }

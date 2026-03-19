@@ -27,9 +27,9 @@ const TimeTrackingControls: React.FC<TimeTrackingControlsProps> = ({
           size="sm"
           onClick={onStartAll}
           disabled={disabled}
-          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
+          className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
         >
-          <Play className="h-3 w-3 mr-1" fill="currentColor" />
+          <Play className="mr-1 h-3 w-3" fill="currentColor" />
           Start All
         </Button>
       ) : (
@@ -38,9 +38,9 @@ const TimeTrackingControls: React.FC<TimeTrackingControlsProps> = ({
           size="sm"
           onClick={onStopAll}
           disabled={disabled}
-          className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+          className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
         >
-          <Square className="h-3 w-3 mr-1" fill="currentColor" />
+          <Square className="mr-1 h-3 w-3" fill="currentColor" />
           Stop All ({activeCount})
         </Button>
       )}

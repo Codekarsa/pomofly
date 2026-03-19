@@ -32,19 +32,19 @@ class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: any) {
     // Generate unique error ID for this occurrence
     const errorId = `boundary-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
-    
+
     // Report error to monitoring service
     monitoring.reportError(error, {
       component: this.props.name || 'ErrorBoundary',
       action: 'component_error',
       severity: 'high',
-      tags: ['error_boundary', 'react_error']
+      tags: ['error_boundary', 'react_error'],
     });
 
     this.setState({
       error,
       errorInfo,
-      errorId
+      errorId,
     });
 
     // Log detailed error info in development
@@ -75,18 +75,19 @@ class ErrorBoundary extends Component<Props, State> {
 
       // Default error UI
       return (
-        <div className="min-h-[400px] flex items-center justify-center p-6">
-          <div className="max-w-md w-full bg-white rounded-lg shadow-lg border p-6 text-center">
-            <div className="flex justify-center mb-4">
+        <div className="flex min-h-[400px] items-center justify-center p-6">
+          <div className="w-full max-w-md rounded-lg border bg-white p-6 text-center shadow-lg">
+            <div className="mb-4 flex justify-center">
               <AlertCircle className="h-12 w-12 text-red-500" />
             </div>
-            
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+
+            <h2 className="mb-2 text-xl font-semibold text-gray-900">
               Something went wrong
             </h2>
-            
-            <p className="text-gray-600 mb-6">
-              We encountered an unexpected error. Our team has been notified and will look into it.
+
+            <p className="mb-6 text-gray-600">
+              We encountered an unexpected error. Our team has been notified and
+              will look into it.
             </p>
 
             {this.props.showDetails && this.state.error && (
@@ -94,15 +95,19 @@ class ErrorBoundary extends Component<Props, State> {
                 <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
                   Technical details
                 </summary>
-                <div className="mt-2 p-3 bg-gray-50 rounded border text-xs font-mono text-gray-700 overflow-auto max-h-32">
-                  <p><strong>Error:</strong> {this.state.error.message}</p>
+                <div className="mt-2 max-h-32 overflow-auto rounded border bg-gray-50 p-3 font-mono text-xs text-gray-700">
+                  <p>
+                    <strong>Error:</strong> {this.state.error.message}
+                  </p>
                   {this.state.errorId && (
-                    <p className="mt-1"><strong>Error ID:</strong> {this.state.errorId}</p>
+                    <p className="mt-1">
+                      <strong>Error ID:</strong> {this.state.errorId}
+                    </p>
                   )}
                   {this.state.error.stack && (
                     <details className="mt-2">
                       <summary className="cursor-pointer">Stack trace</summary>
-                      <pre className="mt-1 text-xs overflow-auto">
+                      <pre className="mt-1 overflow-auto text-xs">
                         {this.state.error.stack}
                       </pre>
                     </details>
@@ -111,7 +116,7 @@ class ErrorBoundary extends Component<Props, State> {
               </details>
             )}
 
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <Button
                 onClick={this.handleReset}
                 variant="outline"
@@ -129,8 +134,9 @@ class ErrorBoundary extends Component<Props, State> {
               </Button>
             </div>
 
-            <p className="text-xs text-gray-500 mt-4">
-              If this problem persists, try refreshing the page or contact support.
+            <p className="mt-4 text-xs text-gray-500">
+              If this problem persists, try refreshing the page or contact
+              support.
             </p>
           </div>
         </div>
@@ -149,12 +155,14 @@ export const TaskErrorBoundary = ({ children }: { children: ReactNode }) => (
   <ErrorBoundary
     name="TaskManagement"
     fallback={
-      <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
+      <div className="rounded-lg border border-red-200 bg-red-50 p-6">
         <div className="flex items-center gap-2 text-red-700">
           <AlertCircle className="h-5 w-5" />
-          <span className="font-medium">Task management temporarily unavailable</span>
+          <span className="font-medium">
+            Task management temporarily unavailable
+          </span>
         </div>
-        <p className="text-sm text-red-600 mt-1">
+        <p className="mt-1 text-sm text-red-600">
           Please refresh the page to try again.
         </p>
       </div>
@@ -168,12 +176,12 @@ export const TimerErrorBoundary = ({ children }: { children: ReactNode }) => (
   <ErrorBoundary
     name="PomodoroTimer"
     fallback={
-      <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
+      <div className="rounded-lg border border-red-200 bg-red-50 p-6">
         <div className="flex items-center gap-2 text-red-700">
           <AlertCircle className="h-5 w-5" />
           <span className="font-medium">Timer temporarily unavailable</span>
         </div>
-        <p className="text-sm text-red-600 mt-1">
+        <p className="mt-1 text-sm text-red-600">
           Please refresh the page to restore the timer.
         </p>
       </div>

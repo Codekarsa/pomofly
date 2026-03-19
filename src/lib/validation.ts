@@ -8,14 +8,24 @@ import { z } from 'zod';
 // Task validation schema
 export const TaskSchema = z.object({
   id: z.string().min(1, 'Task ID is required'),
-  title: z.string().min(1, 'Task title is required').max(500, 'Task title too long'),
+  title: z
+    .string()
+    .min(1, 'Task title is required')
+    .max(500, 'Task title too long'),
   projectId: z.string().min(1, 'Project ID is required'),
   userId: z.string().min(1, 'User ID is required'),
   completed: z.boolean(),
-  totalPomodoroSessions: z.number().int().min(0, 'Total sessions cannot be negative'),
+  totalPomodoroSessions: z
+    .number()
+    .int()
+    .min(0, 'Total sessions cannot be negative'),
   totalTimeSpent: z.number().min(0, 'Total time spent cannot be negative'),
   createdAt: z.date(),
-  estimatedPomodoros: z.number().int().min(1, 'Estimated pomodoros must be at least 1').optional(),
+  estimatedPomodoros: z
+    .number()
+    .int()
+    .min(1, 'Estimated pomodoros must be at least 1')
+    .optional(),
   archived: z.boolean().optional().default(false),
   focus: z.boolean(),
   deadline: z.string().nullable(),
@@ -23,7 +33,9 @@ export const TaskSchema = z.object({
   trackingStartedAt: z.date().nullable(),
   // NEW: Estimation tracking fields
   completedPomodoros: z.number().int().min(0).optional(),
-  estimationSource: z.enum(['manual', 'ai-suggested', 'ai-accepted']).optional(),
+  estimationSource: z
+    .enum(['manual', 'ai-suggested', 'ai-accepted'])
+    .optional(),
   aiSuggestedEstimate: z.number().int().min(1).optional(),
   completedAt: z.date().optional(),
 });
@@ -31,7 +43,10 @@ export const TaskSchema = z.object({
 // Project validation schema
 export const ProjectSchema = z.object({
   id: z.string().min(1, 'Project ID is required'),
-  name: z.string().min(1, 'Project name is required').max(200, 'Project name too long'),
+  name: z
+    .string()
+    .min(1, 'Project name is required')
+    .max(200, 'Project name too long'),
   userId: z.string().min(1, 'User ID is required'),
   createdAt: z.date(),
 });
@@ -43,8 +58,14 @@ export const EstimationRecordSchema = z.object({
   taskId: z.string().min(1, 'Task ID is required'),
   taskTitle: z.string().min(1, 'Task title is required'),
   projectId: z.string().optional(),
-  estimatedPomodoros: z.number().int().min(1, 'Estimated pomodoros must be at least 1'),
-  actualPomodoros: z.number().int().min(0, 'Actual pomodoros cannot be negative'),
+  estimatedPomodoros: z
+    .number()
+    .int()
+    .min(1, 'Estimated pomodoros must be at least 1'),
+  actualPomodoros: z
+    .number()
+    .int()
+    .min(0, 'Actual pomodoros cannot be negative'),
   accuracy: z.number().min(0, 'Accuracy cannot be negative'),
   completedAt: z.date(),
   keywords: z.array(z.string()).default([]),
@@ -60,9 +81,10 @@ export const ProjectUpdateSchema = ProjectSchema.partial().extend({
   id: z.string().min(1, 'Project ID is required'),
 });
 
-export const EstimationRecordUpdateSchema = EstimationRecordSchema.partial().extend({
-  id: z.string().min(1, 'Estimation record ID is required'),
-});
+export const EstimationRecordUpdateSchema =
+  EstimationRecordSchema.partial().extend({
+    id: z.string().min(1, 'Estimation record ID is required'),
+  });
 
 // Creation schemas (without id and auto-generated fields)
 export const TaskCreateSchema = TaskSchema.omit({
@@ -110,10 +132,14 @@ export type Project = z.infer<typeof ProjectSchema>;
 export type EstimationRecord = z.infer<typeof EstimationRecordSchema>;
 export type TaskCreate = z.infer<typeof TaskCreateSchema>;
 export type ProjectCreate = z.infer<typeof ProjectCreateSchema>;
-export type EstimationRecordCreate = z.infer<typeof EstimationRecordCreateSchema>;
+export type EstimationRecordCreate = z.infer<
+  typeof EstimationRecordCreateSchema
+>;
 export type TaskUpdate = z.infer<typeof TaskUpdateSchema>;
 export type ProjectUpdate = z.infer<typeof ProjectUpdateSchema>;
-export type EstimationRecordUpdate = z.infer<typeof EstimationRecordUpdateSchema>;
+export type EstimationRecordUpdate = z.infer<
+  typeof EstimationRecordUpdateSchema
+>;
 
 /**
  * Validation helper functions
@@ -138,7 +164,9 @@ export function validateProjectCreate(data: unknown): ProjectCreate {
   return ProjectCreateSchema.parse(data);
 }
 
-export function validateEstimationRecordCreate(data: unknown): EstimationRecordCreate {
+export function validateEstimationRecordCreate(
+  data: unknown
+): EstimationRecordCreate {
   return EstimationRecordCreateSchema.parse(data);
 }
 
@@ -150,7 +178,9 @@ export function validateProjectUpdate(data: unknown): ProjectUpdate {
   return ProjectUpdateSchema.parse(data);
 }
 
-export function validateEstimationRecordUpdate(data: unknown): EstimationRecordUpdate {
+export function validateEstimationRecordUpdate(
+  data: unknown
+): EstimationRecordUpdate {
   return EstimationRecordUpdateSchema.parse(data);
 }
 
@@ -188,8 +218,9 @@ export function transformFirebaseTask(docData: any): Task {
   const transformed = {
     ...docData,
     createdAt: docData.createdAt?.toDate?.() || new Date(docData.createdAt),
-    trackingStartedAt: docData.trackingStartedAt?.toDate?.() || 
-                      (docData.trackingStartedAt ? new Date(docData.trackingStartedAt) : null),
+    trackingStartedAt:
+      docData.trackingStartedAt?.toDate?.() ||
+      (docData.trackingStartedAt ? new Date(docData.trackingStartedAt) : null),
   };
   return validateTask(transformed);
 }
@@ -202,11 +233,14 @@ export function transformFirebaseProject(docData: any): Project {
   return validateProject(transformed);
 }
 
-export function transformFirebaseEstimationRecord(docData: any): EstimationRecord {
+export function transformFirebaseEstimationRecord(
+  docData: any
+): EstimationRecord {
   const transformed = {
     ...docData,
     createdAt: docData.createdAt?.toDate?.() || new Date(docData.createdAt),
-    completedAt: docData.completedAt?.toDate?.() || new Date(docData.completedAt),
+    completedAt:
+      docData.completedAt?.toDate?.() || new Date(docData.completedAt),
   };
   return validateEstimationRecord(transformed);
 }
@@ -219,5 +253,5 @@ export function extractKeywords(title: string): string[] {
   return title
     .toLowerCase()
     .split(/\s+/)
-    .filter(word => word.length > 2 && !stopWords.includes(word));
+    .filter((word) => word.length > 2 && !stopWords.includes(word));
 }

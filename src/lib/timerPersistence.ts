@@ -36,7 +36,7 @@ export class TimerPersistence {
       if (session) {
         const updatedSession = {
           ...session,
-          selectedTaskIds
+          selectedTaskIds,
         };
         this.saveSession(updatedSession);
       }
@@ -51,7 +51,7 @@ export class TimerPersistence {
       if (!stored) return null;
 
       const session = JSON.parse(stored) as PersistedTimerSession;
-      
+
       // Check if session is too old
       const sessionAge = Date.now() - session.sessionCreatedAt;
       if (sessionAge > MAX_SESSION_AGE) {
@@ -88,8 +88,10 @@ export class TimerPersistence {
       typeof session === 'object' &&
       ['pomodoro', 'shortBreak', 'longBreak'].includes(session.phase) &&
       typeof session.isActive === 'boolean' &&
-      (session.timerStartedAt === null || typeof session.timerStartedAt === 'number') &&
-      (session.pausedTimeRemaining === null || typeof session.pausedTimeRemaining === 'number') &&
+      (session.timerStartedAt === null ||
+        typeof session.timerStartedAt === 'number') &&
+      (session.pausedTimeRemaining === null ||
+        typeof session.pausedTimeRemaining === 'number') &&
       typeof session.sessionsCompleted === 'number' &&
       typeof session.sessionCreatedAt === 'number' &&
       session.settings &&

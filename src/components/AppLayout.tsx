@@ -1,4 +1,4 @@
-'use client'
+'use client';
 import React, { useState, useCallback, useEffect, Suspense, lazy } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import Sidebar from './Sidebar';
@@ -6,7 +6,7 @@ import SettingsModal from './SettingsModal';
 import GuestBanner from './GuestBanner';
 import { usePomodoro, defaultSettings } from '@/hooks/usePomodoro';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
 import { Github } from 'lucide-react';
 import { signInWithPopup, signOut } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
@@ -25,7 +25,10 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const [settings, setSettings] = useState(defaultSettings);
   const [showGuestBanner, setShowGuestBanner] = useState(true);
   const [showMigrationModal, setShowMigrationModal] = useState(false);
-  const [guestDataSummary, setGuestDataSummary] = useState({ taskCount: 0, projectCount: 0 });
+  const [guestDataSummary, setGuestDataSummary] = useState({
+    taskCount: 0,
+    projectCount: 0,
+  });
   const { event } = useGoogleAnalytics();
 
   const { updateSettings } = usePomodoro(settings);
@@ -47,17 +50,20 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     setIsSettingsOpen(false);
   }, []);
 
-  const handleSettingsSave = useCallback((newSettings: typeof defaultSettings) => {
-    setSettings(newSettings);
-    updateSettings(newSettings);
-    setIsSettingsOpen(false);
-    event('settings_saved', {
-      pomodoro: newSettings.pomodoro,
-      shortBreak: newSettings.shortBreak,
-      longBreak: newSettings.longBreak,
-      longBreakInterval: newSettings.longBreakInterval
-    });
-  }, [event, updateSettings]);
+  const handleSettingsSave = useCallback(
+    (newSettings: typeof defaultSettings) => {
+      setSettings(newSettings);
+      updateSettings(newSettings);
+      setIsSettingsOpen(false);
+      event('settings_saved', {
+        pomodoro: newSettings.pomodoro,
+        shortBreak: newSettings.shortBreak,
+        longBreak: newSettings.longBreak,
+        longBreakInterval: newSettings.longBreakInterval,
+      });
+    },
+    [event, updateSettings]
+  );
 
   const handleSignIn = async () => {
     try {
@@ -87,21 +93,29 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     setShowMigrationModal(false);
   }, []);
 
-  if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  if (loading)
+    return (
+      <div className="flex h-screen items-center justify-center">
+        Loading...
+      </div>
+    );
 
   const isGuest = !user;
 
   return (
     <div className="flex h-screen bg-gray-100">
       <Sidebar onSettingsClick={handleSettingsOpen} onSignIn={handleSignIn} />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden">
         {/* Guest Banner */}
         {isGuest && showGuestBanner && (
-          <GuestBanner onSignIn={handleSignIn} onDismiss={handleDismissGuestBanner} />
+          <GuestBanner
+            onSignIn={handleSignIn}
+            onDismiss={handleDismissGuestBanner}
+          />
         )}
         {/* Top Header */}
-        <header className="bg-white border-b border-gray-200 px-6 py-3">
-          <div className="flex justify-between items-center">
+        <header className="border-b border-gray-200 bg-white px-6 py-3">
+          <div className="flex items-center justify-between">
             <h1 className="text-xl font-semibold text-gray-900">Pomofly</h1>
             <div className="flex items-center space-x-2">
               <Button variant="ghost" size="sm" asChild>
@@ -111,7 +125,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                   rel="noopener noreferrer"
                   className="flex items-center"
                 >
-                  <Github className="w-4 h-4 mr-2" />
+                  <Github className="mr-2 h-4 w-4" />
                   <span className="hidden sm:inline">Star on GitHub</span>
                 </a>
               </Button>
@@ -127,9 +141,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             </div>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto">
-          {children}
-        </main>
+        <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
       <SettingsModal
         isOpen={isSettingsOpen}

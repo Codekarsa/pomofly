@@ -13,7 +13,7 @@ export function useTabTitle({
   minutes,
   seconds,
   isActive,
-  appName = 'Pomofly'
+  appName = 'Pomofly',
 }: TabTitleOptions) {
   const originalTitleRef = useRef<string | null>(null);
 
@@ -39,17 +39,17 @@ export function useTabTitle({
       const phaseConfig = {
         pomodoro: { emoji: '🍅', name: 'Pomodoro' },
         shortBreak: { emoji: '☕', name: 'Short Break' },
-        longBreak: { emoji: '🛋️', name: 'Long Break' }
+        longBreak: { emoji: '🛋️', name: 'Long Break' },
       };
 
       const { emoji, name } = phaseConfig[phase];
-      
+
       // Format time as MM:SS
       const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-      
+
       // Create the dynamic title
       const dynamicTitle = `${emoji} ${timeString} - ${name} | ${appName}`;
-      
+
       document.title = dynamicTitle;
     };
 
@@ -69,7 +69,7 @@ export function useTabTitle({
 
     // Show paused state in title when timer has remaining time but is not active
     const hasRemainingTime = minutes > 0 || seconds > 0;
-    
+
     if (!isActive && hasRemainingTime) {
       const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
       const pausedTitle = `⏸️ ${timeString} - Paused | ${appName}`;

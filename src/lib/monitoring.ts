@@ -55,10 +55,10 @@ class MonitoringService {
 
     // Initialize performance monitoring
     this.setupPerformanceMonitoring();
-    
+
     // Initialize error tracking
     this.setupErrorTracking();
-    
+
     // Initialize user monitoring
     this.setupUserMonitoring();
 
@@ -70,11 +70,23 @@ class MonitoringService {
     if ('performance' in window) {
       window.addEventListener('load', () => {
         setTimeout(() => {
-          const perfData = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+          const perfData = performance.getEntriesByType(
+            'navigation'
+          )[0] as PerformanceNavigationTiming;
           if (perfData) {
-            this.recordMetric('page_load_time', perfData.loadEventEnd - perfData.loadEventStart);
-            this.recordMetric('dom_content_loaded_time', perfData.domContentLoadedEventEnd - perfData.domContentLoadedEventStart);
-            this.recordMetric('first_paint_time', perfData.loadEventEnd - perfData.fetchStart);
+            this.recordMetric(
+              'page_load_time',
+              perfData.loadEventEnd - perfData.loadEventStart
+            );
+            this.recordMetric(
+              'dom_content_loaded_time',
+              perfData.domContentLoadedEventEnd -
+                perfData.domContentLoadedEventStart
+            );
+            this.recordMetric(
+              'first_paint_time',
+              perfData.loadEventEnd - perfData.fetchStart
+            );
           }
         }, 1000);
       });
@@ -91,18 +103,21 @@ class MonitoringService {
         component: 'global',
         action: 'script_error',
         severity: 'high',
-        tags: ['javascript', 'global']
+        tags: ['javascript', 'global'],
       });
     });
 
     // Unhandled promise rejections
     window.addEventListener('unhandledrejection', (event) => {
-      this.reportError(new Error(`Unhandled Promise Rejection: ${event.reason}`), {
-        component: 'global',
-        action: 'promise_rejection',
-        severity: 'high',
-        tags: ['promise', 'unhandled']
-      });
+      this.reportError(
+        new Error(`Unhandled Promise Rejection: ${event.reason}`),
+        {
+          component: 'global',
+          action: 'promise_rejection',
+          severity: 'high',
+          tags: ['promise', 'unhandled'],
+        }
+      );
     });
   }
 
@@ -112,7 +127,8 @@ class MonitoringService {
 
     // Track session duration on page unload
     window.addEventListener('beforeunload', () => {
-      const sessionDuration = Date.now() - parseInt(this.sessionId.split('-')[0]);
+      const sessionDuration =
+        Date.now() - parseInt(this.sessionId.split('-')[0]);
       this.recordMetric('session_duration', sessionDuration, ['user_session']);
     });
 
@@ -145,12 +161,15 @@ class MonitoringService {
     this.userId = userId || undefined;
   }
 
-  reportError(error: Error, context?: {
-    component?: string;
-    action?: string;
-    severity?: ErrorReport['severity'];
-    tags?: string[];
-  }) {
+  reportError(
+    error: Error,
+    context?: {
+      component?: string;
+      action?: string;
+      severity?: ErrorReport['severity'];
+      tags?: string[];
+    }
+  ) {
     if (!this.initialized) return;
 
     const errorReport: ErrorReport = {
@@ -160,7 +179,7 @@ class MonitoringService {
         name: error.name,
         message: error.message,
         stack: error.stack,
-        cause: error.cause
+        cause: error.cause,
       },
       context: {
         userAgent: navigator.userAgent,
@@ -169,10 +188,10 @@ class MonitoringService {
         sessionId: this.sessionId,
         route: window.location.pathname,
         component: context?.component,
-        action: context?.action
+        action: context?.action,
       },
       severity: context?.severity || 'medium',
-      tags: context?.tags || []
+      tags: context?.tags || [],
     };
 
     // Store error locally
@@ -199,9 +218,9 @@ class MonitoringService {
         userId: this.userId,
         sessionId: this.sessionId,
         route: window.location.pathname,
-        userAgent: navigator.userAgent
+        userAgent: navigator.userAgent,
       },
-      tags
+      tags,
     };
 
     // Store metric locally
@@ -222,33 +241,43 @@ class MonitoringService {
     try {
       const result = fn();
       const duration = performance.now() - start;
-      this.recordMetric(`${name}_duration`, duration, ['function_timing', ...tags]);
+      this.recordMetric(`${name}_duration`, duration, [
+        'function_timing',
+        ...tags,
+      ]);
       return result;
     } catch (error) {
       this.reportError(error as Error, {
         component: 'performance',
         action: 'function_timing',
         severity: 'medium',
-        tags: ['timing_error', ...tags]
+        tags: ['timing_error', ...tags],
       });
       throw error;
     }
   }
 
   // Time an async function execution
-  async timeAsyncFunction<T>(name: string, fn: () => Promise<T>, tags: string[] = []): Promise<T> {
+  async timeAsyncFunction<T>(
+    name: string,
+    fn: () => Promise<T>,
+    tags: string[] = []
+  ): Promise<T> {
     const start = performance.now();
     try {
       const result = await fn();
       const duration = performance.now() - start;
-      this.recordMetric(`${name}_duration`, duration, ['async_function_timing', ...tags]);
+      this.recordMetric(`${name}_duration`, duration, [
+        'async_function_timing',
+        ...tags,
+      ]);
       return result;
     } catch (error) {
       this.reportError(error as Error, {
         component: 'performance',
         action: 'async_function_timing',
         severity: 'medium',
-        tags: ['async_timing_error', ...tags]
+        tags: ['async_timing_error', ...tags],
       });
       throw error;
     }
@@ -258,10 +287,10 @@ class MonitoringService {
     try {
       const errors = this.getStoredErrors();
       errors.push(errorReport);
-      
+
       // Keep only the last 50 errors
       const recentErrors = errors.slice(-50);
-      
+
       localStorage.setItem('pomofly_errors', JSON.stringify(recentErrors));
     } catch (error) {
       console.warn('Could not store error locally:', error);
@@ -272,10 +301,10 @@ class MonitoringService {
     try {
       const metrics = this.getStoredMetrics();
       metrics.push(metric);
-      
+
       // Keep only the last 100 metrics
       const recentMetrics = metrics.slice(-100);
-      
+
       localStorage.setItem('pomofly_metrics', JSON.stringify(recentMetrics));
     } catch (error) {
       console.warn('Could not store metric locally:', error);
@@ -308,7 +337,7 @@ class MonitoringService {
       fetch(remoteEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(errorReport)
+        body: JSON.stringify(errorReport),
       }).catch((error) => {
         console.warn('Failed to send error to remote service:', error);
       });
@@ -322,7 +351,7 @@ class MonitoringService {
       fetch(remoteEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(metric)
+        body: JSON.stringify(metric),
       }).catch((error) => {
         console.warn('Failed to send metric to remote service:', error);
       });
@@ -333,7 +362,7 @@ class MonitoringService {
   getSummary() {
     const errors = this.getStoredErrors();
     const metrics = this.getStoredMetrics();
-    
+
     return {
       sessionId: this.sessionId,
       userId: this.userId,
@@ -342,7 +371,7 @@ class MonitoringService {
       recentErrors: errors.slice(-5),
       recentMetrics: metrics.slice(-10),
       lastError: errors[errors.length - 1],
-      sessionDuration: Date.now() - parseInt(this.sessionId.split('-')[0])
+      sessionDuration: Date.now() - parseInt(this.sessionId.split('-')[0]),
     };
   }
 
