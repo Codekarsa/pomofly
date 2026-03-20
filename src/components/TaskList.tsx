@@ -30,7 +30,6 @@ import { Combobox } from './ui/combobox';
 import { cn } from '@/lib/utils';
 import LabelPicker, { LabelBadge } from './LabelPicker';
 import { useLabels } from '@/hooks/useLabels';
-import { AIBreakdownModal } from './AIBreakdownModal';
 import { EstimationHint } from './EstimationHint';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';

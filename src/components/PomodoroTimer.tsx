@@ -5,11 +5,13 @@ import { useTasks } from '@/hooks/useTasks';
 import { useProjects } from '@/hooks/useProjects';
 import { useTimeTracking } from '@/hooks/useTimeTracking';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
+import { useNotifications } from '@/hooks/useNotifications';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
 import SelectedTasksList from './SelectedTasksList';
 import { TimerRecoveryModal } from './TimerRecoveryModal';
+import { NotificationPermissionPrompt } from './NotificationPermissionPrompt';
 import { TimerPersistence } from '@/lib/timerPersistence';
 
 interface PomodoroSettings {
@@ -26,6 +28,12 @@ interface PomodoroTimerProps {
 const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) => {
   const { user } = useAuth();
   const { event } = useGoogleAnalytics();
+  const {
+    shouldShowPermissionPrompt,
+    requestPermission,
+    showTimerComplete,
+    updateSettings: updateNotificationSettings
+  } = useNotifications();
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('selectedTaskIds');
@@ -84,6 +92,23 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     const taskIds = selectedTaskIdsRef.current;
     const currentTasks = tasksRef.current;
 
+    // Show notification for timer completion
+    const currentPhase = phase as 'pomodoro' | 'shortBreak' | 'longBreak';
+    let nextPhase: string | undefined;
+    
+    if (currentPhase === 'pomodoro') {
+      // Determine next phase based on completed sessions
+      const nextSessionCount = completedSessions.length + 1;
+      nextPhase = nextSessionCount % settings.longBreakInterval === 0 ? 'longBreak' : 'shortBreak';
+    } else {
+      nextPhase = 'pomodoro';
+    }
+    
+    // Trigger notification
+    showTimerComplete(currentPhase, nextPhase).catch(error => {
+      console.error('Error showing timer completion notification:', error);
+    });
+
     if (user && taskIds.length > 0) {
       // Stop time tracking for all selected tasks
       const selectedTasks = currentTasks.filter(t => taskIds.includes(t.id));
@@ -122,15 +147,15 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
         duration: settings.pomodoro,
         task_ids: taskIds,
         task_count: taskIds.length,
-        phase: 'pomodoro'
+        phase: currentPhase
       });
     } else {
       event('pomodoro_session_completed', {
         duration: settings.pomodoro,
-        phase: 'pomodoro'
+        phase: currentPhase
       });
     }
-  }, [user, settings.pomodoro, incrementPomodoroSession, stopAllTimeTracking, event]);
+  }, [user, settings.pomodoro, settings.longBreakInterval, incrementPomodoroSession, stopAllTimeTracking, event, phase, completedSessions, showTimerComplete]);
 
   const {
     phase,
@@ -293,6 +318,10 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     );
   }
 
+  const handleDismissPermissionPrompt = useCallback(() => {
+    updateNotificationSettings({ requestedPermission: true });
+  }, [updateNotificationSettings]);
+
   return (
     <>
       {/* Timer Recovery Modal */}
@@ -303,6 +332,16 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
           onRestore={handleRestoreSession}
           onStartFresh={handleStartFresh}
         />
+      )}
+
+      {/* Notification Permission Prompt */}
+      {shouldShowPermissionPrompt && (
+        <div className="mb-4">
+          <NotificationPermissionPrompt
+            onRequestPermission={requestPermission}
+            onDismiss={handleDismissPermissionPrompt}
+          />
+        </div>
       )}
 
       <Card className="w-full mx-auto">
