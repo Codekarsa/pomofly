@@ -6,6 +6,7 @@ import { PrecisionTimer, validateTimerPrecision } from '@/lib/timerPrecision';
 import {
   TimerPersistence,
   PersistedTimerSession,
+  RecoveryFailureReason,
 } from '@/lib/timerPersistence';
 >>>>>>> dc46537 (feat: implement comprehensive Prettier code formatting integration)
 
@@ -46,6 +47,7 @@ export function usePomodoro(
   // Session recovery state
   const [persistedSession, setPersistedSession] =
     useState<PersistedTimerSession | null>(null);
+  const [recoveryFailures, setRecoveryFailures] = useState<RecoveryFailureReason[]>([]);
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
 
   // Use ref for onComplete to prevent dependency changes from resetting timer
@@ -63,11 +65,24 @@ export function usePomodoro(
 
   // Check for persisted session on mount
   useEffect(() => {
-    const session = TimerPersistence.loadSession();
-    if (session) {
+    // Initialize the persistence system
+    TimerPersistence.initialize();
+    
+    const { session, failures, isRecoverable } = TimerPersistence.getRecoveryInfo();
+    if (session && isRecoverable) {
       setPersistedSession(session);
+      setRecoveryFailures(failures);
       setShowRecoveryModal(true);
+    } else if (session && !isRecoverable) {
+      // Auto-clear unrecoverable sessions with user notification
+      console.warn('Auto-clearing unrecoverable session with failures:', failures);
+      TimerPersistence.forceStartFresh();
     }
+
+    // Clean up on unmount
+    return () => {
+      TimerPersistence.cleanup();
+    };
   }, []);
 
   // Persist session whenever state changes
@@ -273,7 +288,8 @@ export function usePomodoro(
   const startFresh = useCallback(() => {
     setShowRecoveryModal(false);
     setPersistedSession(null);
-    TimerPersistence.clearSession();
+    setRecoveryFailures([]);
+    TimerPersistence.forceStartFresh();
   }, []);
 
   useEffect(() => {
@@ -297,6 +313,7 @@ export function usePomodoro(
     // Recovery modal state
     showRecoveryModal,
     persistedSession,
+    recoveryFailures,
     restoreSession,
     startFresh,
   };

@@ -288,6 +288,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(
       switchPhase,
       showRecoveryModal,
       persistedSession,
+      recoveryFailures,
       restoreSession,
       startFresh,
     } = usePomodoro(settings, handlePomodoroComplete);
@@ -639,6 +640,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(
           <TimerRecoveryModal
             isOpen={showRecoveryModal}
             session={persistedSession}
+            failures={recoveryFailures}
             onRestore={handleRestoreSession}
             onStartFresh={handleStartFresh}
           />
