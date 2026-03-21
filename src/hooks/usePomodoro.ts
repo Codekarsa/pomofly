@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { TimerPersistence, PersistedTimerSession } from '@/lib/timerPersistence';
+import { TimezoneAwareSessionManager } from '@/lib/timezoneAwareTracking';
 
 type PomodoroPhase = 'pomodoro' | 'shortBreak' | 'longBreak';
 
@@ -92,6 +93,13 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
   }, [timerStartedAt, pausedTimeRemaining, settings, phase]);
 
   const handlePhaseComplete = useCallback(() => {
+    // Record the completed session with timezone information
+    const sessionDuration = settings[phase] * 60; // Duration in seconds
+    TimezoneAwareSessionManager.recordSession(
+      phase,
+      sessionDuration
+    );
+
     if (phase === 'pomodoro') {
       setSessionsCompleted(prev => prev + 1);
       if (sessionsCompleted + 1 >= settings.longBreakInterval) {

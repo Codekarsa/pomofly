@@ -1,3 +1,11 @@
+import { 
+  getBrowserTimezone, 
+  getTimezoneInfo, 
+  UserTimezoneManager,
+  convertToUTC,
+  convertFromUTC
+} from './timezone';
+
 export interface PersistedTimerSession {
   phase: 'pomodoro' | 'shortBreak' | 'longBreak';
   isActive: boolean;
@@ -12,6 +20,10 @@ export interface PersistedTimerSession {
     longBreak: number;
     longBreakInterval: number;
   };
+  // Enhanced timezone support
+  timezone?: string;
+  timezoneOffset?: number; // in minutes
+  sessionCreatedAtLocal?: number; // local timestamp for display
 }
 
 const TIMER_SESSION_KEY = 'pomofly_timer_session';
@@ -20,9 +32,17 @@ const MAX_SESSION_AGE = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 export class TimerPersistence {
   static saveSession(session: PersistedTimerSession) {
     try {
+      const now = Date.now();
+      const effectiveTimezone = UserTimezoneManager.getEffectiveTimezone();
+      const timezoneInfo = getTimezoneInfo(effectiveTimezone);
+      
       const sessionData = {
         ...session,
-        sessionCreatedAt: session.sessionCreatedAt || Date.now(),
+        sessionCreatedAt: session.sessionCreatedAt || now,
+        // Add timezone information
+        timezone: effectiveTimezone,
+        timezoneOffset: timezoneInfo.offset,
+        sessionCreatedAtLocal: session.sessionCreatedAtLocal || now,
       };
       localStorage.setItem(TIMER_SESSION_KEY, JSON.stringify(sessionData));
     } catch (error) {
@@ -111,7 +131,12 @@ export class TimerPersistence {
     }
 
     const totalDuration = session.settings[session.phase] * 60;
-    const elapsed = Math.floor((Date.now() - session.timerStartedAt) / 1000);
+    
+    // Use UTC timestamps for calculation to avoid timezone issues
+    const currentUTC = Date.now();
+    const startedAtUTC = session.timerStartedAt;
+    
+    const elapsed = Math.floor((currentUTC - startedAtUTC) / 1000);
     const remaining = totalDuration - elapsed;
 
     return Math.max(0, remaining);
@@ -125,6 +150,32 @@ export class TimerPersistence {
   static getSessionAge(): number | null {
     const session = this.loadSession();
     if (!session) return null;
+    
+    // Calculate age using UTC timestamps to ensure consistency
     return Date.now() - session.sessionCreatedAt;
+  }
+
+  /**
+   * Get session age in user's local timezone for display purposes
+   */
+  static getSessionAgeInUserTimezone(): { 
+    ageMs: number; 
+    createdAtLocal: string; 
+    timezone: string;
+  } | null {
+    const session = this.loadSession();
+    if (!session) return null;
+    
+    const effectiveTimezone = session.timezone || UserTimezoneManager.getEffectiveTimezone();
+    const ageMs = Date.now() - session.sessionCreatedAt;
+    
+    // Convert creation time to user's timezone for display
+    const createdAtLocal = convertFromUTC(session.sessionCreatedAt, effectiveTimezone);
+    
+    return {
+      ageMs,
+      createdAtLocal: createdAtLocal.toLocaleString(),
+      timezone: effectiveTimezone,
+    };
   }
 }

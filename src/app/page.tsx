@@ -2,12 +2,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import AppLayout from '@/components/AppLayout';
 import PomodoroTimer from '@/components/PomodoroTimer';
+import TimezoneAwareStats from '@/components/TimezoneAwareStats';
 import { defaultSettings } from '@/hooks/usePomodoro';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
+import { useAuth } from '@/app/contexts/AuthContext';
 
 export default function HomePage() {
   const [settings, setSettings] = useState(defaultSettings);
   const { event } = useGoogleAnalytics();
+  const { user } = useAuth();
 
   useEffect(() => {
     const savedSettings = localStorage.getItem('pomodoroSettings');
@@ -26,13 +29,24 @@ export default function HomePage() {
   return (
     <AppLayout>
       <div className="container mx-auto px-4 py-4 sm:py-8">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <div className="mb-6 sm:mb-8 text-center px-2">
             <h1 className="text-2xl sm:text-3xl font-bold mb-2">Pomodoro Timer</h1>
             <p className="text-muted-foreground text-sm sm:text-base">Focus on your work with timed sessions</p>
           </div>
-          <div className="px-2 sm:px-0">
-            <PomodoroTimer settings={memoizedSettings} />
+          
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Timer Section */}
+            <div className="px-2 sm:px-0">
+              <PomodoroTimer settings={memoizedSettings} />
+            </div>
+            
+            {/* Stats Section - Only show for logged in users */}
+            {user && (
+              <div className="px-2 sm:px-0">
+                <TimezoneAwareStats />
+              </div>
+            )}
           </div>
         </div>
       </div>

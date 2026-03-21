@@ -2,6 +2,9 @@ import React, { useState, useEffect, useCallback, memo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Clock, Globe } from 'lucide-react';
+import TimezoneSettings from './TimezoneSettings';
 
 type Settings = {
   pomodoro: number;
@@ -69,34 +72,59 @@ const SettingsModal = memo(({ isOpen, onClose, settings, onSave, event }: Settin
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-semibold mb-4">Timer Settings</h2>
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            {Object.entries(localSettings).map(([key, value]) => (
-              <div key={key} className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor={key} className="text-right capitalize">
-                  {key.replace(/([A-Z])/g, ' $1').trim()}
-                </Label>
-                <Input
-                  id={key}
-                  name={key}
-                  type="number"
-                  value={value.toString()}
-                  onChange={handleChange}
-                  className="col-span-3"
-                  min="1"
-                />
+      <div className="bg-white dark:bg-gray-900 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-auto">
+        <h2 className="text-xl font-semibold mb-4">Settings</h2>
+        
+        <Tabs defaultValue="timer" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="timer" className="flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Timer
+            </TabsTrigger>
+            <TabsTrigger value="timezone" className="flex items-center gap-2">
+              <Globe className="w-4 h-4" />
+              Timezone
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="timer" className="mt-6">
+            <form onSubmit={handleSubmit}>
+              <div className="space-y-4">
+                {Object.entries(localSettings).map(([key, value]) => (
+                  <div key={key} className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor={key} className="text-right capitalize">
+                      {key.replace(/([A-Z])/g, ' $1').trim()}
+                    </Label>
+                    <Input
+                      id={key}
+                      name={key}
+                      type="number"
+                      value={value.toString()}
+                      onChange={handleChange}
+                      className="col-span-3"
+                      min="1"
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <div className="mt-6 flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={handleDialogClose}>
-              Cancel
-            </Button>
-            <Button type="submit">Save changes</Button>
-          </div>
-        </form>
+              <div className="mt-6 flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={handleDialogClose}>
+                  Cancel
+                </Button>
+                <Button type="submit">Save changes</Button>
+              </div>
+            </form>
+          </TabsContent>
+          
+          <TabsContent value="timezone" className="mt-6">
+            <TimezoneSettings />
+            <div className="mt-6 flex justify-end">
+              <Button type="button" variant="outline" onClick={handleDialogClose}>
+                Close
+              </Button>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
