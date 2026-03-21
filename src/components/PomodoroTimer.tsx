@@ -88,12 +88,14 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   }, [loading, tasks]);
 
   // Stable callback that uses refs - won't cause usePomodoro to reset
+  // Temporary variable to hold phase for callback - will be replaced after usePomodoro hook is defined
+  const [currentPhase, setCurrentPhase] = useState<'pomodoro' | 'shortBreak' | 'longBreak'>('pomodoro');
+
   const handlePomodoroComplete = useCallback(() => {
     const taskIds = selectedTaskIdsRef.current;
     const currentTasks = tasksRef.current;
 
     // Show notification for timer completion
-    const currentPhase = phase as 'pomodoro' | 'shortBreak' | 'longBreak';
     let nextPhase: string | undefined;
     
     if (currentPhase === 'pomodoro') {
@@ -155,7 +157,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
         phase: currentPhase
       });
     }
-  }, [user, settings.pomodoro, settings.longBreakInterval, incrementPomodoroSession, stopAllTimeTracking, event, phase, completedSessions, showTimerComplete]);
+  }, [user, settings.pomodoro, settings.longBreakInterval, incrementPomodoroSession, stopAllTimeTracking, event, currentPhase, completedSessions, showTimerComplete]);
 
   const {
     phase,
@@ -170,6 +172,11 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     restoreSession,
     startFresh
   } = usePomodoro(settings, handlePomodoroComplete);
+
+  // Keep currentPhase in sync with the actual phase from usePomodoro
+  useEffect(() => {
+    setCurrentPhase(phase);
+  }, [phase]);
 
   // Handle timer start/pause - manage time tracking
   useEffect(() => {
