@@ -1,3 +1,56 @@
+// Webpack configuration function (shared between normal and analyzer modes)
+function nextConfigWebpack(config, { isServer }) {
+  if (!isServer) {
+    // Enable more aggressive code splitting for client-side bundles
+    config.optimization = {
+      ...config.optimization,
+      splitChunks: {
+        ...config.optimization.splitChunks,
+        maxSize: 244000, // ~240KB chunks
+        cacheGroups: {
+          ...config.optimization.splitChunks?.cacheGroups,
+          // Create separate chunks for heavy UI components
+          ui: {
+            name: 'ui-components',
+            chunks: 'all',
+            test: /[\\/]node_modules[\\/](@radix-ui|lucide-react)[\\/]/,
+            priority: 20,
+            enforce: true,
+          },
+          // Create a separate chunk for Firebase
+          firebase: {
+            name: 'firebase',
+            chunks: 'all',
+            test: /[\\/]node_modules[\\/](firebase|@firebase)[\\/]/,
+            priority: 15,
+            enforce: true,
+          },
+          // Create a separate chunk for heavy libraries
+          vendor: {
+            name: 'vendor',
+            chunks: 'all',
+            test: /[\\/]node_modules[\\/]/,
+            priority: 10,
+            minChunks: 2,
+            maxSize: 244000,
+          },
+        },
+      },
+    };
+
+    // Tree shaking optimization
+    config.optimization.usedExports = true;
+    config.optimization.sideEffects = false;
+  }
+
+  // Production optimizations
+  if (process.env.NODE_ENV === 'production') {
+    config.optimization.minimize = true;
+  }
+
+  return config;
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // CSP headers implementation (remove output: export for server deployment)
@@ -47,12 +100,6 @@ const nextConfig = {
     optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],
     optimizeCss: true,
     nextScriptWorkers: true,
-  },
-
-  // Configure static generation for better performance
-  async generateBuildId() {
-    // This can be used to create a custom build ID
-    return 'build-' + new Date().toISOString().replace(/[:.]/g, '-');
   },
 
   // Ensure proper handling of environment variables
@@ -123,59 +170,6 @@ function generateCSP() {
   ];
 
   return csp.join('; ');
-}
-
-// Webpack configuration function (shared between normal and analyzer modes)
-function nextConfigWebpack(config, { isServer }) {
-  if (!isServer) {
-    // Enable more aggressive code splitting for client-side bundles
-    config.optimization = {
-      ...config.optimization,
-      splitChunks: {
-        ...config.optimization.splitChunks,
-        maxSize: 244000, // ~240KB chunks
-        cacheGroups: {
-          ...config.optimization.splitChunks?.cacheGroups,
-          // Create separate chunks for heavy UI components
-          ui: {
-            name: 'ui-components',
-            chunks: 'all',
-            test: /[\\/]node_modules[\\/](@radix-ui|lucide-react)[\\/]/,
-            priority: 20,
-            enforce: true,
-          },
-          // Create a separate chunk for Firebase
-          firebase: {
-            name: 'firebase',
-            chunks: 'all',
-            test: /[\\/]node_modules[\\/](firebase|@firebase)[\\/]/,
-            priority: 15,
-            enforce: true,
-          },
-          // Create a separate chunk for heavy libraries
-          vendor: {
-            name: 'vendor',
-            chunks: 'all',
-            test: /[\\/]node_modules[\\/]/,
-            priority: 10,
-            minChunks: 2,
-            maxSize: 244000,
-          },
-        },
-      },
-    };
-
-    // Tree shaking optimization
-    config.optimization.usedExports = true;
-    config.optimization.sideEffects = false;
-  }
-
-  // Production optimizations
-  if (process.env.NODE_ENV === 'production') {
-    config.optimization.minimize = true;
-  }
-
-  return config;
 }
 
 // Check if PWA plugin is available and add PWA support
