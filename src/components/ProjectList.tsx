@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useProjects } from '../hooks/useProjects';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
+import { sanitizeTaskTitle } from '@/lib/security';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,9 +29,10 @@ const ProjectList = React.memo(() => {
 
   const handleAddProject = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newProjectName.trim()) {
+    const sanitizedName = sanitizeTaskTitle(newProjectName.trim());
+    if (sanitizedName) {
       try {
-        await addProject(newProjectName);
+        await addProject(sanitizedName);
         event('project_added', { project_name: newProjectName });
         setNewProjectName('');
       } catch (err) {
@@ -42,9 +44,10 @@ const ProjectList = React.memo(() => {
 
   const handleUpdateProject = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingProject && editingProject.name.trim()) {
+    const sanitizedName = sanitizeTaskTitle(editingProject?.name?.trim() || '');
+    if (editingProject && sanitizedName) {
       try {
-        await updateProject(editingProject.id, editingProject.name);
+        await updateProject(editingProject.id, sanitizedName);
         event('project_updated', { project_id: editingProject.id });
         setEditingProject(null);
       } catch (err) {
@@ -122,7 +125,7 @@ const ProjectList = React.memo(() => {
                 </form>
               ) : (
                 <>
-                  <span className="text-sm font-medium">{project.name}</span>
+                  <span className="text-sm font-medium" dangerouslySetInnerHTML={{ __html: sanitizeTaskTitle(project.name) }} />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="sm">

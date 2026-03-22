@@ -5,6 +5,7 @@ import { useProjects } from '../hooks/useProjects';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { useTimeTracking } from '@/hooks/useTimeTracking';
 import { useEstimation, type EstimationResult } from '@/hooks/useEstimation';
+import { sanitizeTaskTitle } from '@/lib/security';
 import { Button } from '@/components/ui/button';
 import { MobileButton } from '@/components/ui/mobile-button';
 import { Input } from '@/components/ui/input';
@@ -119,7 +120,7 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
                 >
                   <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
                 </MobileButton>
-                <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
+                <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`} dangerouslySetInnerHTML={{ __html: sanitizeTaskTitle(task.title) }} />
                 {task.projectId && <ProjectBadge projectId={task.projectId} />}
                 <TaskLabels labelIds={task.labelIds} />
                 <span className="text-xs text-muted-foreground">
@@ -335,9 +336,10 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newTaskTitle.trim() && selectedProjectId) {
+    const sanitizedTitle = sanitizeTaskTitle(newTaskTitle.trim());
+    if (sanitizedTitle && selectedProjectId) {
       try {
-        await addTask(newTaskTitle, selectedProjectId, estimatedPomodoros, newTaskFocus, newTaskLabelIds);
+        await addTask(sanitizedTitle, selectedProjectId, estimatedPomodoros, newTaskFocus, newTaskLabelIds);
         
         // Track estimation source analytics
         const estimationSource = estimation ? 'ai-suggested' : 'manual';
@@ -366,10 +368,11 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
 
   const handleUpdateTask = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingTask && editingTask.title.trim()) {
+    const sanitizedTitle = sanitizeTaskTitle(editingTask?.title?.trim() || '');
+    if (editingTask && sanitizedTitle) {
       try {
         await updateTask(editingTask.id, {
-          title: editingTask.title,
+          title: sanitizedTitle,
           estimatedPomodoros: editingTask.estimatedPomodoros,
           projectId: editingTask.projectId,
           labelIds: editingTask.labelIds
@@ -947,7 +950,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                     >
                       <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
                     </MobileButton>
-                    <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
+                    <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`} dangerouslySetInnerHTML={{ __html: sanitizeTaskTitle(task.title) }} />
                     {task.projectId && <ProjectBadge projectId={task.projectId} />}
                     <TaskLabels labelIds={task.labelIds} />
                     <span className="text-xs text-muted-foreground">
