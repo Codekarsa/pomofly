@@ -46,9 +46,44 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   const [completedSessions, setCompletedSessions] = useState<{ date: string }[]>([]);
   const wasActiveRef = useRef(false);
 
+  // Accessibility state
+  const [liveRegionText, setLiveRegionText] = useState('');
+  const [announcementText, setAnnouncementText] = useState('');
+  const timerRef = useRef<HTMLDivElement>(null);
+
   // Use refs to avoid callback dependency issues that cause timer to reset
   const selectedTaskIdsRef = useRef<string[]>([]);
   const tasksRef = useRef(tasks);
+
+  // Keyboard navigation handler
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    // Only handle when not typing in an input field
+    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+      return;
+    }
+
+    switch (event.key.toLowerCase()) {
+      case ' ':
+      case 'spacebar':
+        event.preventDefault();
+        toggleTimer();
+        setAnnouncementText(
+          isActive ? 'Timer paused' : `Timer started for ${phase} session`
+        );
+        break;
+      case 'r':
+        event.preventDefault();
+        resetTimer();
+        setAnnouncementText(`Timer reset for ${phase} session`);
+        break;
+      case 'escape':
+        // Focus management - return focus to timer if in modal
+        if (timerRef.current && document.activeElement?.closest('[role="dialog"]')) {
+          timerRef.current.focus();
+        }
+        break;
+    }
+  }, [toggleTimer, resetTimer, isActive, phase]);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -201,6 +236,54 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     event('pomodoro_timer_view', { user_authenticated: !!user });
   }, [event, user]);
 
+  // Add keyboard event listener for accessibility
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleKeyDown]);
+
+  // Update live region for timer state changes
+  useEffect(() => {
+    const timeDisplay = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    const phaseDisplay = phase === 'pomodoro' ? 'Pomodoro' : 
+                        phase === 'shortBreak' ? 'Short Break' : 'Long Break';
+    const statusDisplay = isActive ? 'running' : 'paused';
+    
+    setLiveRegionText(`${phaseDisplay} timer: ${timeDisplay}, ${statusDisplay}`);
+  }, [minutes, seconds, isActive, phase]);
+
+  // Announce phase completions and important state changes
+  useEffect(() => {
+    if (minutes === 0 && seconds === 0 && wasActiveRef.current) {
+      const phaseDisplay = phase === 'pomodoro' ? 'Pomodoro' : 
+                          phase === 'shortBreak' ? 'Short Break' : 'Long Break';
+      setAnnouncementText(`${phaseDisplay} session completed! Time for a break.`);
+      
+      // Play audio notification if available
+      try {
+        const audio = new Audio('/notification.mp3'); // Optional audio file
+        audio.volume = 0.3;
+        audio.play().catch(() => {
+          // Ignore audio errors - not all browsers/devices support auto-play
+        });
+      } catch {
+        // Fallback: no audio notification
+      }
+    }
+  }, [minutes, seconds, phase]);
+
+  // Clear announcements after they've been read
+  useEffect(() => {
+    if (announcementText) {
+      const timer = setTimeout(() => {
+        setAnnouncementText('');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [announcementText]);
+
   const countTodaysSessions = useCallback(() => {
     const today = new Date().toDateString();
     return completedSessions.filter(session =>
@@ -295,6 +378,14 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
 
   return (
     <>
+      {/* Accessibility: Live regions for screen readers */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {liveRegionText}
+      </div>
+      <div aria-live="assertive" aria-atomic="true" className="sr-only">
+        {announcementText}
+      </div>
+
       {/* Timer Recovery Modal */}
       {showRecoveryModal && persistedSession && (
         <TimerRecoveryModal
@@ -308,6 +399,9 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
       <Card className="w-full mx-auto">
       <CardHeader>
         <CardTitle>Pomodoro Timer</CardTitle>
+        <p className="text-sm text-muted-foreground mt-2">
+          Keyboard shortcuts: Spacebar to start/pause, R to reset, Escape to return focus
+        </p>
       </CardHeader>
       <CardContent>
         <div className="mb-4 text-lg">
@@ -315,52 +409,81 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
           <span>{countTodaysSessions()}</span>
         </div>
 
-        <div className="mb-4 flex justify-center space-x-2">
+        <div className="mb-4 flex justify-center space-x-2" role="group" aria-label="Timer phase selection">
           {['pomodoro', 'shortBreak', 'longBreak'].map((timerPhase) => (
             <Button
               key={timerPhase}
               onClick={() => {
                 switchPhase(timerPhase as 'pomodoro' | 'shortBreak' | 'longBreak');
                 event('pomodoro_phase_switched', { new_phase: timerPhase });
+                const phaseName = timerPhase === 'pomodoro' ? 'Pomodoro' : 
+                                 timerPhase === 'shortBreak' ? 'Short Break' : 'Long Break';
+                setAnnouncementText(`Switched to ${phaseName} phase`);
               }}
               variant={phase === timerPhase ? 'default' : 'outline'}
+              aria-pressed={phase === timerPhase}
+              aria-label={`Switch to ${timerPhase === 'pomodoro' ? 'Pomodoro work session' : timerPhase === 'shortBreak' ? 'Short break session' : 'Long break session'}${phase === timerPhase ? ' (currently selected)' : ''}`}
             >
               {timerPhase === 'pomodoro' ? 'Pomodoro' : timerPhase === 'shortBreak' ? 'Short Break' : 'Long Break'}
             </Button>
           ))}
         </div>
 
-        <div className="text-8xl font-bold mb-4 text-center py-6">
+        <div 
+          ref={timerRef}
+          className="text-8xl font-bold mb-4 text-center py-6"
+          tabIndex={0}
+          role="timer"
+          aria-label={`${phase === 'pomodoro' ? 'Pomodoro' : phase === 'shortBreak' ? 'Short Break' : 'Long Break'} timer: ${minutes.toString().padStart(2, '0')} minutes and ${seconds.toString().padStart(2, '0')} seconds remaining, currently ${isActive ? 'running' : 'paused'}`}
+          aria-describedby="timer-instructions"
+        >
           {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
         </div>
+        
+        <div id="timer-instructions" className="sr-only">
+          Press spacebar to {isActive ? 'pause' : 'start'} the timer, or R to reset
+        </div>
 
-        <div className="flex justify-center space-x-2 mb-6">
+        <div className="flex justify-center space-x-2 mb-6" role="group" aria-label="Timer controls">
           <Button
             onClick={handleToggleTimer}
             variant={isActive ? 'secondary' : 'default'}
+            aria-label={`${isActive ? 'Pause' : 'Start'} the ${phase === 'pomodoro' ? 'Pomodoro' : phase === 'shortBreak' ? 'Short Break' : 'Long Break'} timer (Spacebar)`}
+            aria-describedby="start-pause-help"
           >
-            {isActive ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
+            {isActive ? <Pause className="mr-2 h-4 w-4" aria-hidden="true" /> : <Play className="mr-2 h-4 w-4" aria-hidden="true" />}
             {isActive ? 'Pause' : 'Start'}
           </Button>
           <Button
             onClick={() => {
               resetTimer();
               event('pomodoro_timer_reset', { phase: phase });
+              setAnnouncementText(`Timer reset for ${phase} session`);
             }}
             variant="outline"
+            aria-label={`Reset the ${phase === 'pomodoro' ? 'Pomodoro' : phase === 'shortBreak' ? 'Short Break' : 'Long Break'} timer (Press R)`}
+            aria-describedby="reset-help"
           >
-            <RotateCcw className="mr-2 h-4 w-4" />
+            <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" />
             Reset
           </Button>
           {isActive && (
             <Button
               onClick={handleDoneNext}
               variant="default"
+              aria-label={`Mark ${phase === 'pomodoro' ? 'Pomodoro' : phase === 'shortBreak' ? 'Short Break' : 'Long Break'} session as complete and move to next phase`}
             >
-              <CheckCircle className="mr-2 h-4 w-4" />
+              <CheckCircle className="mr-2 h-4 w-4" aria-hidden="true" />
               Done/Next
             </Button>
           )}
+        </div>
+        
+        <div id="start-pause-help" className="sr-only">
+          Keyboard shortcut: Press spacebar to {isActive ? 'pause' : 'start'} the timer
+        </div>
+        <div id="reset-help" className="sr-only">
+          Keyboard shortcut: Press R to reset the timer
         </div>
 
         {/* Task Selection - available for authenticated users, always enabled */}
