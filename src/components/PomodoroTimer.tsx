@@ -9,8 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
 import SelectedTasksList from './SelectedTasksList';
-import { safeLocalStorage } from '@/lib/safeLocalStorage';
-import { parseFirebaseTimestamp } from '@/lib/utils';
+import { TimerRecoveryModal } from './TimerRecoveryModal';
+import { TimerPersistence } from '@/lib/timerPersistence';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -27,7 +27,11 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   const { user } = useAuth();
   const { event } = useGoogleAnalytics();
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>(() => {
-    return safeLocalStorage.getItem('selectedTaskIds', []);
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('selectedTaskIds');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
   });
   const {
     tasks,
@@ -55,9 +59,20 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     tasksRef.current = tasks;
   }, [tasks]);
 
-  // Persist selectedTaskIds to localStorage
+  // Cleanup refs on unmount to prevent memory leaks
   useEffect(() => {
-    safeLocalStorage.setItem('selectedTaskIds', selectedTaskIds);
+    return () => {
+      // Nullify refs to release memory
+      selectedTaskIdsRef.current = [];
+      tasksRef.current = [];
+      wasActiveRef.current = false;
+    };
+  }, []);
+
+  // Persist selectedTaskIds to localStorage and session
+  useEffect(() => {
+    localStorage.setItem('selectedTaskIds', JSON.stringify(selectedTaskIds));
+    TimerPersistence.updateSessionTaskIds(selectedTaskIds);
   }, [selectedTaskIds]);
 
   // Filter out invalid/stale task IDs (deleted or completed tasks)
@@ -87,7 +102,14 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
         .map(task => {
           let elapsed = 0;
           if (task.trackingStartedAt) {
-            const startTime = parseFirebaseTimestamp(task.trackingStartedAt);
+            let startTime: number;
+            if (task.trackingStartedAt instanceof Date) {
+              startTime = task.trackingStartedAt.getTime();
+            } else if (typeof (task.trackingStartedAt as { toDate?: () => Date }).toDate === 'function') {
+              startTime = (task.trackingStartedAt as { toDate: () => Date }).toDate().getTime();
+            } else {
+              startTime = new Date(task.trackingStartedAt as unknown as string).getTime();
+            }
             elapsed = Math.floor((Date.now() - startTime) / 1000);
           }
           return {
@@ -128,6 +150,10 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     toggleTimer,
     resetTimer,
     switchPhase,
+    showRecoveryModal,
+    persistedSession,
+    restoreSession,
+    startFresh
   } = usePomodoro(settings, handlePomodoroComplete);
 
   // Handle timer start/pause - manage time tracking
@@ -156,7 +182,14 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
           .map(task => {
             let elapsed = 0;
             if (task.trackingStartedAt) {
-              const startTime = parseFirebaseTimestamp(task.trackingStartedAt);
+              let startTime: number;
+              if (task.trackingStartedAt instanceof Date) {
+                startTime = task.trackingStartedAt.getTime();
+              } else if (typeof (task.trackingStartedAt as { toDate?: () => Date }).toDate === 'function') {
+                startTime = (task.trackingStartedAt as { toDate: () => Date }).toDate().getTime();
+              } else {
+                startTime = new Date(task.trackingStartedAt as unknown as string).getTime();
+              }
               elapsed = Math.floor((Date.now() - startTime) / 1000);
             }
             return {
@@ -177,6 +210,59 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   useEffect(() => {
     event('pomodoro_timer_view', { user_authenticated: !!user });
   }, [event, user]);
+
+  // Comprehensive cleanup effect to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      // Stop any active time tracking on unmount to prevent Firebase leaks
+      if (selectedTaskIdsRef.current.length > 0 && phase === 'pomodoro') {
+        const currentTasks = tasksRef.current;
+        const selectedTasks = currentTasks.filter(t => selectedTaskIdsRef.current.includes(t.id));
+        const tasksToStop = selectedTasks
+          .filter(task => task.trackingStartedAt != null)
+          .map(task => {
+            let elapsed = 0;
+            if (task.trackingStartedAt) {
+              let startTime: number;
+              if (task.trackingStartedAt instanceof Date) {
+                startTime = task.trackingStartedAt.getTime();
+              } else if (typeof (task.trackingStartedAt as { toDate?: () => Date }).toDate === 'function') {
+                startTime = (task.trackingStartedAt as { toDate: () => Date }).toDate().getTime();
+              } else {
+                startTime = new Date(task.trackingStartedAt as unknown as string).getTime();
+              }
+              elapsed = Math.floor((Date.now() - startTime) / 1000);
+            }
+            return {
+              taskId: task.id,
+              elapsedSeconds: Math.max(0, elapsed)
+            };
+          });
+
+        if (tasksToStop.length > 0) {
+          try {
+            stopAllTimeTracking(tasksToStop);
+          } catch (error) {
+            console.warn('Failed to stop time tracking on component unmount:', error);
+          }
+        }
+      }
+
+      // Clear localStorage references
+      try {
+        localStorage.removeItem('selectedTaskIds');
+      } catch (error) {
+        console.warn('Failed to clear localStorage on unmount:', error);
+      }
+
+      // Clear any timer session data
+      try {
+        TimerPersistence.clearSession();
+      } catch (error) {
+        console.warn('Failed to clear timer session on unmount:', error);
+      }
+    };
+  }, [phase, stopAllTimeTracking]);
 
   const countTodaysSessions = useCallback(() => {
     const today = new Date().toDateString();
@@ -229,6 +315,24 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     });
   }, [toggleTimer, isActive, phase, selectedTaskIds.length, event]);
 
+  const handleRestoreSession = useCallback((session: any) => {
+    // Restore selected task IDs if available
+    if (session.selectedTaskIds && Array.isArray(session.selectedTaskIds)) {
+      setSelectedTaskIds(session.selectedTaskIds);
+    }
+    restoreSession(session);
+    event('timer_session_restored', {
+      phase: session.phase,
+      was_active: session.isActive,
+      tasks_count: session.selectedTaskIds?.length || 0
+    });
+  }, [restoreSession, event]);
+
+  const handleStartFresh = useCallback(() => {
+    startFresh();
+    event('timer_session_start_fresh');
+  }, [startFresh, event]);
+
   if (loading) {
     return (
       <Card className="w-full mx-auto">
@@ -253,7 +357,18 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   }
 
   return (
-    <Card className="w-full mx-auto">
+    <>
+      {/* Timer Recovery Modal */}
+      {showRecoveryModal && persistedSession && (
+        <TimerRecoveryModal
+          isOpen={showRecoveryModal}
+          session={persistedSession}
+          onRestore={handleRestoreSession}
+          onStartFresh={handleStartFresh}
+        />
+      )}
+
+      <Card className="w-full mx-auto">
       <CardHeader>
         <CardTitle>Pomodoro Timer</CardTitle>
       </CardHeader>
@@ -325,6 +440,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
         )}
       </CardContent>
     </Card>
+    </>
   );
 });
 
