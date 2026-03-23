@@ -35,8 +35,8 @@ const TaskTimeTracker: React.FC<TaskTimeTrackerProps> = ({
           }
         }}
         disabled={disabled}
-        className={`h-6 w-6 ${isTracking ? 'text-red-500 hover:text-red-600 hover:bg-red-50' : 'text-blue-500 hover:text-blue-600 hover:bg-blue-50'}`}
-        aria-label={isTracking ? "Stop tracking" : "Start tracking"}
+        className={`h-6 w-6 ${isTracking ? 'text-red-500 hover:bg-red-50 hover:text-red-600' : 'text-blue-500 hover:bg-blue-50 hover:text-blue-600'}`}
+        aria-label={isTracking ? 'Stop tracking' : 'Start tracking'}
       >
         {isTracking ? (
           <Square className="h-3 w-3" fill="currentColor" />
@@ -45,9 +45,9 @@ const TaskTimeTracker: React.FC<TaskTimeTrackerProps> = ({
         )}
       </Button>
       <span
-        className={`text-xs font-mono px-1.5 py-0.5 rounded min-w-[45px] text-center ${
+        className={`min-w-[45px] rounded px-1.5 py-0.5 text-center font-mono text-xs ${
           isTracking
-            ? 'bg-blue-100 text-blue-700 animate-pulse'
+            ? 'animate-pulse bg-blue-100 text-blue-700'
             : elapsedTime > 0
               ? 'bg-gray-100 text-gray-700'
               : 'text-gray-400'

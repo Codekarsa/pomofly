@@ -1,4 +1,4 @@
-'use client'
+'use client';
 
 import React from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
@@ -10,7 +10,11 @@ import { MobileButton } from '@/components/ui/mobile-button';
 import { Github, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 
-export default function Header({ onSettingsClick }: { onSettingsClick: () => void }) {
+export default function Header({
+  onSettingsClick,
+}: {
+  onSettingsClick: () => void;
+}) {
   const { user } = useAuth();
   const { event } = useGoogleAnalytics();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -21,7 +25,7 @@ export default function Header({ onSettingsClick }: { onSettingsClick: () => voi
       await signOut(auth);
       event('sign_out_success', {});
     } catch (error) {
-      console.error("Error signing out:", error);
+      console.error('Error signing out:', error);
       event('sign_out_error', { error_message: (error as Error).message });
     }
   };
@@ -30,15 +34,15 @@ export default function Header({ onSettingsClick }: { onSettingsClick: () => voi
     try {
       event('sign_in_attempt', { method: 'google' });
       const result = await signInWithPopup(auth, googleProvider);
-      event('sign_in_success', { 
+      event('sign_in_success', {
         method: 'google',
-        user_id: result.user.uid 
+        user_id: result.user.uid,
       });
-    } catch (error: unknown) { 
-      console.error("Error signing in with Google", error);
-      event('sign_in_error', { 
+    } catch (error: unknown) {
+      console.error('Error signing in with Google', error);
+      event('sign_in_error', {
         method: 'google',
-        error_message: (error as Error).message
+        error_message: (error as Error).message,
       });
     }
   };
@@ -49,12 +53,12 @@ export default function Header({ onSettingsClick }: { onSettingsClick: () => voi
   };
 
   return (
-    <header className="bg-background border-b">
-      <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+    <header className="border-b bg-background">
+      <div className="container mx-auto flex items-center justify-between px-4 py-3">
         <h1 className="text-xl font-semibold text-foreground">Pomofly</h1>
-        
+
         {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center space-x-2">
+        <div className="hidden items-center space-x-2 md:flex">
           <Button variant="ghost" size="sm" asChild>
             <a
               href="https://github.com/Codekarsa/pomofly"
@@ -62,7 +66,7 @@ export default function Header({ onSettingsClick }: { onSettingsClick: () => voi
               rel="noopener noreferrer"
               className="flex items-center"
             >
-              <Github className="w-4 h-4 mr-2" />
+              <Github className="mr-2 h-4 w-4" />
               <span>Star on GitHub</span>
             </a>
           </Button>
@@ -86,17 +90,25 @@ export default function Header({ onSettingsClick }: { onSettingsClick: () => voi
           size="icon"
           className="md:hidden"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+          aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
         >
-          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          {mobileMenuOpen ? (
+            <X className="h-5 w-5" />
+          ) : (
+            <Menu className="h-5 w-5" />
+          )}
         </MobileButton>
       </div>
 
       {/* Mobile Navigation Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t bg-background">
-          <div className="container mx-auto px-4 py-2 flex flex-col space-y-2">
-            <MobileButton variant="ghost" className="justify-start h-12" asChild>
+        <div className="border-t bg-background md:hidden">
+          <div className="container mx-auto flex flex-col space-y-2 px-4 py-2">
+            <MobileButton
+              variant="ghost"
+              className="h-12 justify-start"
+              asChild
+            >
               <a
                 href="https://github.com/Codekarsa/pomofly"
                 target="_blank"
@@ -104,13 +116,13 @@ export default function Header({ onSettingsClick }: { onSettingsClick: () => voi
                 className="flex items-center"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                <Github className="w-5 h-5 mr-3" />
+                <Github className="mr-3 h-5 w-5" />
                 Star on GitHub
               </a>
             </MobileButton>
-            <MobileButton 
-              variant="ghost" 
-              className="justify-start h-12"
+            <MobileButton
+              variant="ghost"
+              className="h-12 justify-start"
               onClick={() => {
                 handleSettingsClick();
                 setMobileMenuOpen(false);
@@ -119,9 +131,9 @@ export default function Header({ onSettingsClick }: { onSettingsClick: () => voi
               Settings
             </MobileButton>
             {user ? (
-              <MobileButton 
-                variant="ghost" 
-                className="justify-start h-12"
+              <MobileButton
+                variant="ghost"
+                className="h-12 justify-start"
                 onClick={() => {
                   handleSignOut();
                   setMobileMenuOpen(false);
@@ -130,9 +142,9 @@ export default function Header({ onSettingsClick }: { onSettingsClick: () => voi
                 Sign Out
               </MobileButton>
             ) : (
-              <MobileButton 
-                variant="ghost" 
-                className="justify-start h-12"
+              <MobileButton
+                variant="ghost"
+                className="h-12 justify-start"
                 onClick={() => {
                   handleSignIn();
                   setMobileMenuOpen(false);

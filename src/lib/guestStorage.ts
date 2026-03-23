@@ -21,7 +21,9 @@ export function getGuestTasks(): Task[] {
     return tasks.map((task: Task) => ({
       ...task,
       createdAt: new Date(task.createdAt),
-      trackingStartedAt: task.trackingStartedAt ? new Date(task.trackingStartedAt) : null,
+      trackingStartedAt: task.trackingStartedAt
+        ? new Date(task.trackingStartedAt)
+        : null,
     }));
   } catch {
     return [];
@@ -50,7 +52,7 @@ export function addGuestTask(task: Omit<Task, 'id'>): Task {
 
 export function updateGuestTask(taskId: string, updates: Partial<Task>): void {
   const tasks = getGuestTasks();
-  const index = tasks.findIndex(t => t.id === taskId);
+  const index = tasks.findIndex((t) => t.id === taskId);
   if (index !== -1) {
     tasks[index] = { ...tasks[index], ...updates };
     saveGuestTasks(tasks);
@@ -59,7 +61,7 @@ export function updateGuestTask(taskId: string, updates: Partial<Task>): void {
 
 export function deleteGuestTask(taskId: string): void {
   const tasks = getGuestTasks();
-  const filtered = tasks.filter(t => t.id !== taskId);
+  const filtered = tasks.filter((t) => t.id !== taskId);
   saveGuestTasks(filtered);
 }
 
@@ -103,7 +105,7 @@ export function addGuestProject(name: string): Project {
 
 export function updateGuestProject(projectId: string, name: string): void {
   const projects = getGuestProjects();
-  const index = projects.findIndex(p => p.id === projectId);
+  const index = projects.findIndex((p) => p.id === projectId);
   if (index !== -1) {
     projects[index] = { ...projects[index], name };
     saveGuestProjects(projects);
@@ -112,7 +114,7 @@ export function updateGuestProject(projectId: string, name: string): void {
 
 export function deleteGuestProject(projectId: string): void {
   const projects = getGuestProjects();
-  const filtered = projects.filter(p => p.id !== projectId);
+  const filtered = projects.filter((p) => p.id !== projectId);
   saveGuestProjects(filtered);
 }
 
@@ -155,9 +157,12 @@ export function addGuestLabel(name: string, color: string): Label {
   return newLabel;
 }
 
-export function updateGuestLabel(labelId: string, updates: { name?: string; color?: string }): void {
+export function updateGuestLabel(
+  labelId: string,
+  updates: { name?: string; color?: string }
+): void {
   const labels = getGuestLabels();
-  const index = labels.findIndex(l => l.id === labelId);
+  const index = labels.findIndex((l) => l.id === labelId);
   if (index !== -1) {
     labels[index] = { ...labels[index], ...updates };
     saveGuestLabels(labels);
@@ -166,7 +171,7 @@ export function updateGuestLabel(labelId: string, updates: { name?: string; colo
 
 export function deleteGuestLabel(labelId: string): void {
   const labels = getGuestLabels();
-  const filtered = labels.filter(l => l.id !== labelId);
+  const filtered = labels.filter((l) => l.id !== labelId);
   saveGuestLabels(filtered);
 }
 
@@ -184,7 +189,10 @@ export function clearGuestData(): void {
   localStorage.removeItem(GUEST_PROJECTS_KEY);
 }
 
-export function getGuestDataSummary(): { taskCount: number; projectCount: number } {
+export function getGuestDataSummary(): {
+  taskCount: number;
+  projectCount: number;
+} {
   const tasks = getGuestTasks();
   const projects = getGuestProjects();
   return {

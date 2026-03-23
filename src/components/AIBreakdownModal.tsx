@@ -1,5 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
@@ -26,24 +32,39 @@ interface Project {
 interface AIBreakdownModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (tasks: { title: string; estimatedPomodoros: number }[], projectId: string) => void;
+  onSave: (
+    tasks: { title: string; estimatedPomodoros: number }[],
+    projectId: string
+  ) => void;
   settings: PomodoroSettings;
-  projects: Project[]; 
+  projects: Project[];
 }
 
-export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onClose, onSave, settings, projects }) => {
+export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({
+  isOpen,
+  onClose,
+  onSave,
+  settings,
+  projects,
+}) => {
   const [description, setDescription] = useState('');
   const [useCustomDates, setUseCustomDates] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [breakdownResult, setBreakdownResult] = useState<{ title: string; estimatedPomodoros: number }[] | null>(null);
+  const [breakdownResult, setBreakdownResult] = useState<
+    { title: string; estimatedPomodoros: number }[] | null
+  >(null);
   const { getTaskBreakdown, loading, error } = useClaudeAI();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  
+
   const [pomodoroDuration, setPomodoroDuration] = useState(settings.pomodoro);
-  const [shortBreakDuration, setShortBreakDuration] = useState(settings.shortBreak);
-  const [longBreakDuration, setLongBreakDuration] = useState(settings.longBreak);
-  
+  const [shortBreakDuration, setShortBreakDuration] = useState(
+    settings.shortBreak
+  );
+  const [longBreakDuration, setLongBreakDuration] = useState(
+    settings.longBreak
+  );
+
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   
   // Enhanced loading states
@@ -140,13 +161,26 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
     setEditingIndex(index);
   };
 
-  const handleTaskChange = (index: number, field: 'title' | 'estimatedPomodoros', value: string) => {
+  const handleTaskChange = (
+    index: number,
+    field: 'title' | 'estimatedPomodoros',
+    value: string
+  ) => {
     if (!Array.isArray(breakdownResult)) return;
     const newTasks = [...breakdownResult];
     if (field === 'title') {
       newTasks[index].title = value;
     } else {
+<<<<<<< HEAD
       newTasks[index].estimatedPomodoros = parseInt(value, 10);
+=======
+      const numValue = parseInt(value, 10);
+      // Validate estimated pomodoros range
+      newTasks[index].estimatedPomodoros = Math.max(
+        1,
+        Math.min(100, isNaN(numValue) ? 1 : numValue)
+      );
+>>>>>>> dc46537 (feat: implement comprehensive Prettier code formatting integration)
     }
     setBreakdownResult(newTasks);
   };
@@ -159,7 +193,7 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-h-[80vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Break Down Your Work with AI</DialogTitle>
         </DialogHeader>
@@ -172,7 +206,18 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
                 ref={textareaRef}
                 value={description}
                 onChange={(e) => {
+<<<<<<< HEAD
                   setDescription(e.target.value);
+=======
+                  const value = e.target.value;
+                  // Limit input length and prevent basic XSS patterns
+                  if (
+                    value.length <= 2000 &&
+                    !/<script|javascript:|vbscript:|on\w+=/i.test(value)
+                  ) {
+                    setDescription(value);
+                  }
+>>>>>>> dc46537 (feat: implement comprehensive Prettier code formatting integration)
                   adjustTextareaHeight();
                 }}
                 placeholder="Describe your complex task..."
@@ -180,35 +225,53 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
                 className="resize-none overflow-hidden"
                 rows={3}
               />
+<<<<<<< HEAD
+=======
+              <div className="mt-1 text-sm text-muted-foreground">
+                {description.length}/2000 characters
+              </div>
+>>>>>>> dc46537 (feat: implement comprehensive Prettier code formatting integration)
             </div>
             <div className="flex space-x-4">
               <div className="flex-1">
-                <Label htmlFor="pomodoroDuration">Pomodoro Duration (minutes)</Label>
+                <Label htmlFor="pomodoroDuration">
+                  Pomodoro Duration (minutes)
+                </Label>
                 <Input
                   id="pomodoroDuration"
                   type="number"
                   value={pomodoroDuration}
-                  onChange={(e) => setPomodoroDuration(parseInt(e.target.value, 10))}
+                  onChange={(e) =>
+                    setPomodoroDuration(parseInt(e.target.value, 10))
+                  }
                   min="1"
                 />
               </div>
               <div className="flex-1">
-                <Label htmlFor="shortBreakDuration">Short Break Duration (minutes)</Label>
+                <Label htmlFor="shortBreakDuration">
+                  Short Break Duration (minutes)
+                </Label>
                 <Input
                   id="shortBreakDuration"
                   type="number"
                   value={shortBreakDuration}
-                  onChange={(e) => setShortBreakDuration(parseInt(e.target.value, 10))}
+                  onChange={(e) =>
+                    setShortBreakDuration(parseInt(e.target.value, 10))
+                  }
                   min="1"
                 />
               </div>
               <div className="flex-1">
-                <Label htmlFor="longBreakDuration">Long Break Duration (minutes)</Label>
+                <Label htmlFor="longBreakDuration">
+                  Long Break Duration (minutes)
+                </Label>
                 <Input
                   id="longBreakDuration"
                   type="number"
                   value={longBreakDuration}
-                  onChange={(e) => setLongBreakDuration(parseInt(e.target.value, 10))}
+                  onChange={(e) =>
+                    setLongBreakDuration(parseInt(e.target.value, 10))
+                  }
                   min="1"
                 />
               </div>
@@ -216,7 +279,10 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
             <div>
               <Label htmlFor="projectSelect">Select Project</Label>
               <Combobox
-                options={projects.map(project => ({ value: project.id, label: project.name }))}
+                options={projects.map((project) => ({
+                  value: project.id,
+                  label: project.name,
+                }))}
                 value={selectedProject || ''}
                 onChange={(value) => setSelectedProject(value)}
                 placeholder="Select a project"
@@ -226,7 +292,9 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
               <Checkbox
                 id="useCustomDates"
                 checked={useCustomDates}
-                onCheckedChange={(checked) => setUseCustomDates(checked as boolean)}
+                onCheckedChange={(checked) =>
+                  setUseCustomDates(checked as boolean)
+                }
               />
               <Label htmlFor="useCustomDates">Use custom date range</Label>
             </div>
@@ -257,6 +325,7 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
             )}
           </div>
           <DialogFooter className="mt-4">
+<<<<<<< HEAD
             <Button type="submit" disabled={loading} className="bg-primary text-primary-foreground hover:bg-primary/90">
               {loading ? (
                 <div className="flex items-center space-x-2">
@@ -320,37 +389,64 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
             </AlertDescription>
           </Alert>
         )}
+=======
+            <Button
+              type="submit"
+              disabled={loading}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              {loading ? 'Processing...' : 'Get Breakdown'}
+            </Button>
+          </DialogFooter>
+        </form>
+        {error && <p className="mt-2 text-red-500">{error}</p>}
+>>>>>>> dc46537 (feat: implement comprehensive Prettier code formatting integration)
         {breakdownResult && (
           <div className="mt-4">
-            <h3 className="font-semibold mb-4 text-lg">Task Breakdown:</h3>
+            <h3 className="mb-4 text-lg font-semibold">Task Breakdown:</h3>
             <ul className="space-y-2">
               {breakdownResult.map((task, index) => (
-                <li key={index} className="flex items-center justify-between p-4 border-b border-border rounded-md hover:bg-muted transition">
-                  <div className="flex items-center w-full">
+                <li
+                  key={index}
+                  className="flex items-center justify-between rounded-md border-b border-border p-4 transition hover:bg-muted"
+                >
+                  <div className="flex w-full items-center">
                     <div className="flex-1">
                       {editingIndex === index ? (
                         <Input
                           type="text"
                           value={task.title}
-                          onChange={(e) => handleTaskChange(index, 'title', e.target.value)}
-                          className="w-full border border-input rounded-md shadow-sm focus:ring focus:ring-ring"
-                          onBlur={() => setEditingIndex(null)} 
+                          onChange={(e) =>
+                            handleTaskChange(index, 'title', e.target.value)
+                          }
+                          className="w-full rounded-md border border-input shadow-sm focus:ring focus:ring-ring"
+                          onBlur={() => setEditingIndex(null)}
                         />
                       ) : (
-                        <span className="text-foreground font-medium">{task.title}</span>
+                        <span className="font-medium text-foreground">
+                          {task.title}
+                        </span>
                       )}
                     </div>
-                    <div className="flex-none w-32">
+                    <div className="w-32 flex-none">
                       {editingIndex === index ? (
                         <Input
                           type="number"
                           value={task.estimatedPomodoros}
-                          onChange={(e) => handleTaskChange(index, 'estimatedPomodoros', e.target.value)}
-                          className="border border-input rounded-md shadow-sm focus:ring focus:ring-ring"
+                          onChange={(e) =>
+                            handleTaskChange(
+                              index,
+                              'estimatedPomodoros',
+                              e.target.value
+                            )
+                          }
+                          className="rounded-md border border-input shadow-sm focus:ring focus:ring-ring"
                           onBlur={() => setEditingIndex(null)}
                         />
                       ) : (
-                        <span className="text-muted-foreground">{task.estimatedPomodoros} pomodoros</span>
+                        <span className="text-muted-foreground">
+                          {task.estimatedPomodoros} pomodoros
+                        </span>
                       )}
                     </div>
                   </div>
@@ -362,7 +458,7 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
                         onClick={() => setEditingIndex(null)}
                         className="text-destructive hover:bg-destructive/10"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="h-4 w-4" />
                       </Button>
                     </div>
                   ) : (
@@ -373,7 +469,7 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
                         onClick={() => handleEditTask(index)}
                         className="text-primary hover:bg-accent"
                       >
-                        <Pencil className="w-4 h-4" />
+                        <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -381,15 +477,15 @@ export const AIBreakdownModal: React.FC<AIBreakdownModalProps> = ({ isOpen, onCl
                         onClick={() => handleDeleteTask(index)}
                         className="text-destructive hover:bg-destructive/10"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   )}
                 </li>
               ))}
             </ul>
-            <Button 
-              onClick={handleSave} 
+            <Button
+              onClick={handleSave}
               className="mt-4 w-full bg-primary text-primary-foreground hover:bg-primary/90"
               disabled={!selectedProject}
             >

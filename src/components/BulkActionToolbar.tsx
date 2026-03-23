@@ -55,7 +55,7 @@ const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
 
   return (
     <>
-      <div className="flex items-center justify-between p-3 mt-4 bg-blue-50 border border-blue-200 rounded-lg">
+      <div className="mt-4 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 p-3">
         <div className="flex items-center space-x-2">
           <span className="text-sm font-medium text-blue-800">
             {selectedCount} task{selectedCount !== 1 ? 's' : ''} selected
@@ -67,16 +67,16 @@ const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
             variant="outline"
             size="sm"
             onClick={onMarkDone}
-            className="text-green-600 hover:text-green-700 hover:bg-green-50"
+            className="text-green-600 hover:bg-green-50 hover:text-green-700"
           >
-            <CheckCircle className="w-4 h-4 mr-1" />
+            <CheckCircle className="mr-1 h-4 w-4" />
             Mark Done
           </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
-                <FolderOpen className="w-4 h-4 mr-1" />
+                <FolderOpen className="mr-1 h-4 w-4" />
                 Move to Project
               </Button>
             </DropdownMenuTrigger>
@@ -95,17 +95,20 @@ const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
-                <Star className="w-4 h-4 mr-1" />
+                <Star className="mr-1 h-4 w-4" />
                 Focus
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onSetFocus(true)}>
-                <Star className="w-4 h-4 mr-2 text-yellow-500" fill="currentColor" />
+                <Star
+                  className="mr-2 h-4 w-4 text-yellow-500"
+                  fill="currentColor"
+                />
                 Add to Focus
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onSetFocus(false)}>
-                <Star className="w-4 h-4 mr-2 text-gray-400" />
+                <Star className="mr-2 h-4 w-4 text-gray-400" />
                 Remove from Focus
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -115,9 +118,9 @@ const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
             variant="outline"
             size="sm"
             onClick={handleDelete}
-            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            className="text-red-600 hover:bg-red-50 hover:text-red-700"
           >
-            <Trash2 className="w-4 h-4 mr-1" />
+            <Trash2 className="mr-1 h-4 w-4" />
             Delete
           </Button>
 
@@ -127,7 +130,7 @@ const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
             onClick={onClearSelection}
             className="text-gray-500 hover:text-gray-700"
           >
-            <X className="w-4 h-4" />
+            <X className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -135,9 +138,12 @@ const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {selectedCount} task{selectedCount !== 1 ? 's' : ''}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              Delete {selectedCount} task{selectedCount !== 1 ? 's' : ''}?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. The selected tasks will be permanently deleted.
+              This action cannot be undone. The selected tasks will be
+              permanently deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     const report = await request.json();
-    
+
     // Log CSP violation for monitoring
     console.warn('CSP Violation Report:', {
       timestamp: new Date().toISOString(),
@@ -22,6 +22,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: 'report received' }, { status: 200 });
   } catch (error) {
     console.error('Error processing CSP report:', error);
-    return NextResponse.json({ error: 'Invalid report format' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid report format' },
+      { status: 400 }
+    );
   }
 }

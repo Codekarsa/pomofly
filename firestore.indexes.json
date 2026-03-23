@@ -68,6 +68,11 @@
         }
       ]
     }
+<<<<<<< HEAD
   ],
   "fieldOverrides": []
 }
+=======
+  ]
+}
+>>>>>>> dc46537 (feat: implement comprehensive Prettier code formatting integration)

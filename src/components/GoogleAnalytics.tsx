@@ -10,7 +10,11 @@ declare global {
   }
 }
 
-export default function GoogleAnalytics({ GA_MEASUREMENT_ID }: { GA_MEASUREMENT_ID: string }) {
+export default function GoogleAnalytics({
+  GA_MEASUREMENT_ID,
+}: {
+  GA_MEASUREMENT_ID: string;
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const scriptLoadedRef = useRef(false);
@@ -18,8 +22,11 @@ export default function GoogleAnalytics({ GA_MEASUREMENT_ID }: { GA_MEASUREMENT_
 
   // Initialize Google Analytics script only once
   useEffect(() => {
+<<<<<<< HEAD
     if (scriptLoadedRef.current || !GA_MEASUREMENT_ID) return;
 
+=======
+>>>>>>> dc46537 (feat: implement comprehensive Prettier code formatting integration)
     const script = document.createElement('script');
     script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
     script.async = true;
@@ -55,5 +62,10 @@ export default function GoogleAnalytics({ GA_MEASUREMENT_ID }: { GA_MEASUREMENT_
     });
   }, [pathname, searchParams, GA_MEASUREMENT_ID]);
 
+<<<<<<< HEAD
   return null; // Remove GTM component to avoid conflicts
 }
+=======
+  return <GoogleTagManager gtmId={GA_MEASUREMENT_ID} />;
+}
+>>>>>>> dc46537 (feat: implement comprehensive Prettier code formatting integration)

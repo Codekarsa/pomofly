@@ -1,11 +1,13 @@
 # Agent Instructions
 
 ## Project: Pomofly
+
 Pomodoro timer app with task management. Built with Next.js 14, Firebase, shadcn/ui.
 
 **See [CLAUDE.md](./CLAUDE.md) for detailed documentation.**
 
 ## Quick Start
+
 ```bash
 yarn dev          # Dev server
 yarn build        # Build
@@ -48,8 +50,8 @@ bd sync               # Sync with git
 7. **Hand off** - Provide context for next session
 
 **CRITICAL RULES:**
+
 - Work is NOT complete until `git push` succeeds
 - NEVER stop before pushing - that leaves work stranded locally
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
-

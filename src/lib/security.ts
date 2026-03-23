@@ -41,13 +41,14 @@ export function sanitizeServerInput(input: string): string {
   let sanitized = input.trim();
 
   // Remove malicious patterns
-  MALICIOUS_PATTERNS.forEach(pattern => {
+  MALICIOUS_PATTERNS.forEach((pattern) => {
     sanitized = sanitized.replace(pattern, '');
   });
 
   // Escape HTML entities
-  sanitized = sanitized.replace(/[&<>"'\/]/g, (match) => 
-    HTML_ENTITIES[match as keyof typeof HTML_ENTITIES]
+  sanitized = sanitized.replace(
+    /[&<>"'\/]/g,
+    (match) => HTML_ENTITIES[match as keyof typeof HTML_ENTITIES]
   );
 
   return sanitized;
@@ -56,7 +57,10 @@ export function sanitizeServerInput(input: string): string {
 /**
  * Validates input length and content on server
  */
-export function validateServerInput(input: string, maxLength: number = 2000): {
+export function validateServerInput(
+  input: string,
+  maxLength: number = 2000
+): {
   isValid: boolean;
   error?: string;
 } {
@@ -69,7 +73,10 @@ export function validateServerInput(input: string, maxLength: number = 2000): {
   }
 
   if (input.length > maxLength) {
-    return { isValid: false, error: `Input must be less than ${maxLength} characters` };
+    return {
+      isValid: false,
+      error: `Input must be less than ${maxLength} characters`,
+    };
   }
 
   // Check for suspicious patterns
@@ -83,7 +90,10 @@ export function validateServerInput(input: string, maxLength: number = 2000): {
 
   for (const pattern of suspiciousPatterns) {
     if (pattern.test(input)) {
-      return { isValid: false, error: 'Input contains potentially malicious content' };
+      return {
+        isValid: false,
+        error: 'Input contains potentially malicious content',
+      };
     }
   }
 
@@ -140,7 +150,9 @@ export function sanitizeRichContent(content: string): string {
  */
 export function sanitizeAIResponse(response: any): {
   isValid: boolean;
-  sanitizedData?: { tasks: Array<{ title: string; estimatedPomodoros: number }> };
+  sanitizedData?: {
+    tasks: Array<{ title: string; estimatedPomodoros: number }>;
+  };
   error?: string;
 } {
   try {
@@ -153,6 +165,7 @@ export function sanitizeAIResponse(response: any): {
       return { isValid: false, error: 'AI response must contain a "tasks" array' };
     }
 
+<<<<<<< HEAD
     if (response.tasks.length === 0) {
       return { isValid: false, error: 'AI response must contain at least one task' };
     }
@@ -266,6 +279,31 @@ export function sanitizeAIResponse(response: any): {
     // If some tasks failed but we have valid ones, log warnings but continue
     if (validationErrors.length > 0) {
       console.warn(`AI Response Validation: ${validationErrors.length} tasks failed validation:`, validationErrors);
+=======
+    if (
+      typeof task.estimatedPomodoros !== 'number' ||
+      task.estimatedPomodoros < 1 ||
+      task.estimatedPomodoros > 100
+    ) {
+      throw new Error(
+        `Task at index ${index} must have valid estimatedPomodoros (1-100)`
+      );
+    }
+
+    // Sanitize task title
+    const sanitizedTitle = sanitizeTaskTitle(task.title);
+
+    if (sanitizedTitle.length === 0) {
+      throw new Error(
+        `Task at index ${index} title is empty after sanitization`
+      );
+    }
+
+    if (sanitizedTitle.length > 200) {
+      throw new Error(
+        `Task at index ${index} title is too long (max 200 characters)`
+      );
+>>>>>>> dc46537 (feat: implement comprehensive Prettier code formatting integration)
     }
 
     return {
@@ -304,7 +342,7 @@ export function sanitizeInlineStyles(styles: string): string {
   ];
 
   let sanitized = styles;
-  dangerousProperties.forEach(prop => {
+  dangerousProperties.forEach((prop) => {
     const regex = new RegExp(prop.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
     sanitized = sanitized.replace(regex, '');
   });
@@ -317,16 +355,20 @@ export function sanitizeInlineStyles(styles: string): string {
  */
 const requestCounts = new Map<string, { count: number; resetTime: number }>();
 
-export function checkClientRateLimit(identifier: string, maxRequests: number, windowMs: number): {
+export function checkClientRateLimit(
+  identifier: string,
+  maxRequests: number,
+  windowMs: number
+): {
   allowed: boolean;
   remaining: number;
   resetTime: number;
 } {
   const now = Date.now();
   const windowStart = now - windowMs;
-  
+
   let entry = requestCounts.get(identifier);
-  
+
   if (!entry || entry.resetTime < windowStart) {
     entry = { count: 0, resetTime: now + windowMs };
     requestCounts.set(identifier, entry);

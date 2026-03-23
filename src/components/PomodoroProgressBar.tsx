@@ -12,13 +12,14 @@ const PomodoroProgressBar: React.FC<PomodoroProgressBarProps> = ({
   completed,
   estimated,
   size = 'sm',
-  showLabel = true
+  showLabel = true,
 }) => {
-  const percentage = estimated > 0 ? Math.min((completed / estimated) * 100, 100) : 0;
+  const percentage =
+    estimated > 0 ? Math.min((completed / estimated) * 100, 100) : 0;
   const isComplete = completed >= estimated && estimated > 0;
 
   return (
-    <div className="flex items-center gap-2 w-full">
+    <div className="flex w-full items-center gap-2">
       {/* Progress Bar Container */}
       <div
         role="progressbar"
@@ -27,16 +28,14 @@ const PomodoroProgressBar: React.FC<PomodoroProgressBarProps> = ({
         aria-valuemax={estimated}
         aria-label={`${completed} of ${estimated} pomodoros completed`}
         className={cn(
-          "flex-1 rounded-full bg-muted overflow-hidden",
+          'flex-1 overflow-hidden rounded-full bg-muted',
           size === 'sm' ? 'h-1.5' : 'h-2'
         )}
       >
         <div
           className={cn(
-            "h-full rounded-full transition-all duration-500 ease-out",
-            isComplete
-              ? "bg-green-500"
-              : "bg-amber-500"
+            'h-full rounded-full transition-all duration-500 ease-out',
+            isComplete ? 'bg-green-500' : 'bg-amber-500'
           )}
           style={{ width: `${percentage}%` }}
         />
@@ -44,10 +43,14 @@ const PomodoroProgressBar: React.FC<PomodoroProgressBarProps> = ({
 
       {/* Label */}
       {showLabel && (
-        <span className={cn(
-          "text-xs font-medium tabular-nums whitespace-nowrap",
-          isComplete ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
-        )}>
+        <span
+          className={cn(
+            'whitespace-nowrap text-xs font-medium tabular-nums',
+            isComplete
+              ? 'text-green-600 dark:text-green-400'
+              : 'text-muted-foreground'
+          )}
+        >
           {completed}/{estimated}
         </span>
       )}

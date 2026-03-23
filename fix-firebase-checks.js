@@ -10,13 +10,13 @@ const functions = [
     name: 'deleteTask',
     guestCode: `      deleteGuestTask(id);
       setTasks(prev => prev.filter(t => t.id !== id));
-      return;`
+      return;`,
   },
   {
     name: 'toggleTaskCompletion',
     guestCode: `      updateGuestTask(id, { completed: !currentCompletionState });
       setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !currentCompletionState } : t));
-      return;`
+      return;`,
   },
   {
     name: 'incrementPomodoroSession',
@@ -29,32 +29,32 @@ const functions = [
         totalPomodoroSessions: t.totalPomodoroSessions + 1,
         totalTimeSpent: t.totalTimeSpent + duration
       } : t));
-      return;`
+      return;`,
   },
   {
     name: 'archiveTask',
     guestCode: `      updateGuestTask(id, { archived: true });
       setTasks(prev => prev.map(t => t.id === id ? { ...t, archived: true } : t));
-      return;`
+      return;`,
   },
   {
     name: 'toggleTaskFocus',
     guestCode: `      updateGuestTask(id, { focus: !currentFocusState });
       setTasks(prev => prev.map(t => t.id === id ? { ...t, focus: !currentFocusState } : t));
-      return;`
+      return;`,
   },
   {
     name: 'setTaskDeadline',
     guestCode: `      updateGuestTask(id, { deadline });
       setTasks(prev => prev.map(t => t.id === id ? { ...t, deadline } : t));
-      return;`
+      return;`,
   },
   {
     name: 'startTimeTracking',
     guestCode: `      const now = new Date();
       updateGuestTask(taskId, { trackingStartedAt: now });
       setTasks(prev => prev.map(t => t.id === taskId ? { ...t, trackingStartedAt: now } : t));
-      return;`
+      return;`,
   },
   {
     name: 'stopTimeTracking',
@@ -67,7 +67,7 @@ const functions = [
         trackingStartedAt: null,
         manualTimeSpent: t.manualTimeSpent + elapsedSeconds
       } : t));
-      return;`
+      return;`,
   },
   {
     name: 'startAllTimeTracking',
@@ -78,7 +78,7 @@ const functions = [
       setTasks(prev => prev.map(t => 
         taskIds.includes(t.id) ? { ...t, trackingStartedAt: now } : t
       ));
-      return;`
+      return;`,
   },
   {
     name: 'stopAllTimeTracking',
@@ -92,21 +92,27 @@ const functions = [
         const taskToStop = tasksToStop.find(ts => ts.taskId === t.id);
         return taskToStop ? { ...t, trackingStartedAt: null, manualTimeSpent: t.manualTimeSpent + taskToStop.elapsedSeconds } : t;
       }));
-      return;`
-  }
+      return;`,
+  },
 ];
 
 // Process each function
 functions.forEach(({ name, guestCode }) => {
-  const regex = new RegExp(`(const ${name} = useCallback\\(async \\([^)]+\\) => \\{)`, 'g');
-  
+  const regex = new RegExp(
+    `(const ${name} = useCallback\\(async \\([^)]+\\) => \\{)`,
+    'g'
+  );
+
   content = content.replace(regex, (match) => {
-    return match + `
+    return (
+      match +
+      `
     if (!isFirebaseConfigured() || !auth || !db) {
       // Firebase not configured - use guest mode
 ${guestCode}
     }
-`;
+`
+    );
   });
 });
 

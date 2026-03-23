@@ -1,14 +1,24 @@
-'use client'
-import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy } from 'react';
+'use client';
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  Suspense,
+  lazy,
+} from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import Header from './Header';
 import PomodoroTimer from './PomodoroTimer';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { useMonitoring } from '@/hooks/useMonitoring';
-import { TimerErrorBoundary, TaskErrorBoundary } from '@/components/ErrorBoundary';
+import {
+  TimerErrorBoundary,
+  TaskErrorBoundary,
+} from '@/components/ErrorBoundary';
 import { Github, Activity } from 'lucide-react';
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
 import { usePomodoro, defaultSettings } from '@/hooks/usePomodoro';
@@ -20,7 +30,15 @@ const TodayFocusSection = lazy(() => import('./TodayFocusSection'));
 const SettingsModal = lazy(() => import('./SettingsModal'));
 const MonitoringDashboard = lazy(() => import('./MonitoringDashboard'));
 
+<<<<<<< HEAD
 import { TaskListLoader, ProjectListLoader, TodayFocusLoader } from '@/components/ui/loading';
+=======
+import {
+  TaskListLoader,
+  ProjectListLoader,
+  TodayFocusLoader,
+} from '@/components/ui/loading';
+>>>>>>> dc46537 (feat: implement comprehensive Prettier code formatting integration)
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
@@ -48,7 +66,7 @@ export default function Dashboard() {
         pomodoro: parsedSettings.pomodoro,
         shortBreak: parsedSettings.shortBreak,
         longBreak: parsedSettings.longBreak,
-        longBreakInterval: parsedSettings.longBreakInterval
+        longBreakInterval: parsedSettings.longBreakInterval,
       });
     } else {
       event('default_settings_used', {});
@@ -60,14 +78,14 @@ export default function Dashboard() {
   useEffect(() => {
     try {
       event('dashboard_view', {
-        is_authenticated: !!user
+        is_authenticated: !!user,
       });
       trackAction('dashboard_view', { authenticated: !!user });
     } catch (error) {
       reportError(error as Error, {
         component: 'Dashboard',
         action: 'dashboard_view_tracking',
-        severity: 'low'
+        severity: 'low',
       });
     }
   }, [user, event, trackAction, reportError]);
@@ -80,17 +98,20 @@ export default function Dashboard() {
     setIsSettingsOpen(false);
   }, []);
 
-  const handleSettingsSave = useCallback((newSettings: typeof defaultSettings) => {
-    setSettings(newSettings);
-    updateSettings(newSettings);
-    setIsSettingsOpen(false);
-    event('settings_saved', {
-      pomodoro: newSettings.pomodoro,
-      shortBreak: newSettings.shortBreak,
-      longBreak: newSettings.longBreak,
-      longBreakInterval: newSettings.longBreakInterval
-    });
-  }, [event, updateSettings]);
+  const handleSettingsSave = useCallback(
+    (newSettings: typeof defaultSettings) => {
+      setSettings(newSettings);
+      updateSettings(newSettings);
+      setIsSettingsOpen(false);
+      event('settings_saved', {
+        pomodoro: newSettings.pomodoro,
+        shortBreak: newSettings.shortBreak,
+        longBreak: newSettings.longBreak,
+        longBreakInterval: newSettings.longBreakInterval,
+      });
+    },
+    [event, updateSettings]
+  );
 
   const memoizedSettings = useMemo(() => settings, [settings]);
 
@@ -99,7 +120,7 @@ export default function Dashboard() {
     try {
       trackAction('sign_in_attempt', { method: 'Google' });
       await signInWithPopup(auth, googleProvider);
-      
+
       const duration = performance.now() - startTime;
       event('user_sign_in', { method: 'Google' });
       trackAction('sign_in_success', { method: 'Google', duration });
@@ -111,20 +132,25 @@ export default function Dashboard() {
         component: 'Dashboard',
         action: 'sign_in',
         severity: 'medium',
-        tags: ['authentication', 'google_sign_in']
+        tags: ['authentication', 'google_sign_in'],
       });
       trackAction('sign_in_error', { method: 'Google', duration });
     }
   };
 
-  if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  if (loading)
+    return (
+      <div className="flex h-screen items-center justify-center">
+        Loading...
+      </div>
+    );
 
   return (
     <>
-      <div className="flex flex-col min-h-screen">
+      <div className="flex min-h-screen flex-col">
         <Header onSettingsClick={handleSettingsOpen} />
-        <main className="flex-grow container mx-auto px-4 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <main className="container mx-auto flex-grow px-4 py-8">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
             <div className="space-y-8">
               <TimerErrorBoundary>
                 <PomodoroTimer settings={memoizedSettings} />
@@ -150,9 +176,13 @@ export default function Dashboard() {
                   </TaskErrorBoundary>
                 </>
               ) : (
-                <div className="bg-white p-6 rounded-lg shadow-md">
-                  <h2 className="text-xl font-semibold mb-4">Welcome to Pomofly, an Elegant and Minimal Pomodoro Timer</h2>
-                  <p className="text-gray-600 mb-4">Sign in to access task and project management features.</p>
+                <div className="rounded-lg bg-white p-6 shadow-md">
+                  <h2 className="mb-4 text-xl font-semibold">
+                    Welcome to Pomofly, an Elegant and Minimal Pomodoro Timer
+                  </h2>
+                  <p className="mb-4 text-gray-600">
+                    Sign in to access task and project management features.
+                  </p>
                   <Button onClick={handleSignIn} className="w-full sm:w-auto">
                     Sign in with Google
                   </Button>
@@ -161,6 +191,7 @@ export default function Dashboard() {
             </div>
           </div>
         </main>
+<<<<<<< HEAD
         <Footer onMonitoringClick={() => setIsMonitoringOpen(true)} />
       </div>
       <AutoBacklink />
@@ -175,6 +206,21 @@ export default function Dashboard() {
         />
       </Suspense>
       
+=======
+        <Suspense fallback={null}>
+          <SettingsModal
+            isOpen={isSettingsOpen}
+            onClose={handleSettingsClose}
+            settings={settings}
+            onSave={handleSettingsSave}
+            event={memoizedEvent}
+          />
+        </Suspense>
+        <Footer onMonitoringClick={() => setIsMonitoringOpen(true)} />
+      </div>
+      <AutoBacklink />
+
+>>>>>>> dc46537 (feat: implement comprehensive Prettier code formatting integration)
       {/* Monitoring Dashboard */}
       <Suspense fallback={null}>
         <MonitoringDashboard
@@ -187,24 +233,28 @@ export default function Dashboard() {
 }
 
 const Footer = ({ onMonitoringClick }: { onMonitoringClick?: () => void }) => (
-  <footer className="bg-background border-t py-2 text-sm text-muted-foreground mt-auto">
+  <footer className="mt-auto border-t bg-background py-2 text-sm text-muted-foreground">
     <div className="container mx-auto px-4">
-      <div className="flex items-center justify-between mb-2">
+      <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <span>© 2024 Pomofly</span>
           <Separator orientation="vertical" className="h-4" />
-          <a href="/#" className="hover:underline">Privacy</a>
-          <a href="/#" className="hover:underline">Terms</a>
+          <a href="/#" className="hover:underline">
+            Privacy
+          </a>
+          <a href="/#" className="hover:underline">
+            Terms
+          </a>
           {process.env.NODE_ENV === 'development' && onMonitoringClick && (
             <>
               <Separator orientation="vertical" className="h-4" />
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={onMonitoringClick}
                 className="text-xs"
               >
-                <Activity className="h-3 w-3 mr-1" />
+                <Activity className="mr-1 h-3 w-3" />
                 Monitoring
               </Button>
             </>
@@ -222,8 +272,8 @@ const Footer = ({ onMonitoringClick }: { onMonitoringClick?: () => void }) => (
 );
 
 const AutoBacklink = () => (
-  <div className="bg-background border-t py-4 w-full text-sm text-muted-foreground mx-auto overflow-hidden">
-    <div className='text-lg font-bold px-28 mb-4'>Indie Hacker</div>
+  <div className="mx-auto w-full overflow-hidden border-t bg-background py-4 text-sm text-muted-foreground">
+    <div className="mb-4 px-28 text-lg font-bold">Indie Hacker</div>
     <div className="autobacklink grid grid-cols-6 gap-4 px-28"></div>
   </div>
 );

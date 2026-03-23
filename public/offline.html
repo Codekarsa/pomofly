@@ -1,161 +1,163 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Offline - Pomofly</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 500px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            padding: 40px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-        }
-        
-        .icon {
-            font-size: 64px;
-            margin-bottom: 20px;
-        }
-        
-        h1 {
-            font-size: 2.5rem;
-            margin-bottom: 20px;
-            font-weight: 600;
-        }
-        
-        p {
-            font-size: 1.2rem;
-            margin-bottom: 30px;
-            opacity: 0.9;
-            line-height: 1.6;
-        }
-        
-        .button {
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            padding: 12px 24px;
-            font-size: 1rem;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-block;
-            margin: 10px;
-        }
-        
-        .button:hover {
-            background: rgba(255, 255, 255, 0.3);
-            border-color: rgba(255, 255, 255, 0.5);
-            transform: translateY(-2px);
-        }
-        
-        .status {
-            margin-top: 30px;
-            padding: 15px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            font-size: 0.9rem;
-        }
-        
-        .online {
-            background: rgba(34, 197, 94, 0.2);
-            border: 1px solid rgba(34, 197, 94, 0.3);
-        }
-        
-        .offline {
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-        }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+          'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+          sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 500px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 40px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+      }
+
+      .icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+      }
+
+      h1 {
+        font-size: 2.5rem;
+        margin-bottom: 20px;
+        font-weight: 600;
+      }
+
+      p {
+        font-size: 1.2rem;
+        margin-bottom: 30px;
+        opacity: 0.9;
+        line-height: 1.6;
+      }
+
+      .button {
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        padding: 12px 24px;
+        font-size: 1rem;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-block;
+        margin: 10px;
+      }
+
+      .button:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: translateY(-2px);
+      }
+
+      .status {
+        margin-top: 30px;
+        padding: 15px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        font-size: 0.9rem;
+      }
+
+      .online {
+        background: rgba(34, 197, 94, 0.2);
+        border: 1px solid rgba(34, 197, 94, 0.3);
+      }
+
+      .offline {
+        background: rgba(239, 68, 68, 0.2);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <div class="icon">📶</div>
-        <h1>You're Offline</h1>
-        <p>
-            No internet connection detected. Check your network settings and try again.
-            Your local data is still available.
-        </p>
-        
-        <a href="/" class="button" onclick="window.location.reload()">
-            Try Again
-        </a>
-        
-        <a href="/" class="button">
-            Go to Home
-        </a>
-        
-        <div class="status" id="status">
-            <span id="statusText">Checking connection...</span>
-        </div>
+      <div class="icon">📶</div>
+      <h1>You're Offline</h1>
+      <p>
+        No internet connection detected. Check your network settings and try
+        again. Your local data is still available.
+      </p>
+
+      <a href="/" class="button" onclick="window.location.reload()">
+        Try Again
+      </a>
+
+      <a href="/" class="button"> Go to Home </a>
+
+      <div class="status" id="status">
+        <span id="statusText">Checking connection...</span>
+      </div>
     </div>
 
     <script>
-        function updateStatus() {
-            const status = document.getElementById('status');
-            const statusText = document.getElementById('statusText');
-            
-            if (navigator.onLine) {
-                status.className = 'status online';
-                statusText.textContent = '✅ Connection restored! You can now refresh the page.';
-            } else {
-                status.className = 'status offline';
-                statusText.textContent = '❌ Still offline. Please check your internet connection.';
-            }
+      function updateStatus() {
+        const status = document.getElementById('status');
+        const statusText = document.getElementById('statusText');
+
+        if (navigator.onLine) {
+          status.className = 'status online';
+          statusText.textContent =
+            '✅ Connection restored! You can now refresh the page.';
+        } else {
+          status.className = 'status offline';
+          statusText.textContent =
+            '❌ Still offline. Please check your internet connection.';
         }
-        
-        // Check initial status
-        updateStatus();
-        
-        // Listen for online/offline events
-        window.addEventListener('online', updateStatus);
-        window.addEventListener('offline', updateStatus);
-        
-        // Auto-refresh when connection is restored
-        window.addEventListener('online', () => {
-            setTimeout(() => {
-                window.location.href = '/';
-            }, 2000);
-        });
-        
-        // Periodic connection check
-        setInterval(() => {
-            fetch('/favicon.ico', { 
-                method: 'HEAD',
-                cache: 'no-cache'
-            })
-            .then(() => {
-                if (!navigator.onLine) {
-                    // Connection restored but navigator.onLine hasn't updated yet
-                    window.location.href = '/';
-                }
-            })
-            .catch(() => {
-                // Still offline
-            });
-        }, 5000);
+      }
+
+      // Check initial status
+      updateStatus();
+
+      // Listen for online/offline events
+      window.addEventListener('online', updateStatus);
+      window.addEventListener('offline', updateStatus);
+
+      // Auto-refresh when connection is restored
+      window.addEventListener('online', () => {
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+      });
+
+      // Periodic connection check
+      setInterval(() => {
+        fetch('/favicon.ico', {
+          method: 'HEAD',
+          cache: 'no-cache',
+        })
+          .then(() => {
+            if (!navigator.onLine) {
+              // Connection restored but navigator.onLine hasn't updated yet
+              window.location.href = '/';
+            }
+          })
+          .catch(() => {
+            // Still offline
+          });
+      }, 5000);
     </script>
-</body>
+  </body>
 </html>
