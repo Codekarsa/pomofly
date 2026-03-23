@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, increment, writeBatch } from "firebase/firestore";
 import { db, auth, addEstimationRecord } from '../lib/firebase';
+import { withFirebaseRetry, offlineQueue } from '../lib/retryUtils';
 import {
   getGuestTasks,
   addGuestTask,
@@ -108,8 +109,40 @@ export function useTasks(projectId?: string) {
         return newTask.id;
       }
 
-      const docRef = await addDoc(collection(db, "tasks"), newTaskData);
-      return docRef.id;
+      try {
+        // Try to add with retry logic
+        const docRef = await withFirebaseRetry(async () => {
+          return await addDoc(collection(db, "tasks"), newTaskData);
+        });
+        
+        return docRef.id;
+      } catch (error) {
+        // If all retries failed, add to offline queue
+        console.warn('Adding task to offline queue due to failure:', error);
+        
+        const queueId = offlineQueue.add(
+          () => addDoc(collection(db, "tasks"), newTaskData),
+          `Add task: ${title}`
+        );
+        
+        // Return a temporary ID for optimistic updates
+        const tempId = `temp_${Date.now()}`;
+        
+        // Add task locally for immediate UI feedback
+        const tempTask = {
+          ...newTaskData,
+          id: tempId,
+          _queued: queueId,
+          _offline: true
+        };
+        
+        // Add to local state optimistically
+        if (projectId === taskProjectId || !projectId) {
+          setTasks(prev => [...prev, tempTask as any]);
+        }
+        
+        throw error; // Re-throw to let UI handle the error state
+      }
     } catch (err) {
       console.error("Error adding task:", err);
       throw err;
@@ -132,8 +165,22 @@ export function useTasks(projectId?: string) {
       return;
     }
 
-      const taskRef = doc(db, "tasks", taskId);
-      await updateDoc(taskRef, updateData);
+      try {
+        const taskRef = doc(db, "tasks", taskId);
+        await withFirebaseRetry(async () => {
+          await updateDoc(taskRef, updateData);
+        });
+      } catch (error) {
+        // Add to offline queue if retries failed
+        console.warn('Adding task update to offline queue due to failure:', error);
+        
+        offlineQueue.add(
+          () => updateDoc(doc(db, "tasks", taskId), updateData),
+          `Update task: ${taskId}`
+        );
+        
+        throw error; // Re-throw to let UI handle the error state
+      }
     } catch (error) {
       console.error("Error updating task:", error);
       throw error;
@@ -151,10 +198,19 @@ export function useTasks(projectId?: string) {
     }
 
     try {
-      await deleteDoc(doc(db, "tasks", id));
-    } catch (err) {
-      console.error("Error deleting task:", err);
-      throw err;
+      await withFirebaseRetry(async () => {
+        await deleteDoc(doc(db, "tasks", id));
+      });
+    } catch (error) {
+      // Add to offline queue if retries failed
+      console.warn('Adding task deletion to offline queue due to failure:', error);
+      
+      offlineQueue.add(
+        () => deleteDoc(doc(db, "tasks", id)),
+        `Delete task: ${id}`
+      );
+      
+      throw error; // Re-throw to let UI handle the error state
     }
   }, []);
 
@@ -186,23 +242,44 @@ export function useTasks(projectId?: string) {
       const taskRef = doc(db, "tasks", id);
 
       if (!currentCompletionState) {
-        // Store completion data
-        await updateDoc(taskRef, {
-          completed: true,
-          completedAt: new Date(),
-          completedPomodoros: task.totalPomodoroSessions || 0
+        // Store completion data with retry logic
+        await withFirebaseRetry(async () => {
+          await updateDoc(taskRef, {
+            completed: true,
+            completedAt: new Date(),
+            completedPomodoros: task.totalPomodoroSessions || 0
+          });
         });
-        // Add to estimation history
-        await addEstimationRecord(user.uid, task);
+        
+        // Add to estimation history with retry logic
+        await withFirebaseRetry(async () => {
+          await addEstimationRecord(user.uid, task);
+        });
       } else {
-        // Mark as incomplete
-        await updateDoc(taskRef, {
-          completed: false
+        // Mark as incomplete with retry logic
+        await withFirebaseRetry(async () => {
+          await updateDoc(taskRef, {
+            completed: false
+          });
         });
       }
-    } catch (err) {
-      console.error("Error toggling task completion:", err);
-      throw err;
+    } catch (error) {
+      console.warn('Adding task completion toggle to offline queue due to failure:', error);
+      
+      const updateData = !currentCompletionState 
+        ? {
+            completed: true,
+            completedAt: new Date(),
+            completedPomodoros: task.totalPomodoroSessions || 0
+          }
+        : { completed: false };
+      
+      offlineQueue.add(
+        () => updateDoc(doc(db, "tasks", id), updateData),
+        `Toggle completion for task: ${id}`
+      );
+      
+      throw error;
     }
   }, [tasks]);
 

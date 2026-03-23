@@ -5,6 +5,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import GoogleAnalytics from '@/components/GoogleAnalytics'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import PWAServiceWorker from '@/components/PWAServiceWorker'
+import { NotificationProvider, ConnectionStatus } from '@/components/ui/notifications'
 import { Suspense } from 'react'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -75,13 +76,16 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.className} bg-gray-100`}>
         <ErrorBoundary name="RootLayout" showDetails={process.env.NODE_ENV === 'development'}>
-          <AuthProvider>
-            <Suspense fallback={<div>Loading...</div>}>
-              <GoogleAnalytics GA_MEASUREMENT_ID={process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!} />
-            </Suspense>
-            {children}
-            <PWAServiceWorker />
-          </AuthProvider>
+          <NotificationProvider>
+            <AuthProvider>
+              <Suspense fallback={<div>Loading...</div>}>
+                <GoogleAnalytics GA_MEASUREMENT_ID={process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!} />
+              </Suspense>
+              {children}
+              <PWAServiceWorker />
+              <ConnectionStatus />
+            </AuthProvider>
+          </NotificationProvider>
         </ErrorBoundary>
       </body>
     </html>

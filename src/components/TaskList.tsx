@@ -10,7 +10,7 @@ import { MobileButton } from '@/components/ui/mobile-button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MoreHorizontal, Plus, Pencil, Trash2, Star, Calendar, ChevronDown, ChevronRight, Search, ArrowUpAZ, ArrowDownAZ, Filter, CheckCircle, Eye, FolderOpen } from 'lucide-react';
+import { MoreHorizontal, Plus, Pencil, Trash2, Star, Calendar, ChevronDown, ChevronRight, Search, ArrowUpAZ, ArrowDownAZ, Filter, CheckCircle, Eye, FolderOpen, Loader2 } from 'lucide-react';
 import TaskTimeTracker from './TaskTimeTracker';
 import TimeTrackingControls from './TimeTrackingControls';
 import BulkActionToolbar from './BulkActionToolbar';
@@ -35,6 +35,7 @@ import { EstimationHint } from './EstimationHint';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { TaskListLoader } from '@/components/ui/loading';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -222,6 +223,10 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [estimation, setEstimation] = useState<EstimationResult | null>(null);
   const [estimationDebounceTimer, setEstimationDebounceTimer] = useState<NodeJS.Timeout | null>(null);
 
+  // Form loading states
+  const [isAddingTask, setIsAddingTask] = useState(false);
+  const [isUpdatingTask, setIsUpdatingTask] = useState(false);
+
   const { projects, addProject } = useProjects();
   const { getEstimate, loading: estimationLoading } = useEstimation();
   const { labels } = useLabels();
@@ -336,7 +341,8 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newTaskTitle.trim() && selectedProjectId) {
+    if (newTaskTitle.trim() && selectedProjectId && !isAddingTask) {
+      setIsAddingTask(true);
       try {
         await addTask(newTaskTitle, selectedProjectId, estimatedPomodoros, newTaskFocus, newTaskLabelIds);
         
@@ -361,13 +367,16 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
       } catch (error) {
         console.error("Failed to add task:", error);
         event('task_add_error', { error_message: (error as Error).message });
+      } finally {
+        setIsAddingTask(false);
       }
     }
-  }, [addTask, event, estimatedPomodoros, newTaskTitle, selectedProjectId, newTaskFocus, newTaskLabelIds, estimation]);
+  }, [addTask, event, estimatedPomodoros, newTaskTitle, selectedProjectId, newTaskFocus, newTaskLabelIds, estimation, isAddingTask]);
 
   const handleUpdateTask = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingTask && editingTask.title.trim()) {
+    if (editingTask && editingTask.title.trim() && !isUpdatingTask) {
+      setIsUpdatingTask(true);
       try {
         await updateTask(editingTask.id, {
           title: editingTask.title,
@@ -387,9 +396,11 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
           task_id: editingTask.id,
           error_message: (error as Error).message
         });
+      } finally {
+        setIsUpdatingTask(false);
       }
     }
-  }, [editingTask, event, updateTask]);
+  }, [editingTask, event, updateTask, isUpdatingTask]);
 
   // Debounced estimation effect
   useEffect(() => {
@@ -655,8 +666,25 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     }
   }, [activelyTrackedTasks, getElapsedTime, stopAllTimeTracking, event]);
 
-  if (tasksLoading) return <div>Loading tasks...</div>;
-  if (tasksError) return <div>Error loading tasks: {tasksError.message}</div>;
+  if (tasksLoading) return <TaskListLoader />;
+  if (tasksError) return (
+    <Card className="w-full">
+      <CardContent className="p-6">
+        <div className="text-center py-8">
+          <div className="text-red-500 text-sm font-medium mb-2">Failed to load tasks</div>
+          <div className="text-gray-600 text-sm">{tasksError.message}</div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={() => window.location.reload()}
+          >
+            Try Again
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <Card className="w-full">
@@ -745,11 +773,15 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <Button type="submit" className="w-1/2">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Task
+              <Button type="submit" className="w-1/2" disabled={isAddingTask || !newTaskTitle.trim() || !selectedProjectId}>
+                {isAddingTask ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4 mr-2" />
+                )}
+                {isAddingTask ? 'Adding...' : 'Add Task'}
               </Button>
-              <Button type="button" onClick={() => setShowAddTaskForm(false)} variant="outline" className="w-1/2">
+              <Button type="button" onClick={() => setShowAddTaskForm(false)} variant="outline" className="w-1/2" disabled={isAddingTask}>
                 Cancel
               </Button>
             </div>
@@ -905,8 +937,11 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                       selectedLabelIds={editingTask.labelIds || []}
                       onChange={(labelIds) => setEditingTask({ ...editingTask, labelIds })}
                     />
-                    <MobileButton type="submit" size="sm" variant="outline">Save</MobileButton>
-                    <MobileButton type="button" size="sm" variant="ghost" onClick={() => setEditingTask(null)}>Cancel</MobileButton>
+                    <MobileButton type="submit" size="sm" variant="outline" disabled={isUpdatingTask}>
+                      {isUpdatingTask ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+                      {isUpdatingTask ? 'Saving...' : 'Save'}
+                    </MobileButton>
+                    <MobileButton type="button" size="sm" variant="ghost" onClick={() => setEditingTask(null)} disabled={isUpdatingTask}>Cancel</MobileButton>
                   </div>
                 </form>
               ) : editingDeadline && editingDeadline.id === task.id ? (
