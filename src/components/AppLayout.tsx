@@ -5,7 +5,6 @@ import Sidebar from './Sidebar';
 import SettingsModal from './SettingsModal';
 import GuestBanner from './GuestBanner';
 import DataMigrationModal from './DataMigrationModal';
-import AuthErrorFallback from './AuthErrorFallback';
 import { usePomodoro, defaultSettings } from '@/hooks/usePomodoro';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,7 @@ interface AppLayoutProps {
 }
 
 const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
-  const { user, loading, error, retry, clearError, isOnline } = useAuth();
+  const { user, loading, error, retry } = useAuth();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settings, setSettings] = useState(defaultSettings);
   const [showGuestBanner, setShowGuestBanner] = useState(true);
@@ -60,35 +59,21 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   const handleSignIn = async () => {
     try {
-      clearError(); // Clear any previous errors
       await signInWithPopup(auth, googleProvider);
       event('user_sign_in', { method: 'Google' });
     } catch (error) {
       console.error('Error signing in:', error);
       event('sign_in_error', { error: (error as Error).message });
-      
-      // Don't automatically set this as the auth context error since it's a user action
-      // The user can try again or use a different method
-      if (error instanceof Error) {
-        // You could show a toast or alert here instead of setting the global auth error
-        console.warn('Sign-in failed:', error.message);
-      }
     }
   };
 
   const handleSignOut = async () => {
     try {
-      clearError(); // Clear any previous errors
       await signOut(auth);
       event('user_sign_out', { method: 'Google' });
     } catch (error) {
       console.error('Error signing out:', error);
       event('sign_out_error', { error: (error as Error).message });
-      
-      // Sign-out errors are less critical, user can retry or refresh page
-      if (error instanceof Error) {
-        console.warn('Sign-out failed:', error.message);
-      }
     }
   };
 
@@ -100,30 +85,29 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     setShowMigrationModal(false);
   }, []);
 
-  // Enhanced loading state with error handling
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">
-            {!isOnline ? 'Waiting for connection...' : 'Loading...'}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show authentication error fallback if there's an error
+  if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  
+  // Show authentication error with retry option
   if (error) {
     return (
-      <AuthErrorFallback 
-        error={error} 
-        onRetry={() => {
-          clearError();
-          retry();
-        }}
-      />
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center p-6 bg-white rounded-lg shadow-lg max-w-md">
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">Authentication Error</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <div className="space-y-2">
+            <Button onClick={retry} className="w-full">
+              Retry Authentication
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => window.location.reload()} 
+              className="w-full"
+            >
+              Refresh Page
+            </Button>
+          </div>
+        </div>
+      </div>
     );
   }
 
