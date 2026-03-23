@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { safeLocalStorage } from '@/lib/safeLocalStorage';
+import { TimerPersistence, PersistedTimerSession } from '@/lib/timerPersistence';
 
 type PomodoroPhase = 'pomodoro' | 'shortBreak' | 'longBreak';
 
@@ -29,11 +29,56 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null);
   const [pausedTimeRemaining, setPausedTimeRemaining] = useState<number | null>(null);
 
+  // Session recovery state
+  const [persistedSession, setPersistedSession] = useState<PersistedTimerSession | null>(null);
+  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+
   // Use ref for onComplete to prevent dependency changes from resetting timer
   const onCompleteRef = useRef(onComplete);
   useEffect(() => {
     onCompleteRef.current = onComplete;
   }, [onComplete]);
+
+  // Cleanup ref on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      onCompleteRef.current = undefined;
+    };
+  }, []);
+
+  // Check for persisted session on mount
+  useEffect(() => {
+    const session = TimerPersistence.loadSession();
+    if (session) {
+      setPersistedSession(session);
+      setShowRecoveryModal(true);
+    }
+  }, []);
+
+  // Persist session whenever state changes
+  const persistCurrentSession = useCallback(() => {
+    const session: PersistedTimerSession = {
+      phase,
+      isActive,
+      timerStartedAt,
+      pausedTimeRemaining,
+      sessionsCompleted,
+      sessionCreatedAt: Date.now(),
+      settings,
+    };
+    
+    // Only persist if there's meaningful state to save
+    if (isActive || timerStartedAt !== null || pausedTimeRemaining !== null) {
+      TimerPersistence.saveSession(session);
+    } else {
+      TimerPersistence.clearSession();
+    }
+  }, [phase, isActive, timerStartedAt, pausedTimeRemaining, sessionsCompleted, settings]);
+
+  // Auto-persist when state changes
+  useEffect(() => {
+    persistCurrentSession();
+  }, [persistCurrentSession]);
 
   // Calculate remaining time from timestamp (accurate, no drift)
   const getRemainingTime = useCallback((): number => {
@@ -75,7 +120,7 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
 
   const updateSettings = useCallback((newSettings: PomodoroSettings) => {
     setSettings(newSettings);
-    safeLocalStorage.setItem('pomodoroSettings', newSettings);
+    localStorage.setItem('pomodoroSettings', JSON.stringify(newSettings));
   }, []);
 
   // Timer display update effect - uses timestamp for accuracy
@@ -146,6 +191,32 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     setIsActive(false);
   }, [settings]);
 
+  // Recovery functions
+  const restoreSession = useCallback((session: PersistedTimerSession) => {
+    setPhase(session.phase);
+    setIsActive(session.isActive);
+    setTimerStartedAt(session.timerStartedAt);
+    setPausedTimeRemaining(session.pausedTimeRemaining);
+    setSessionsCompleted(session.sessionsCompleted);
+    setSettings(session.settings);
+    
+    // Update display from restored state
+    const remaining = TimerPersistence.calculateRemainingTime(session);
+    const mins = Math.floor(remaining / 60);
+    const secs = remaining % 60;
+    setMinutes(mins);
+    setSeconds(secs);
+    
+    setShowRecoveryModal(false);
+    setPersistedSession(null);
+  }, []);
+
+  const startFresh = useCallback(() => {
+    setShowRecoveryModal(false);
+    setPersistedSession(null);
+    TimerPersistence.clearSession();
+  }, []);
+
   useEffect(() => {
     // Only reset display when settings change and timer is not active
     if (!isActive && timerStartedAt === null && pausedTimeRemaining === null) {
@@ -163,6 +234,11 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     resetTimer,
     switchPhase,
     settings,
-    updateSettings
+    updateSettings,
+    // Recovery modal state
+    showRecoveryModal,
+    persistedSession,
+    restoreSession,
+    startFresh
   };
 }
