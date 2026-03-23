@@ -1,0 +1,190 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions for common validation patterns
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isValidEmail() {
+      return isAuthenticated() && 
+             request.auth.token.email_verified == true &&
+             request.auth.token.email != null;
+    }
+    
+    function validateStringField(field, minLen, maxLen) {
+      return field is string && 
+             field.size() >= minLen && 
+             field.size() <= maxLen;
+    }
+    
+    function validateTaskData(data) {
+      // Required fields validation
+      let hasRequiredFields = 'title' in data && 
+                             'userId' in data && 
+                             'completed' in data;
+      
+      // Field type and constraint validation
+      let validTitle = validateStringField(data.title, 1, 1000);
+      let validUserId = validateStringField(data.userId, 1, 128);
+      let validCompleted = data.completed is bool;
+      
+      // Optional fields validation
+      let validProjectId = !('projectId' in data) || 
+                          (data.projectId == null || validateStringField(data.projectId, 1, 128));
+      let validEstimatedPomodoros = !('estimatedPomodoros' in data) || 
+                                   (data.estimatedPomodoros == null || 
+                                    (data.estimatedPomodoros is int && data.estimatedPomodoros > 0 && data.estimatedPomodoros <= 50));
+      let validFocus = !('focus' in data) || data.focus is bool;
+      let validDeadline = !('deadline' in data) || 
+                         (data.deadline == null || data.deadline is string);
+      let validEstimationSource = !('estimationSource' in data) || 
+                                 (data.estimationSource == null || data.estimationSource in ['manual', 'ai']);
+      let validArchived = !('archived' in data) || data.archived is bool;
+      let validTotalPomodoros = !('totalPomodoroSessions' in data) || 
+                               (data.totalPomodoroSessions is int && data.totalPomodoroSessions >= 0);
+      let validTotalTime = !('totalTimeSpent' in data) || 
+                          (data.totalTimeSpent is int && data.totalTimeSpent >= 0);
+      let validManualTime = !('manualTimeSpent' in data) || 
+                           (data.manualTimeSpent is int && data.manualTimeSpent >= 0);
+      let validCompletedPomodoros = !('completedPomodoros' in data) || 
+                                   (data.completedPomodoros is int && data.completedPomodoros >= 0);
+      
+      return hasRequiredFields && 
+             validTitle && 
+             validUserId && 
+             validCompleted &&
+             validProjectId && 
+             validEstimatedPomodoros && 
+             validFocus && 
+             validDeadline && 
+             validEstimationSource && 
+             validArchived && 
+             validTotalPomodoros && 
+             validTotalTime && 
+             validManualTime &&
+             validCompletedPomodoros;
+    }
+    
+    function validateProjectData(data) {
+      let hasRequiredFields = 'name' in data && 'userId' in data;
+      let validName = validateStringField(data.name, 1, 200);
+      let validUserId = validateStringField(data.userId, 1, 128);
+      
+      return hasRequiredFields && validName && validUserId;
+    }
+    
+    function validateLabelData(data) {
+      let hasRequiredFields = 'name' in data && 'userId' in data && 'color' in data;
+      let validName = validateStringField(data.name, 1, 100);
+      let validUserId = validateStringField(data.userId, 1, 128);
+      let validColor = data.color is string && data.color.matches('^#[0-9a-fA-F]{6}$');
+      
+      return hasRequiredFields && validName && validUserId && validColor;
+    }
+    
+    function validateEstimationData(data) {
+      let hasRequiredFields = 'userId' in data && 
+                             'taskId' in data && 
+                             'taskTitle' in data && 
+                             'estimatedPomodoros' in data && 
+                             'actualPomodoros' in data && 
+                             'accuracy' in data && 
+                             'completedAt' in data;
+      
+      let validUserId = validateStringField(data.userId, 1, 128);
+      let validTaskId = validateStringField(data.taskId, 1, 128);
+      let validTaskTitle = validateStringField(data.taskTitle, 1, 1000);
+      let validEstimated = data.estimatedPomodoros is int && data.estimatedPomodoros > 0 && data.estimatedPomodoros <= 50;
+      let validActual = data.actualPomodoros is int && data.actualPomodoros >= 0;
+      let validAccuracy = data.accuracy is number && data.accuracy > 0;
+      let validCompletedAt = data.completedAt is timestamp;
+      let validProjectId = !('projectId' in data) || 
+                          (data.projectId == null || validateStringField(data.projectId, 1, 128));
+      let validKeywords = !('keywords' in data) || 
+                         (data.keywords is list && data.keywords.size() <= 20);
+      
+      return hasRequiredFields && 
+             validUserId && 
+             validTaskId && 
+             validTaskTitle && 
+             validEstimated && 
+             validActual && 
+             validAccuracy && 
+             validCompletedAt && 
+             validProjectId && 
+             validKeywords;
+    }
+    
+    // Tasks collection - user can only access their own tasks
+    match /tasks/{taskId} {
+      allow read, write: if isAuthenticated() && 
+                           isOwner(resource.data.userId);
+      allow create: if isAuthenticated() && 
+                      isOwner(request.resource.data.userId) &&
+                      validateTaskData(request.resource.data);
+      allow update: if isAuthenticated() && 
+                      isOwner(resource.data.userId) &&
+                      isOwner(request.resource.data.userId) &&
+                      validateTaskData(request.resource.data);
+      allow delete: if isAuthenticated() && 
+                      isOwner(resource.data.userId);
+    }
+    
+    // Projects collection - user can only access their own projects  
+    match /projects/{projectId} {
+      allow read, write: if isAuthenticated() && 
+                           isOwner(resource.data.userId);
+      allow create: if isAuthenticated() && 
+                      isOwner(request.resource.data.userId) &&
+                      validateProjectData(request.resource.data);
+      allow update: if isAuthenticated() && 
+                      isOwner(resource.data.userId) &&
+                      isOwner(request.resource.data.userId) &&
+                      validateProjectData(request.resource.data);
+      allow delete: if isAuthenticated() && 
+                      isOwner(resource.data.userId);
+    }
+    
+    // Labels collection - user can only access their own labels
+    match /labels/{labelId} {
+      allow read, write: if isAuthenticated() && 
+                           isOwner(resource.data.userId);
+      allow create: if isAuthenticated() && 
+                      isOwner(request.resource.data.userId) &&
+                      validateLabelData(request.resource.data);
+      allow update: if isAuthenticated() && 
+                      isOwner(resource.data.userId) &&
+                      isOwner(request.resource.data.userId) &&
+                      validateLabelData(request.resource.data);
+      allow delete: if isAuthenticated() && 
+                      isOwner(resource.data.userId);
+    }
+    
+    // Estimation history collection - user can only access their own records
+    match /estimation_history/{estimationId} {
+      allow read, write: if isAuthenticated() && 
+                           isOwner(resource.data.userId);
+      allow create: if isAuthenticated() && 
+                      isOwner(request.resource.data.userId) &&
+                      validateEstimationData(request.resource.data);
+      allow update: if isAuthenticated() && 
+                      isOwner(resource.data.userId) &&
+                      isOwner(request.resource.data.userId) &&
+                      validateEstimationData(request.resource.data);
+      allow delete: if isAuthenticated() && 
+                      isOwner(resource.data.userId);
+    }
+    
+    // Deny all other access by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
