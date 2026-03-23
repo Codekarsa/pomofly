@@ -5,6 +5,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { useProjects } from '@/hooks/useProjects';
 import { useTimeTracking } from '@/hooks/useTimeTracking';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
+import { useMountedRef, MemoryMonitor } from '@/lib/memoryLeakPrevention';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
@@ -26,6 +27,7 @@ interface PomodoroTimerProps {
 const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) => {
   const { user } = useAuth();
   const { event } = useGoogleAnalytics();
+  const mountedRef = useMountedRef();
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('selectedTaskIds');
@@ -82,7 +84,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
         const task = tasks.find(t => t.id === id);
         return task && !task.completed;
       });
-      if (validTaskIds.length !== selectedTaskIds.length) {
+      if (validTaskIds.length !== selectedTaskIds.length && mountedRef.current) {
         setSelectedTaskIds(validTaskIds);
       }
     }
@@ -127,7 +129,9 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
         incrementPomodoroSession(taskId, settings.pomodoro);
       });
 
-      setCompletedSessions(prev => [...prev, { date: new Date().toISOString() }]);
+      if (mountedRef.current) {
+        setCompletedSessions(prev => [...prev, { date: new Date().toISOString() }]);
+      }
       event('pomodoro_session_completed', {
         duration: settings.pomodoro,
         task_ids: taskIds,
@@ -209,6 +213,17 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
 
   useEffect(() => {
     event('pomodoro_timer_view', { user_authenticated: !!user });
+    
+    // Memory monitoring in development
+    if (process.env.NODE_ENV === 'development') {
+      MemoryMonitor.logMemoryUsage('PomodoroTimer Mount');
+    }
+
+    return () => {
+      if (process.env.NODE_ENV === 'development') {
+        MemoryMonitor.logMemoryUsage('PomodoroTimer Unmount');
+      }
+    };
   }, [event, user]);
 
   // Comprehensive cleanup effect to prevent memory leaks
@@ -279,7 +294,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   }, [handlePomodoroComplete, resetTimer, switchPhase, phase, event]);
 
   const handleAddTask = useCallback((taskId: string) => {
-    if (!selectedTaskIds.includes(taskId)) {
+    if (!selectedTaskIds.includes(taskId) && mountedRef.current) {
       const newIds = [...selectedTaskIds, taskId];
       setSelectedTaskIds(newIds);
       event('task_added_to_pomodoro', { task_id: taskId });
@@ -289,12 +304,14 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
         startAllTimeTracking([taskId]);
       }
     }
-  }, [selectedTaskIds, event, isActive, phase, startAllTimeTracking]);
+  }, [selectedTaskIds, event, isActive, phase, startAllTimeTracking, mountedRef]);
 
   const handleRemoveTask = useCallback((taskId: string) => {
-    const newIds = selectedTaskIds.filter(id => id !== taskId);
-    setSelectedTaskIds(newIds);
-    event('task_removed_from_pomodoro', { task_id: taskId });
+    if (mountedRef.current) {
+      const newIds = selectedTaskIds.filter(id => id !== taskId);
+      setSelectedTaskIds(newIds);
+      event('task_removed_from_pomodoro', { task_id: taskId });
+    }
 
     // If timer is active, stop tracking the removed task
     if (isActive && phase === 'pomodoro') {
@@ -304,7 +321,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
         stopAllTimeTracking([{ taskId, elapsedSeconds: elapsed }]);
       }
     }
-  }, [selectedTaskIds, event, isActive, phase, tasks, getElapsedTime, stopAllTimeTracking]);
+  }, [selectedTaskIds, event, isActive, phase, tasks, getElapsedTime, stopAllTimeTracking, mountedRef]);
 
   const handleToggleTimer = useCallback(() => {
     toggleTimer();

@@ -3,68 +3,57 @@
 import { useEffect, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 
-// Extend window to include gtag and dataLayer
 declare global {
   interface Window {
-    gtag: (...args: [string, ...unknown[]]) => void;
     dataLayer: unknown[];
+    gtag: (...args: [string, ...unknown[]]) => void;
   }
 }
 
 export default function GoogleAnalytics({ GA_MEASUREMENT_ID }: { GA_MEASUREMENT_ID: string }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const scriptLoaded = useRef(false);
+  const scriptLoadedRef = useRef(false);
+  const scriptRef = useRef<HTMLScriptElement | null>(null);
 
-  // Initialize GA4 tracking on mount
+  // Initialize Google Analytics script only once
   useEffect(() => {
-    if (!GA_MEASUREMENT_ID || scriptLoaded.current) return;
+    if (scriptLoadedRef.current || !GA_MEASUREMENT_ID) return;
 
-    // Create and load gtag script
     const script = document.createElement('script');
     script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
     script.async = true;
     script.onload = () => {
+      scriptLoadedRef.current = true;
       // Initialize gtag function
       window.dataLayer = window.dataLayer || [];
       window.gtag = function gtag(...args: [string, ...unknown[]]) {
         window.dataLayer.push(args);
       };
-      
-      // Configure GA4
       window.gtag('js', new Date());
-      window.gtag('config', GA_MEASUREMENT_ID, {
-        page_path: pathname + (searchParams.toString() ? '?' + searchParams.toString() : ''),
-      });
-      
-      scriptLoaded.current = true;
+      window.gtag('config', GA_MEASUREMENT_ID);
     };
-
-    script.onerror = () => {
-      console.warn('Failed to load Google Analytics script');
-    };
-
+    
     document.head.appendChild(script);
+    scriptRef.current = script;
 
-    // Safe cleanup - only remove if script exists
     return () => {
-      if (script.parentNode) {
-        script.parentNode.removeChild(script);
+      // Only remove script on component unmount, not on every path change
+      if (scriptRef.current && scriptRef.current.parentNode) {
+        scriptRef.current.parentNode.removeChild(scriptRef.current);
       }
+      scriptLoadedRef.current = false;
     };
   }, [GA_MEASUREMENT_ID]);
 
-  // Track page views on route changes
+  // Track page views on pathname/search changes (after script loads)
   useEffect(() => {
-    if (!scriptLoaded.current || !window.gtag) return;
-
-    const url = pathname + (searchParams.toString() ? '?' + searchParams.toString() : '');
+    if (!scriptLoadedRef.current || !window.gtag) return;
     
     window.gtag('config', GA_MEASUREMENT_ID, {
-      page_path: url,
+      page_path: pathname + (searchParams.toString() ? `?${searchParams.toString()}` : ''),
     });
   }, [pathname, searchParams, GA_MEASUREMENT_ID]);
 
-  // No component rendering needed for GA4
-  return null;
+  return null; // Remove GTM component to avoid conflicts
 }
