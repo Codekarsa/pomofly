@@ -1,11 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
+  // Removed output: 'export' to allow API routes to function properly
+  // Static export mode is incompatible with Next.js API routes
   trailingSlash: true,
   images: {
     unoptimized: true,
   },
-  // Disable problematic features for static export
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -45,3 +45,4 @@ function generateCSP() {
 }
 
 export default nextConfig;
+# API routes enabled - static export removed
