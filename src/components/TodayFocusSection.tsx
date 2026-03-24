@@ -3,6 +3,7 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useTasks, Task } from '../hooks/useTasks';
+import { sanitizeTaskTitle } from '@/lib/security';
 import { useProjects } from '../hooks/useProjects';
 import { useTimeTracking } from '@/hooks/useTimeTracking';
 import { Button } from '@/components/ui/button';
@@ -387,7 +388,7 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
                           "text-sm font-medium transition-all duration-200",
                           task.completed && "line-through text-muted-foreground"
                         )}>
-                          {task.title}
+                          {sanitizeTaskTitle(task.title)}
                         </span>
 
                         {task.projectId && <ProjectBadge projectId={task.projectId} />}

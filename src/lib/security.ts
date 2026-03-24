@@ -114,6 +114,29 @@ export function sanitizeTaskTitle(title: string): string {
 }
 
 /**
+ * Client-side HTML sanitization for project names
+ * Uses same restrictive config as task titles
+ */
+export function sanitizeProjectName(name: string): string {
+  if (typeof name !== 'string') {
+    return '';
+  }
+
+  // Configure DOMPurify to be very restrictive for project names
+  const config = {
+    ALLOWED_TAGS: [], // No HTML tags allowed in project names
+    ALLOWED_ATTR: [],
+    KEEP_CONTENT: true, // Keep text content, remove tags
+    ALLOW_DATA_ATTR: false,
+    ALLOW_UNKNOWN_PROTOCOLS: false,
+    SANITIZE_DOM: true,
+    FORCE_BODY: false,
+  };
+
+  return DOMPurify.sanitize(name, config);
+}
+
+/**
  * Client-side HTML sanitization for rich content (if needed in future)
  * More permissive than task titles but still secure
  */

@@ -5,6 +5,7 @@ import { useProjects } from '../hooks/useProjects';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { useTimeTracking } from '@/hooks/useTimeTracking';
 import { useEstimation, type EstimationResult } from '@/hooks/useEstimation';
+import { sanitizeTaskTitle } from '@/lib/security';
 import { Button } from '@/components/ui/button';
 import { MobileButton } from '@/components/ui/mobile-button';
 import { Input } from '@/components/ui/input';
@@ -120,7 +121,7 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
                 >
                   <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
                 </MobileButton>
-                <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
+                <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{sanitizeTaskTitle(task.title)}</span>
                 {task.projectId && <ProjectBadge projectId={task.projectId} />}
                 <TaskLabels labelIds={task.labelIds} />
                 <span className="text-xs text-muted-foreground">
@@ -948,7 +949,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                     >
                       <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
                     </MobileButton>
-                    <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
+                    <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{sanitizeTaskTitle(task.title)}</span>
                     {task.projectId && <ProjectBadge projectId={task.projectId} />}
                     <TaskLabels labelIds={task.labelIds} />
                     <span className="text-xs text-muted-foreground">

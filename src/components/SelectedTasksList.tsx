@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Task } from '@/hooks/useTasks';
+import { sanitizeTaskTitle } from '@/lib/security';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -106,7 +107,7 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm font-medium truncate">
-                        {task.title}
+                        {sanitizeTaskTitle(task.title)}
                       </span>
                       {task.focus && (
                         <Star className="w-3 h-3 text-amber-500 flex-shrink-0" fill="currentColor" />
@@ -197,7 +198,7 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
                         >
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 text-sm font-medium truncate">
-                              {task.title}
+                              {sanitizeTaskTitle(task.title)}
                               {task.focus && (
                                 <Star className="w-3 h-3 text-amber-500 flex-shrink-0" fill="currentColor" />
                               )}

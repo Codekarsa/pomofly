@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useProjects } from '../hooks/useProjects';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
+import { sanitizeProjectName } from '@/lib/security';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -122,7 +123,7 @@ const ProjectList = React.memo(() => {
                 </form>
               ) : (
                 <>
-                  <span className="text-sm font-medium">{project.name}</span>
+                  <span className="text-sm font-medium">{sanitizeProjectName(project.name)}</span>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="sm">
