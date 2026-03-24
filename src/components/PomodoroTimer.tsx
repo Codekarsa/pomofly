@@ -1,10 +1,11 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { usePomodoro } from '@/hooks/usePomodoro';
 import { useTasks } from '@/hooks/useTasks';
 import { useProjects } from '@/hooks/useProjects';
 import { useTimeTracking } from '@/hooks/useTimeTracking';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
+import { useMemoryMonitor } from '@/hooks/useMemoryMonitor';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
@@ -26,13 +27,22 @@ interface PomodoroTimerProps {
 const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) => {
   const { user } = useAuth();
   const { event } = useGoogleAnalytics();
+  
+  // Memory monitoring in development mode
+  useMemoryMonitor('PomodoroTimer');
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('selectedTaskIds');
-      return saved ? JSON.parse(saved) : [];
+      try {
+        const saved = localStorage.getItem('selectedTaskIds');
+        return saved ? JSON.parse(saved) : [];
+      } catch (error) {
+        console.warn('Failed to load selected task IDs:', error);
+        return [];
+      }
     }
     return [];
   });
+  
   const {
     tasks,
     loading,
@@ -44,128 +54,108 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   const { getElapsedTime, formatTime } = useTimeTracking(tasks);
 
   const [completedSessions, setCompletedSessions] = useState<{ date: string }[]>([]);
+  
+  // Memory management refs
+  const isMountedRef = useRef(true);
   const wasActiveRef = useRef(false);
-
-  // Use refs to avoid callback dependency issues that cause timer to reset
   const selectedTaskIdsRef = useRef<string[]>([]);
   const tasksRef = useRef(tasks);
+  const storageTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Keep refs in sync with state
+  // Cleanup on unmount
   useEffect(() => {
-    selectedTaskIdsRef.current = selectedTaskIds;
+    return () => {
+      isMountedRef.current = false;
+      
+      // Clear any pending storage operations
+      if (storageTimeoutRef.current) {
+        clearTimeout(storageTimeoutRef.current);
+        storageTimeoutRef.current = null;
+      }
+      
+      // Clear refs to prevent memory leaks
+      selectedTaskIdsRef.current = [];
+      tasksRef.current = [];
+      wasActiveRef.current = false;
+    };
+  }, []);
+
+  // Keep refs in sync with state efficiently
+  useEffect(() => {
+    if (isMountedRef.current) {
+      selectedTaskIdsRef.current = selectedTaskIds;
+    }
   }, [selectedTaskIds]);
 
   useEffect(() => {
-    tasksRef.current = tasks;
+    if (isMountedRef.current) {
+      tasksRef.current = tasks;
+    }
   }, [tasks]);
 
-  // Persist selectedTaskIds to localStorage and session
-  useEffect(() => {
-    localStorage.setItem('selectedTaskIds', JSON.stringify(selectedTaskIds));
-    TimerPersistence.updateSessionTaskIds(selectedTaskIds);
-  }, [selectedTaskIds]);
-
-  // Filter out invalid/stale task IDs (deleted or completed tasks)
-  useEffect(() => {
-    if (!loading && tasks.length > 0 && selectedTaskIds.length > 0) {
-      const validTaskIds = selectedTaskIds.filter(id => {
-        const task = tasks.find(t => t.id === id);
-        return task && !task.completed;
-      });
-      if (validTaskIds.length !== selectedTaskIds.length) {
-        setSelectedTaskIds(validTaskIds);
-      }
+  // Debounced localStorage operations to prevent excessive writes
+  const saveSelectedTaskIds = useCallback((taskIds: string[]) => {
+    if (!isMountedRef.current) return;
+    
+    // Clear any pending save operation
+    if (storageTimeoutRef.current) {
+      clearTimeout(storageTimeoutRef.current);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, tasks]);
 
-  // Stable callback that uses refs - won't cause usePomodoro to reset
+    storageTimeoutRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return;
+      
+      try {
+        localStorage.setItem('selectedTaskIds', JSON.stringify(taskIds));
+        TimerPersistence.updateSessionTaskIds(taskIds);
+      } catch (error) {
+        console.warn('Failed to save selected task IDs:', error);
+      }
+    }, 100); // Debounce by 100ms
+  }, []);
+
+  // Persist selectedTaskIds with debouncing
+  useEffect(() => {
+    saveSelectedTaskIds(selectedTaskIds);
+    
+    // Cleanup timeout on dependency change
+    return () => {
+      if (storageTimeoutRef.current) {
+        clearTimeout(storageTimeoutRef.current);
+        storageTimeoutRef.current = null;
+      }
+    };
+  }, [selectedTaskIds, saveSelectedTaskIds]);
+
+  // Optimized task validation with memoization
+  const validTaskIds = useMemo(() => {
+    if (loading || tasks.length === 0 || selectedTaskIds.length === 0) {
+      return selectedTaskIds;
+    }
+    
+    return selectedTaskIds.filter(id => {
+      const task = tasks.find(t => t.id === id);
+      return task && !task.completed;
+    });
+  }, [loading, tasks, selectedTaskIds]);
+
+  // Update selectedTaskIds only when validation result changes
+  useEffect(() => {
+    if (validTaskIds.length !== selectedTaskIds.length && isMountedRef.current) {
+      setSelectedTaskIds(validTaskIds);
+    }
+  }, [validTaskIds, selectedTaskIds]);
+
+  // Optimized pomodoro completion handler with stable dependencies
   const handlePomodoroComplete = useCallback(() => {
+    if (!isMountedRef.current) return;
+    
     const taskIds = selectedTaskIdsRef.current;
     const currentTasks = tasksRef.current;
 
-    if (user && taskIds.length > 0) {
-      // Stop time tracking for all selected tasks
-      const selectedTasks = currentTasks.filter(t => taskIds.includes(t.id));
-      const tasksToStop = selectedTasks
-        .filter(task => task.trackingStartedAt != null)
-        .map(task => {
-          let elapsed = 0;
-          if (task.trackingStartedAt) {
-            let startTime: number;
-            if (task.trackingStartedAt instanceof Date) {
-              startTime = task.trackingStartedAt.getTime();
-            } else if (typeof (task.trackingStartedAt as { toDate?: () => Date }).toDate === 'function') {
-              startTime = (task.trackingStartedAt as { toDate: () => Date }).toDate().getTime();
-            } else {
-              startTime = new Date(task.trackingStartedAt as unknown as string).getTime();
-            }
-            elapsed = Math.floor((Date.now() - startTime) / 1000);
-          }
-          return {
-            taskId: task.id,
-            elapsedSeconds: Math.max(0, elapsed)
-          };
-        });
-
-      if (tasksToStop.length > 0) {
-        stopAllTimeTracking(tasksToStop);
-      }
-
-      // Increment pomodoro session for all selected tasks
-      taskIds.forEach(taskId => {
-        incrementPomodoroSession(taskId, settings.pomodoro);
-      });
-
-      setCompletedSessions(prev => [...prev, { date: new Date().toISOString() }]);
-      event('pomodoro_session_completed', {
-        duration: settings.pomodoro,
-        task_ids: taskIds,
-        task_count: taskIds.length,
-        phase: 'pomodoro'
-      });
-    } else {
-      event('pomodoro_session_completed', {
-        duration: settings.pomodoro,
-        phase: 'pomodoro'
-      });
-    }
-  }, [user, settings.pomodoro, incrementPomodoroSession, stopAllTimeTracking, event]);
-
-  const {
-    phase,
-    minutes,
-    seconds,
-    isActive,
-    toggleTimer,
-    resetTimer,
-    switchPhase,
-    showRecoveryModal,
-    persistedSession,
-    restoreSession,
-    startFresh
-  } = usePomodoro(settings, handlePomodoroComplete);
-
-  // Handle timer start/pause - manage time tracking
-  useEffect(() => {
-    const taskIds = selectedTaskIdsRef.current;
-    const currentTasks = tasksRef.current;
-
-    if (isActive && !wasActiveRef.current) {
-      // Timer just started - start time tracking on all selected tasks
-      if (taskIds.length > 0 && phase === 'pomodoro') {
-        const taskIdsToStart = taskIds.filter(id => {
-          const task = currentTasks.find(t => t.id === id);
-          return task && task.trackingStartedAt == null;
-        });
-        if (taskIdsToStart.length > 0) {
-          startAllTimeTracking(taskIdsToStart);
-          event('time_tracking_started_with_pomodoro', { task_count: taskIdsToStart.length });
-        }
-      }
-    } else if (!isActive && wasActiveRef.current) {
-      // Timer just paused - stop time tracking on all selected tasks
-      if (taskIds.length > 0 && phase === 'pomodoro') {
+    try {
+      if (user && taskIds.length > 0) {
+        // Stop time tracking for all selected tasks
         const selectedTasks = currentTasks.filter(t => taskIds.includes(t.id));
         const tasksToStop = selectedTasks
           .filter(task => task.trackingStartedAt != null)
@@ -190,18 +180,135 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
 
         if (tasksToStop.length > 0) {
           stopAllTimeTracking(tasksToStop);
-          event('time_tracking_stopped_with_pomodoro', { task_count: tasksToStop.length });
+        }
+
+        // Increment pomodoro session for all selected tasks
+        taskIds.forEach(taskId => {
+          incrementPomodoroSession(taskId, settings.pomodoro);
+        });
+
+        setCompletedSessions(prev => [...prev, { date: new Date().toISOString() }]);
+        
+        // Analytics with error handling
+        try {
+          event('pomodoro_session_completed', {
+            duration: settings.pomodoro,
+            task_ids: taskIds,
+            task_count: taskIds.length,
+            phase: 'pomodoro'
+          });
+        } catch (error) {
+          console.warn('Analytics event failed:', error);
+        }
+      } else {
+        try {
+          event('pomodoro_session_completed', {
+            duration: settings.pomodoro,
+            phase: 'pomodoro'
+          });
+        } catch (error) {
+          console.warn('Analytics event failed:', error);
         }
       }
+    } catch (error) {
+      console.error('Error in pomodoro completion handler:', error);
     }
-    wasActiveRef.current = isActive;
+  }, [user, settings.pomodoro, incrementPomodoroSession, stopAllTimeTracking, event]);
+
+  const {
+    phase,
+    minutes,
+    seconds,
+    isActive,
+    toggleTimer,
+    resetTimer,
+    switchPhase,
+    showRecoveryModal,
+    persistedSession,
+    restoreSession,
+    startFresh
+  } = usePomodoro(settings, handlePomodoroComplete);
+
+  // Optimized timer state management with proper cleanup
+  useEffect(() => {
+    if (!isMountedRef.current) return;
+    
+    const taskIds = selectedTaskIdsRef.current;
+    const currentTasks = tasksRef.current;
+
+    try {
+      if (isActive && !wasActiveRef.current) {
+        // Timer just started - start time tracking on all selected tasks
+        if (taskIds.length > 0 && phase === 'pomodoro') {
+          const taskIdsToStart = taskIds.filter(id => {
+            const task = currentTasks.find(t => t.id === id);
+            return task && task.trackingStartedAt == null;
+          });
+          
+          if (taskIdsToStart.length > 0) {
+            startAllTimeTracking(taskIdsToStart);
+            try {
+              event('time_tracking_started_with_pomodoro', { task_count: taskIdsToStart.length });
+            } catch (error) {
+              console.warn('Analytics event failed:', error);
+            }
+          }
+        }
+      } else if (!isActive && wasActiveRef.current) {
+        // Timer just paused - stop time tracking on all selected tasks
+        if (taskIds.length > 0 && phase === 'pomodoro') {
+          const selectedTasks = currentTasks.filter(t => taskIds.includes(t.id));
+          const tasksToStop = selectedTasks
+            .filter(task => task.trackingStartedAt != null)
+            .map(task => {
+              let elapsed = 0;
+              if (task.trackingStartedAt) {
+                let startTime: number;
+                if (task.trackingStartedAt instanceof Date) {
+                  startTime = task.trackingStartedAt.getTime();
+                } else if (typeof (task.trackingStartedAt as { toDate?: () => Date }).toDate === 'function') {
+                  startTime = (task.trackingStartedAt as { toDate: () => Date }).toDate().getTime();
+                } else {
+                  startTime = new Date(task.trackingStartedAt as unknown as string).getTime();
+                }
+                elapsed = Math.floor((Date.now() - startTime) / 1000);
+              }
+              return {
+                taskId: task.id,
+                elapsedSeconds: Math.max(0, elapsed)
+              };
+            });
+
+          if (tasksToStop.length > 0) {
+            stopAllTimeTracking(tasksToStop);
+            try {
+              event('time_tracking_stopped_with_pomodoro', { task_count: tasksToStop.length });
+            } catch (error) {
+              console.warn('Analytics event failed:', error);
+            }
+          }
+        }
+      }
+      
+      wasActiveRef.current = isActive;
+    } catch (error) {
+      console.error('Error in timer state management:', error);
+    }
   }, [isActive, phase, startAllTimeTracking, stopAllTimeTracking, event]);
 
+  // Initial analytics event with proper error handling
   useEffect(() => {
-    event('pomodoro_timer_view', { user_authenticated: !!user });
+    if (isMountedRef.current) {
+      try {
+        event('pomodoro_timer_view', { user_authenticated: !!user });
+      } catch (error) {
+        console.warn('Analytics event failed:', error);
+      }
+    }
   }, [event, user]);
 
-  const countTodaysSessions = useCallback(() => {
+  // Memoized session counter to prevent unnecessary calculations
+  const countTodaysSessions = useMemo(() => {
     const today = new Date().toDateString();
     return completedSessions.filter(session =>
       new Date(session.date).toDateString() === today
@@ -209,67 +316,134 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   }, [completedSessions]);
 
   const handleDoneNext = useCallback(() => {
-    handlePomodoroComplete();
-    resetTimer();
-    switchPhase(phase === 'pomodoro' ? 'shortBreak' : 'pomodoro');
-    event('pomodoro_phase_switched', { new_phase: phase === 'pomodoro' ? 'shortBreak' : 'pomodoro' });
+    if (!isMountedRef.current) return;
+    
+    try {
+      handlePomodoroComplete();
+      resetTimer();
+      const newPhase = phase === 'pomodoro' ? 'shortBreak' : 'pomodoro';
+      switchPhase(newPhase);
+      
+      try {
+        event('pomodoro_phase_switched', { new_phase: newPhase });
+      } catch (error) {
+        console.warn('Analytics event failed:', error);
+      }
+    } catch (error) {
+      console.error('Error in done/next handler:', error);
+    }
   }, [handlePomodoroComplete, resetTimer, switchPhase, phase, event]);
 
   const handleAddTask = useCallback((taskId: string) => {
-    if (!selectedTaskIds.includes(taskId)) {
+    if (!isMountedRef.current || selectedTaskIds.includes(taskId)) return;
+    
+    try {
       const newIds = [...selectedTaskIds, taskId];
       setSelectedTaskIds(newIds);
-      event('task_added_to_pomodoro', { task_id: taskId });
+      
+      try {
+        event('task_added_to_pomodoro', { task_id: taskId });
+      } catch (error) {
+        console.warn('Analytics event failed:', error);
+      }
 
       // If timer is active and in pomodoro phase, start tracking the new task
       if (isActive && phase === 'pomodoro') {
         startAllTimeTracking([taskId]);
       }
+    } catch (error) {
+      console.error('Error adding task:', error);
     }
   }, [selectedTaskIds, event, isActive, phase, startAllTimeTracking]);
 
   const handleRemoveTask = useCallback((taskId: string) => {
-    const newIds = selectedTaskIds.filter(id => id !== taskId);
-    setSelectedTaskIds(newIds);
-    event('task_removed_from_pomodoro', { task_id: taskId });
-
-    // If timer is active, stop tracking the removed task
-    if (isActive && phase === 'pomodoro') {
-      const task = tasks.find(t => t.id === taskId);
-      if (task && task.trackingStartedAt != null) {
-        const elapsed = getElapsedTime(task) - (task.manualTimeSpent ?? 0);
-        stopAllTimeTracking([{ taskId, elapsedSeconds: elapsed }]);
+    if (!isMountedRef.current) return;
+    
+    try {
+      const newIds = selectedTaskIds.filter(id => id !== taskId);
+      setSelectedTaskIds(newIds);
+      
+      try {
+        event('task_removed_from_pomodoro', { task_id: taskId });
+      } catch (error) {
+        console.warn('Analytics event failed:', error);
       }
+
+      // If timer is active, stop tracking the removed task
+      if (isActive && phase === 'pomodoro') {
+        const task = tasks.find(t => t.id === taskId);
+        if (task && task.trackingStartedAt != null) {
+          const elapsed = getElapsedTime(task) - (task.manualTimeSpent ?? 0);
+          stopAllTimeTracking([{ taskId, elapsedSeconds: elapsed }]);
+        }
+      }
+    } catch (error) {
+      console.error('Error removing task:', error);
     }
   }, [selectedTaskIds, event, isActive, phase, tasks, getElapsedTime, stopAllTimeTracking]);
 
   const handleToggleTimer = useCallback(() => {
-    toggleTimer();
-    event('pomodoro_timer_toggled', {
-      action: isActive ? 'pause' : 'start',
-      phase: phase,
-      selected_tasks: selectedTaskIds.length
-    });
+    if (!isMountedRef.current) return;
+    
+    try {
+      toggleTimer();
+      
+      try {
+        event('pomodoro_timer_toggled', {
+          action: isActive ? 'pause' : 'start',
+          phase: phase,
+          selected_tasks: selectedTaskIds.length
+        });
+      } catch (error) {
+        console.warn('Analytics event failed:', error);
+      }
+    } catch (error) {
+      console.error('Error toggling timer:', error);
+    }
   }, [toggleTimer, isActive, phase, selectedTaskIds.length, event]);
 
   const handleRestoreSession = useCallback((session: any) => {
-    // Restore selected task IDs if available
-    if (session.selectedTaskIds && Array.isArray(session.selectedTaskIds)) {
-      setSelectedTaskIds(session.selectedTaskIds);
+    if (!isMountedRef.current) return;
+    
+    try {
+      // Restore selected task IDs if available
+      if (session.selectedTaskIds && Array.isArray(session.selectedTaskIds)) {
+        setSelectedTaskIds(session.selectedTaskIds);
+      }
+      
+      restoreSession(session);
+      
+      try {
+        event('timer_session_restored', {
+          phase: session.phase,
+          was_active: session.isActive,
+          tasks_count: session.selectedTaskIds?.length || 0
+        });
+      } catch (error) {
+        console.warn('Analytics event failed:', error);
+      }
+    } catch (error) {
+      console.error('Error restoring session:', error);
     }
-    restoreSession(session);
-    event('timer_session_restored', {
-      phase: session.phase,
-      was_active: session.isActive,
-      tasks_count: session.selectedTaskIds?.length || 0
-    });
   }, [restoreSession, event]);
 
   const handleStartFresh = useCallback(() => {
-    startFresh();
-    event('timer_session_start_fresh');
+    if (!isMountedRef.current) return;
+    
+    try {
+      startFresh();
+      
+      try {
+        event('timer_session_start_fresh');
+      } catch (error) {
+        console.warn('Analytics event failed:', error);
+      }
+    } catch (error) {
+      console.error('Error starting fresh:', error);
+    }
   }, [startFresh, event]);
 
+  // Loading state with memory-safe render
   if (loading) {
     return (
       <Card className="w-full mx-auto">
@@ -312,7 +486,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
       <CardContent>
         <div className="mb-4 text-lg">
           <span className="font-semibold">Today&apos;s Sessions: </span>
-          <span>{countTodaysSessions()}</span>
+          <span>{countTodaysSessions}</span>
         </div>
 
         <div className="mb-4 flex justify-center space-x-2">
@@ -320,8 +494,19 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
             <Button
               key={timerPhase}
               onClick={() => {
-                switchPhase(timerPhase as 'pomodoro' | 'shortBreak' | 'longBreak');
-                event('pomodoro_phase_switched', { new_phase: timerPhase });
+                if (!isMountedRef.current) return;
+                
+                try {
+                  switchPhase(timerPhase as 'pomodoro' | 'shortBreak' | 'longBreak');
+                  
+                  try {
+                    event('pomodoro_phase_switched', { new_phase: timerPhase });
+                  } catch (error) {
+                    console.warn('Analytics event failed:', error);
+                  }
+                } catch (error) {
+                  console.error('Error switching phase:', error);
+                }
               }}
               variant={phase === timerPhase ? 'default' : 'outline'}
             >
@@ -344,8 +529,19 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
           </Button>
           <Button
             onClick={() => {
-              resetTimer();
-              event('pomodoro_timer_reset', { phase: phase });
+              if (!isMountedRef.current) return;
+              
+              try {
+                resetTimer();
+                
+                try {
+                  event('pomodoro_timer_reset', { phase: phase });
+                } catch (error) {
+                  console.warn('Analytics event failed:', error);
+                }
+              } catch (error) {
+                console.error('Error resetting timer:', error);
+              }
             }}
             variant="outline"
           >

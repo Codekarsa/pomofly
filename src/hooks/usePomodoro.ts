@@ -33,47 +33,93 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
   const [persistedSession, setPersistedSession] = useState<PersistedTimerSession | null>(null);
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
 
+  // Refs for cleanup and preventing stale closures
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
+  const persistTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Use ref for onComplete to prevent dependency changes from resetting timer
   const onCompleteRef = useRef(onComplete);
+  
+  // Update onComplete ref without causing re-renders
   useEffect(() => {
     onCompleteRef.current = onComplete;
   }, [onComplete]);
 
-  // Check for persisted session on mount
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      
+      // Clear interval
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      
+      // Clear persist timeout
+      if (persistTimeoutRef.current) {
+        clearTimeout(persistTimeoutRef.current);
+        persistTimeoutRef.current = null;
+      }
+      
+      // Clear refs
+      onCompleteRef.current = undefined;
+    };
+  }, []);
+
+  // Check for persisted session on mount only
   useEffect(() => {
     const session = TimerPersistence.loadSession();
-    if (session) {
+    if (session && isMountedRef.current) {
       setPersistedSession(session);
       setShowRecoveryModal(true);
     }
-  }, []);
+  }, []); // Empty dependency array - run only once on mount
 
-  // Persist session whenever state changes
+  // Debounced persist function to avoid excessive localStorage writes
   const persistCurrentSession = useCallback(() => {
-    const session: PersistedTimerSession = {
-      phase,
-      isActive,
-      timerStartedAt,
-      pausedTimeRemaining,
-      sessionsCompleted,
-      sessionCreatedAt: Date.now(),
-      settings,
-    };
-    
-    // Only persist if there's meaningful state to save
-    if (isActive || timerStartedAt !== null || pausedTimeRemaining !== null) {
-      TimerPersistence.saveSession(session);
-    } else {
-      TimerPersistence.clearSession();
+    // Clear any pending persist operations
+    if (persistTimeoutRef.current) {
+      clearTimeout(persistTimeoutRef.current);
     }
+
+    persistTimeoutRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return;
+
+      const session: PersistedTimerSession = {
+        phase,
+        isActive,
+        timerStartedAt,
+        pausedTimeRemaining,
+        sessionsCompleted,
+        sessionCreatedAt: Date.now(),
+        settings,
+      };
+      
+      // Only persist if there's meaningful state to save
+      if (isActive || timerStartedAt !== null || pausedTimeRemaining !== null) {
+        TimerPersistence.saveSession(session);
+      } else {
+        TimerPersistence.clearSession();
+      }
+    }, 100); // Debounce localStorage writes by 100ms
   }, [phase, isActive, timerStartedAt, pausedTimeRemaining, sessionsCompleted, settings]);
 
-  // Auto-persist when state changes
+  // Auto-persist when state changes (debounced)
   useEffect(() => {
     persistCurrentSession();
+    
+    // Cleanup timeout on unmount or dependency change
+    return () => {
+      if (persistTimeoutRef.current) {
+        clearTimeout(persistTimeoutRef.current);
+        persistTimeoutRef.current = null;
+      }
+    };
   }, [persistCurrentSession]);
 
-  // Calculate remaining time from timestamp (accurate, no drift)
+  // Stable getRemainingTime function to avoid unnecessary re-renders
   const getRemainingTime = useCallback((): number => {
     if (pausedTimeRemaining !== null) {
       return pausedTimeRemaining;
@@ -91,36 +137,74 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     return Math.max(0, remaining);
   }, [timerStartedAt, pausedTimeRemaining, settings, phase]);
 
+  // Memoized handlePhaseComplete to prevent unnecessary re-creations
   const handlePhaseComplete = useCallback(() => {
+    if (!isMountedRef.current) return;
+
     if (phase === 'pomodoro') {
-      setSessionsCompleted(prev => prev + 1);
-      if (sessionsCompleted + 1 >= settings.longBreakInterval) {
-        setPhase('longBreak');
-        setMinutes(settings.longBreak);
-      } else {
-        setPhase('shortBreak');
-        setMinutes(settings.shortBreak);
-      }
+      setSessionsCompleted(prev => {
+        const newCount = prev + 1;
+        if (newCount >= settings.longBreakInterval) {
+          setPhase('longBreak');
+          setMinutes(settings.longBreak);
+        } else {
+          setPhase('shortBreak');
+          setMinutes(settings.shortBreak);
+        }
+        return newCount;
+      });
     } else {
       setPhase('pomodoro');
       setMinutes(settings.pomodoro);
     }
+    
     setSeconds(0);
     setTimerStartedAt(null);
     setPausedTimeRemaining(null);
-    onCompleteRef.current?.();
-  }, [phase, sessionsCompleted, settings]);
+    
+    // Call completion callback if available
+    const callback = onCompleteRef.current;
+    if (callback) {
+      try {
+        callback();
+      } catch (error) {
+        console.error('Timer completion callback error:', error);
+      }
+    }
+  }, [phase, settings]); // Removed sessionsCompleted from dependencies to avoid stale closure
 
   const updateSettings = useCallback((newSettings: PomodoroSettings) => {
+    if (!isMountedRef.current) return;
+    
     setSettings(newSettings);
-    localStorage.setItem('pomodoroSettings', JSON.stringify(newSettings));
+    
+    // Safely update localStorage
+    try {
+      localStorage.setItem('pomodoroSettings', JSON.stringify(newSettings));
+    } catch (error) {
+      console.warn('Failed to save pomodoro settings:', error);
+    }
   }, []);
 
-  // Timer display update effect - uses timestamp for accuracy
+  // Optimized timer update effect with proper cleanup
   useEffect(() => {
-    if (!isActive) return;
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    if (!isActive || !isMountedRef.current) return;
 
     const updateDisplay = () => {
+      if (!isMountedRef.current) {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        return;
+      }
+
       const remaining = getRemainingTime();
       const mins = Math.floor(remaining / 60);
       const secs = remaining % 60;
@@ -132,6 +216,13 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
         setIsActive(false);
         setTimerStartedAt(null);
         setPausedTimeRemaining(null);
+        
+        // Clear interval before handling completion
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        
         handlePhaseComplete();
       }
     };
@@ -139,13 +230,21 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     // Update immediately
     updateDisplay();
 
-    // Then update every 100ms for smooth display
-    const interval = setInterval(updateDisplay, 100);
+    // Set up interval with proper cleanup
+    intervalRef.current = setInterval(updateDisplay, 100);
 
-    return () => clearInterval(interval);
+    // Cleanup function
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
   }, [isActive, getRemainingTime, handlePhaseComplete]);
 
   const toggleTimer = useCallback(() => {
+    if (!isMountedRef.current) return;
+
     if (!isActive) {
       // Starting timer
       if (pausedTimeRemaining !== null) {
@@ -168,6 +267,14 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
   }, [isActive, pausedTimeRemaining, settings, phase, getRemainingTime]);
 
   const resetTimer = useCallback(() => {
+    if (!isMountedRef.current) return;
+    
+    // Clear interval first
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    
     setIsActive(false);
     setTimerStartedAt(null);
     setPausedTimeRemaining(null);
@@ -176,6 +283,14 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
   }, [phase, settings]);
 
   const switchPhase = useCallback((newPhase: PomodoroPhase) => {
+    if (!isMountedRef.current) return;
+    
+    // Clear interval when switching phases
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    
     setPhase(newPhase);
     setTimerStartedAt(null);
     setPausedTimeRemaining(null);
@@ -184,8 +299,10 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     setIsActive(false);
   }, [settings]);
 
-  // Recovery functions
+  // Recovery functions with memory safety
   const restoreSession = useCallback((session: PersistedTimerSession) => {
+    if (!isMountedRef.current) return;
+    
     setPhase(session.phase);
     setIsActive(session.isActive);
     setTimerStartedAt(session.timerStartedAt);
@@ -205,14 +322,17 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
   }, []);
 
   const startFresh = useCallback(() => {
+    if (!isMountedRef.current) return;
+    
     setShowRecoveryModal(false);
     setPersistedSession(null);
     TimerPersistence.clearSession();
   }, []);
 
+  // Settings-based display update with proper dependency management
   useEffect(() => {
     // Only reset display when settings change and timer is not active
-    if (!isActive && timerStartedAt === null && pausedTimeRemaining === null) {
+    if (!isActive && timerStartedAt === null && pausedTimeRemaining === null && isMountedRef.current) {
       setMinutes(settings[phase]);
       setSeconds(0);
     }
