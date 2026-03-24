@@ -1,80 +1,122 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // CSP headers implementation (remove output: export for server deployment)
-  // Commented out output: export to enable headers() function
-  // output: 'export',
+  // Static export for Firebase hosting and static deployment
+  output: 'export',
   
-  // Enable experimental features for better performance
+  // Required for static export
+  trailingSlash: true,
+  skipTrailingSlashRedirect: true,
+  
+  // Image optimization for static export
+  images: {
+    unoptimized: true, // Required for static export
+    formats: ['image/webp', 'image/avif'],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    minimumCacheTTL: 31536000, // 1 year cache
+  },
+  
+  // Performance optimizations
+  compress: true,
+  poweredByHeader: false,
+  
+  // Experimental features for better performance
   experimental: {
-    optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],
+    optimizeCss: true,
+    optimizePackageImports: [
+      '@radix-ui/react-icons', 
+      '@radix-ui/react-alert-dialog',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-select',
+      '@radix-ui/react-popover',
+      '@radix-ui/react-tooltip',
+      'lucide-react',
+      'date-fns',
+      'clsx',
+      'class-variance-authority'
+    ],
+    nextScriptWorkers: true, // Move scripts to web worker
   },
   
-  // Configure static generation for better performance
-  async generateBuildId() {
-    // This can be used to create a custom build ID
-    return 'build-' + new Date().toISOString().replace(/[:.]/g, '-');
-  },
-  
-  // Ensure proper handling of environment variables
+  // Environment variables
   env: {
-    CUSTOM_KEY: process.env.CUSTOM_KEY,
+    NEXT_PUBLIC_BUILD_ID: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || 'dev',
+    NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
   },
   
-  // CSP headers for security
-  async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          {
-            key: 'Content-Security-Policy',
-            value: generateCSP()
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY'
-          },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff'
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'origin-when-cross-origin'
-          },
-          {
-            key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()'
-          }
-        ]
-      }
-    ];
+  // Generate build ID for better caching
+  generateBuildId: async () => {
+    return process.env.VERCEL_GIT_COMMIT_SHA || 
+           process.env.GITHUB_SHA || 
+           `build-${new Date().toISOString().replace(/[:.]/g, '-')}`;
   },
   
-  // Enable more aggressive code splitting
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
+  // TypeScript and ESLint configuration
+  typescript: {
+    ignoreBuildErrors: false,
+  },
+  eslint: {
+    ignoreDuringBuilds: false,
+  },
+  
+  // Enhanced webpack configuration
+  webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
+    // Bundle analyzer integration
+    if (process.env.ANALYZE === 'true') {
+      const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
+      config.plugins.push(
+        new BundleAnalyzerPlugin({
+          analyzerMode: 'server',
+          openAnalyzer: true,
+          analyzerPort: 8888,
+        })
+      );
+    }
+    
+    // Production optimizations
+    if (!dev && !isServer) {
+      // Code splitting optimization
       config.optimization = {
         ...config.optimization,
         splitChunks: {
-          ...config.optimization.splitChunks,
+          chunks: 'all',
+          minSize: 20000,
+          maxSize: 244000, // ~240KB chunks for optimal loading
           cacheGroups: {
-            ...config.optimization.splitChunks?.cacheGroups,
-            // Create separate chunks for heavy UI components
+            // Framework chunk (React, Next.js)
+            framework: {
+              name: 'framework',
+              chunks: 'all',
+              test: /[\\/]node_modules[\\/](react|react-dom|next)[\\/]/,
+              priority: 40,
+              enforce: true,
+            },
+            // UI components chunk
             ui: {
               name: 'ui-components',
               chunks: 'all',
-              test: /[\\/]node_modules[\\/](@radix-ui|lucide-react)[\\/]/,
-              priority: 20,
+              test: /[\\/]node_modules[\\/](@radix-ui|lucide-react|@shadcn)[\\/]/,
+              priority: 30,
+              minChunks: 1,
             },
-            // Create a separate chunk for Firebase
+            // Firebase chunk
             firebase: {
               name: 'firebase',
               chunks: 'all',
               test: /[\\/]node_modules[\\/](firebase|@firebase)[\\/]/,
-              priority: 15,
+              priority: 25,
+              minChunks: 1,
             },
-            // Create a separate chunk for heavy libraries
+            // Utilities chunk
+            utils: {
+              name: 'utils',
+              chunks: 'all',
+              test: /[\\/]node_modules[\\/](date-fns|clsx|class-variance-authority|tailwind-merge)[\\/]/,
+              priority: 20,
+              minChunks: 1,
+            },
+            // Vendor chunk (everything else)
             vendor: {
               name: 'vendor',
               chunks: 'all',
@@ -84,40 +126,17 @@ const nextConfig = {
             },
           },
         },
+        // Tree shaking
+        usedExports: true,
+        sideEffects: false,
       };
     }
+    
+    // TODO: Add PWA service worker configuration with workbox-webpack-plugin
+    // Requires: yarn add -D workbox-webpack-plugin
+    
     return config;
   },
 };
-
-// Enhanced CSP configuration for server-side deployment with XSS protection
-function generateCSP() {
-    const csp = [
-        "default-src 'self'",
-        // More restrictive script policy - remove unsafe-eval for better security
-        "script-src 'self' 'unsafe-inline'", // Note: Next.js requires unsafe-inline
-        "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
-        "font-src 'self' fonts.gstatic.com data:",
-        // More restrictive image sources
-        "img-src 'self' data: blob: https://lh3.googleusercontent.com", // Google profile images
-        "media-src 'self' data: blob:",
-        "object-src 'none'",
-        "embed-src 'none'", // Prevent embed tags
-        "base-uri 'self'",
-        "form-action 'self'",
-        "frame-ancestors 'none'",
-        "frame-src 'none'", // Prevent iframes
-        // Firebase domains + Claude API (Anthropic)
-        "connect-src 'self' *.googleapis.com *.firebase.com *.firebaseapp.com *.cloudfunctions.net wss://*.firebaseio.com https://api.anthropic.com",
-        // Service Worker
-        "worker-src 'self'",
-        // Prevent execution of plugins
-        "plugin-types 'none'",
-        // CSP violation reporting
-        "report-uri /api/csp-report"
-    ];
-    
-    return csp.join('; ');
-}
 
 export default nextConfig;
