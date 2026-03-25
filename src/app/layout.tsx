@@ -5,19 +5,14 @@ import { AuthProvider } from './contexts/AuthContext'
 import GoogleAnalytics from '@/components/GoogleAnalytics'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import PWAServiceWorker from '@/components/PWAServiceWorker'
+import StructuredData from '@/components/StructuredData'
+import { generateMetadata as genMetadata, pageMetadata } from '@/lib/metadata'
 import { Suspense } from 'react'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Pomofly - Elegant Pomodoro Timer',
-  description: 'An elegant and minimal Pomodoro timer for productive focus',
-  keywords: ['pomodoro', 'timer', 'productivity', 'focus', 'time management', 'work', 'break'],
-  authors: [{ name: 'Codekarsa' }],
-  creator: 'Codekarsa',
-  publisher: 'Pomofly',
-  applicationName: 'Pomofly',
-  category: 'productivity',
+  ...genMetadata(pageMetadata.home),
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -53,6 +48,7 @@ export const metadata: Metadata = {
     'apple-mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-status-bar-style': 'default',
     'apple-mobile-web-app-title': 'Pomofly',
+    ...(genMetadata(pageMetadata.home).other || {}),
   },
 }
 
@@ -73,6 +69,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <StructuredData config={pageMetadata.home} />
+      </head>
       <body className={`${inter.className} bg-gray-100`}>
         <ErrorBoundary name="RootLayout" showDetails={process.env.NODE_ENV === 'development'}>
           <AuthProvider>
