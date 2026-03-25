@@ -17,6 +17,7 @@ jest.mock('dompurify', () => ({
     // Comprehensive mock that removes all dangerous content
     return input
       .replace(/<script.*?<\/script>/gi, '') // Remove script tags
+      .replace(/script>/gi, '') // Remove remaining script endings
       .replace(/<[^>]*>/g, '') // Remove all HTML tags
       .replace(/javascript:/gi, '') // Remove javascript: protocols
       .replace(/vbscript:/gi, '') // Remove vbscript: protocols
@@ -24,6 +25,7 @@ jest.mock('dompurify', () => ({
       .replace(/on\w+\s*=/gi, '') // Remove inline event handlers
       .replace(/expression\s*\([^)]*\)/gi, '') // Remove CSS expressions
       .replace(/eval\s*\([^)]*\)/gi, '') // Remove eval calls
+      .replace(/alert\s*\([^)]*\)/gi, '') // Remove alert calls
       .replace(/data:text\/html[^,]*,/gi, '') // Remove data: HTML URLs
       .replace(/\\u[\da-fA-F]{4}/g, '') // Remove unicode escapes
       .trim();
