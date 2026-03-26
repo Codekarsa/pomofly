@@ -17,10 +17,19 @@ import {
   type TaskCreate,
   type TaskUpdate 
 } from '../lib/validation';
+import {
+  logTaskCreated,
+  logTaskUpdated,
+  logTaskDeleted,
+  ActivityTypes,
+  activityLogger,
+} from '../lib/activityLogger';
+import { useAuth } from '../app/contexts/AuthContext';
 
 // Task interface now imported from validation.ts
 
 export function useTasks(projectId?: string) {
+  const { sessionId } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -109,17 +118,33 @@ export function useTasks(projectId?: string) {
       }
 
       const docRef = await addDoc(collection(db, "tasks"), newTaskData);
+      
+      // Log task creation
+      try {
+        await logTaskCreated(user.uid, sessionId, docRef.id, {
+          title,
+          projectId: taskProjectId,
+          estimatedPomodoros,
+          focus: focus ?? false,
+        });
+      } catch (logError) {
+        console.warn('Failed to log task creation:', logError);
+      }
+      
       return docRef.id;
     } catch (err) {
       console.error("Error adding task:", err);
       throw err;
     }
-  }, []);
+  }, [sessionId]);
 
   const updateTask = useCallback(async (taskId: string, updates: Partial<Task>) => {
     const user = auth.currentUser;
 
     try {
+      // Get current task for before/after logging
+      const currentTask = tasks.find(t => t.id === taskId);
+      
       // Validate the updates
       const validatedUpdates = validateTaskUpdate({ id: taskId, ...updates });
       // Remove the id from updates since we don't want to update the document ID
@@ -128,20 +153,30 @@ export function useTasks(projectId?: string) {
       if (!user) {
         // Guest mode
         updateGuestTask(taskId, updateData);
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
-      return;
-    }
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+        return;
+      }
 
       const taskRef = doc(db, "tasks", taskId);
       await updateDoc(taskRef, updateData);
+      
+      // Log task update
+      try {
+        await logTaskUpdated(user.uid, sessionId, taskId, currentTask, { ...currentTask, ...updateData });
+      } catch (logError) {
+        console.warn('Failed to log task update:', logError);
+      }
     } catch (error) {
       console.error("Error updating task:", error);
       throw error;
     }
-  }, []);
+  }, [tasks, sessionId]);
 
   const deleteTask = useCallback(async (id: string) => {
     const user = auth.currentUser;
+    
+    // Get task data for logging before deletion
+    const taskToDelete = tasks.find(t => t.id === id);
 
     if (!user) {
       // Guest mode
@@ -152,11 +187,20 @@ export function useTasks(projectId?: string) {
 
     try {
       await deleteDoc(doc(db, "tasks", id));
+      
+      // Log task deletion
+      try {
+        if (taskToDelete) {
+          await logTaskDeleted(user.uid, sessionId, id, taskToDelete);
+        }
+      } catch (logError) {
+        console.warn('Failed to log task deletion:', logError);
+      }
     } catch (err) {
       console.error("Error deleting task:", err);
       throw err;
     }
-  }, []);
+  }, [tasks, sessionId]);
 
   const toggleTaskCompletion = useCallback(async (id: string, currentCompletionState: boolean) => {
     const user = auth.currentUser;
@@ -194,17 +238,45 @@ export function useTasks(projectId?: string) {
         });
         // Add to estimation history
         await addEstimationRecord(user.uid, task);
+        
+        // Log task completion
+        try {
+          await activityLogger.log({
+            userId: user.uid,
+            sessionId,
+            activityType: ActivityTypes.TASK_COMPLETED,
+            resourceId: id,
+            resourceType: 'task',
+            metadata: {
+              taskTitle: task.title,
+              projectId: task.projectId,
+              estimatedPomodoros: task.estimatedPomodoros,
+              actualPomodoros: task.totalPomodoroSessions || 0,
+              totalTimeSpent: task.totalTimeSpent,
+            },
+            severity: 'info',
+          });
+        } catch (logError) {
+          console.warn('Failed to log task completion:', logError);
+        }
       } else {
         // Mark as incomplete
         await updateDoc(taskRef, {
           completed: false
         });
+        
+        // Log task uncomplete
+        try {
+          await logTaskUpdated(user.uid, sessionId, id, { ...task, completed: true }, { ...task, completed: false });
+        } catch (logError) {
+          console.warn('Failed to log task uncomplete:', logError);
+        }
       }
     } catch (err) {
       console.error("Error toggling task completion:", err);
       throw err;
     }
-  }, [tasks]);
+  }, [tasks, sessionId]);
 
   const incrementPomodoroSession = useCallback(async (id: string, duration: number) => {
     const user = auth.currentUser;

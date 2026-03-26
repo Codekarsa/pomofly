@@ -1,5 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { TimerPersistence, PersistedTimerSession } from '@/lib/timerPersistence';
+import { 
+  logTimerStarted, 
+  logTimerCompleted,
+  ActivityTypes,
+  activityLogger,
+} from '@/lib/activityLogger';
+import { auth } from '@/lib/firebase';
 
 type PomodoroPhase = 'pomodoro' | 'shortBreak' | 'longBreak';
 
@@ -17,7 +24,12 @@ export const defaultSettings: PomodoroSettings = {
   longBreakInterval: 4
 };
 
-export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () => void) {
+export function usePomodoro(
+  initialSettings: PomodoroSettings, 
+  sessionId: string, 
+  selectedTaskIds?: string[], 
+  onComplete?: () => void
+) {
   const [phase, setPhase] = useState<PomodoroPhase>('pomodoro');
   const [minutes, setMinutes] = useState(initialSettings[phase]);
   const [seconds, setSeconds] = useState(0);
@@ -91,7 +103,38 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     return Math.max(0, remaining);
   }, [timerStartedAt, pausedTimeRemaining, settings, phase]);
 
-  const handlePhaseComplete = useCallback(() => {
+  const handlePhaseComplete = useCallback(async () => {
+    const user = auth.currentUser;
+    
+    // Log timer completion
+    if (user && sessionId) {
+      try {
+        await logTimerCompleted(user.uid, sessionId, selectedTaskIds?.[0], settings[phase] * 60);
+        
+        // Log specific completion type
+        if (phase === 'pomodoro') {
+          await activityLogger.log({
+            userId: user.uid,
+            sessionId,
+            activityType: ActivityTypes.TIMER_COMPLETED,
+            resourceId: selectedTaskIds?.[0],
+            resourceType: 'task',
+            metadata: {
+              phase,
+              duration: settings[phase] * 60,
+              totalTaskIds: selectedTaskIds?.length || 0,
+              taskIds: selectedTaskIds,
+              sessionNumber: sessionsCompleted + 1,
+              nextPhase: sessionsCompleted + 1 >= settings.longBreakInterval ? 'longBreak' : 'shortBreak',
+            },
+            severity: 'info',
+          });
+        }
+      } catch (logError) {
+        console.warn('Failed to log timer completion:', logError);
+      }
+    }
+    
     if (phase === 'pomodoro') {
       setSessionsCompleted(prev => prev + 1);
       if (sessionsCompleted + 1 >= settings.longBreakInterval) {
@@ -109,7 +152,7 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     setTimerStartedAt(null);
     setPausedTimeRemaining(null);
     onCompleteRef.current?.();
-  }, [phase, sessionsCompleted, settings]);
+  }, [phase, sessionsCompleted, settings, sessionId, selectedTaskIds]);
 
   const updateSettings = useCallback((newSettings: PomodoroSettings) => {
     setSettings(newSettings);
@@ -145,7 +188,9 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     return () => clearInterval(interval);
   }, [isActive, getRemainingTime, handlePhaseComplete]);
 
-  const toggleTimer = useCallback(() => {
+  const toggleTimer = useCallback(async () => {
+    const user = auth.currentUser;
+    
     if (!isActive) {
       // Starting timer
       if (pausedTimeRemaining !== null) {
@@ -154,26 +199,106 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
         const newStartTime = Date.now() - (elapsedBeforePause * 1000);
         setTimerStartedAt(newStartTime);
         setPausedTimeRemaining(null);
+        
+        // Log timer resumed
+        if (user && sessionId) {
+          try {
+            await activityLogger.log({
+              userId: user.uid,
+              sessionId,
+              activityType: ActivityTypes.TIMER_RESUMED,
+              resourceId: selectedTaskIds?.[0],
+              resourceType: 'task',
+              metadata: {
+                phase,
+                totalTaskIds: selectedTaskIds?.length || 0,
+                remainingTime: pausedTimeRemaining,
+              },
+              severity: 'info',
+            });
+          } catch (logError) {
+            console.warn('Failed to log timer resume:', logError);
+          }
+        }
       } else {
         // Fresh start
         setTimerStartedAt(Date.now());
+        
+        // Log timer started
+        if (user && sessionId) {
+          try {
+            await logTimerStarted(user.uid, sessionId, selectedTaskIds?.[0], {
+              phase,
+              duration: settings[phase],
+              totalTaskIds: selectedTaskIds?.length || 0,
+              taskIds: selectedTaskIds,
+            });
+          } catch (logError) {
+            console.warn('Failed to log timer start:', logError);
+          }
+        }
       }
     } else {
       // Pausing - save remaining time
       const remaining = getRemainingTime();
       setPausedTimeRemaining(remaining);
       setTimerStartedAt(null);
+      
+      // Log timer paused
+      if (user && sessionId) {
+        try {
+          await activityLogger.log({
+            userId: user.uid,
+            sessionId,
+            activityType: ActivityTypes.TIMER_PAUSED,
+            resourceId: selectedTaskIds?.[0],
+            resourceType: 'task',
+            metadata: {
+              phase,
+              remainingTime: remaining,
+              totalTaskIds: selectedTaskIds?.length || 0,
+            },
+            severity: 'info',
+          });
+        } catch (logError) {
+          console.warn('Failed to log timer pause:', logError);
+        }
+      }
     }
     setIsActive(!isActive);
-  }, [isActive, pausedTimeRemaining, settings, phase, getRemainingTime]);
+  }, [isActive, pausedTimeRemaining, settings, phase, getRemainingTime, sessionId, selectedTaskIds]);
 
-  const resetTimer = useCallback(() => {
+  const resetTimer = useCallback(async () => {
+    const user = auth.currentUser;
+    
+    // Log timer reset
+    if (user && sessionId) {
+      try {
+        await activityLogger.log({
+          userId: user.uid,
+          sessionId,
+          activityType: ActivityTypes.TIMER_RESET,
+          resourceId: selectedTaskIds?.[0],
+          resourceType: 'task',
+          metadata: {
+            phase,
+            wasActive: isActive,
+            remainingTime: getRemainingTime(),
+            totalTaskIds: selectedTaskIds?.length || 0,
+          },
+          severity: 'info',
+        });
+      } catch (logError) {
+        console.warn('Failed to log timer reset:', logError);
+      }
+    }
+    
     setIsActive(false);
     setTimerStartedAt(null);
     setPausedTimeRemaining(null);
     setMinutes(settings[phase]);
     setSeconds(0);
-  }, [phase, settings]);
+  }, [phase, settings, sessionId, selectedTaskIds, isActive, getRemainingTime]);
 
   const switchPhase = useCallback((newPhase: PomodoroPhase) => {
     setPhase(newPhase);
