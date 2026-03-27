@@ -1,56 +1,102 @@
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getAuth as initAuth, GoogleAuthProvider, Auth } from "firebase/auth";
 import { getFirestore, Firestore } from "firebase/firestore";
+import { 
+  validateFirebaseConfig, 
+  checkEnvironmentHealth, 
+  printConfigurationStatus,
+  ensureValidConfiguration,
+  getSanitizedConfig
+} from "./firebase-config";
 
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
-};
-
-// Skip Firebase initialization during static site generation (SSG) when env vars aren't available
-// Firebase will be properly initialized at runtime in the browser
+// Enhanced Firebase initialization with comprehensive validation
 const isServer = typeof window === 'undefined';
-const hasRequiredConfig = !!(
-  firebaseConfig.apiKey &&
-  firebaseConfig.authDomain &&
-  firebaseConfig.projectId
-);
 
 let app: FirebaseApp | undefined;
 let _auth: Auth | undefined;
 let _db: Firestore | undefined;
 let _googleProvider: GoogleAuthProvider | undefined;
 
-if (hasRequiredConfig && !isServer) {
+// Initialize Firebase with enhanced error handling and validation
+function initializeFirebaseServices(): void {
   try {
+    // Validate configuration before initialization
+    const firebaseConfig = ensureValidConfiguration();
+    
+    // Initialize Firebase app
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+    
+    // Initialize services
     _auth = initAuth(app);
     _db = getFirestore(app);
     _googleProvider = new GoogleAuthProvider();
+
+    // Configure Google Provider
+    _googleProvider.setCustomParameters({
+      prompt: 'select_account'
+    });
+
+    // Development-only configuration status logging
+    if (process.env.NODE_ENV === 'development') {
+      printConfigurationStatus();
+    }
+
+    // Log successful initialization (sanitized in production)
+    const sanitizedConfig = getSanitizedConfig();
+    console.log('✅ Firebase initialized successfully', {
+      projectId: sanitizedConfig.projectId,
+      environment: process.env.NODE_ENV,
+    });
+
   } catch (error) {
-    console.error('Failed to initialize Firebase:', error);
-    // Reset to undefined on initialization failure
+    console.error('❌ Firebase initialization failed:', error);
+    
+    // Reset services to undefined on failure
     app = undefined;
     _auth = undefined;
     _db = undefined;
     _googleProvider = undefined;
+
+    // In development, provide helpful error information
+    if (process.env.NODE_ENV === 'development') {
+      console.group('🔧 Firebase Configuration Help');
+      console.log('Check your .env.local file for the following variables:');
+      console.log('- NEXT_PUBLIC_FIREBASE_API_KEY');
+      console.log('- NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN');
+      console.log('- NEXT_PUBLIC_FIREBASE_PROJECT_ID');
+      console.log('- NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET');
+      console.log('- NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID');
+      console.log('- NEXT_PUBLIC_FIREBASE_APP_ID');
+      console.log('');
+      console.log('Copy .env.example to .env.local and fill in your Firebase project details.');
+      console.groupEnd();
+    }
+
+    throw error;
   }
-} else if (!hasRequiredConfig && !isServer) {
-  // Only warn in browser if config is missing
-  console.warn(
-    'Firebase configuration missing. Please set the following environment variables:\n' +
-    '- NEXT_PUBLIC_FIREBASE_API_KEY\n' +
-    '- NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN\n' +
-    '- NEXT_PUBLIC_FIREBASE_PROJECT_ID\n' +
-    '- NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET\n' +
-    '- NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID\n' +
-    '- NEXT_PUBLIC_FIREBASE_APP_ID\n' +
-    'Firebase features will be disabled.'
-  );
+}
+
+// Initialize Firebase only in browser environment
+if (!isServer) {
+  // Check configuration validity before attempting initialization
+  const configValidation = validateFirebaseConfig();
+  
+  if (configValidation.isValid) {
+    initializeFirebaseServices();
+  } else {
+    console.warn('⚠️ Firebase configuration validation failed:', {
+      errors: configValidation.errors,
+      warnings: configValidation.warnings
+    });
+
+    // Provide helpful guidance for configuration issues
+    const health = checkEnvironmentHealth();
+    if (health.recommendations.length > 0) {
+      console.group('💡 Configuration Recommendations');
+      health.recommendations.forEach(rec => console.log(rec));
+      console.groupEnd();
+    }
+  }
 }
 
 // Safe getters with runtime validation
