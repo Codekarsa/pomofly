@@ -1,4 +1,4 @@
-import '@testing-library/jest-dom'
+require('@testing-library/jest-dom')
 
 // Mock Next.js router
 jest.mock('next/router', () => ({
@@ -24,17 +24,17 @@ jest.mock('next/router', () => ({
   },
 }))
 
-// Mock Firebase
-jest.mock('@/lib/firebase', () => ({
-  auth: {
-    currentUser: {
-      uid: 'test-user-id',
-      email: 'test@example.com',
-    },
-  },
-  db: {},
-  googleProvider: {},
-}))
+// Mock Firebase - commented out until path mapping works
+// jest.mock('@/lib/firebase', () => ({
+//   auth: {
+//     currentUser: {
+//       uid: 'test-user-id',
+//       email: 'test@example.com',
+//     },
+//   },
+//   db: {},
+//   googleProvider: {},
+// }))
 
 // Mock Google Analytics
 global.gtag = jest.fn()
