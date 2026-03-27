@@ -1,12 +1,38 @@
+import bundleAnalyzer from '@next/bundle-analyzer';
+
+// Configure bundle analyzer
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+});
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // CSP headers implementation (remove output: export for server deployment)
   // Commented out output: export to enable headers() function
   // output: 'export',
   
+  // Enable compression (gzip/brotli)
+  compress: true,
+  
+  // Remove X-Powered-By header for security
+  poweredByHeader: false,
+  
+  // Image optimization configuration
+  images: {
+    domains: ['lh3.googleusercontent.com'],
+    formats: ['image/webp', 'image/avif'],
+    minimumCacheTTL: 60,
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+  },
+  
   // Enable experimental features for better performance
   experimental: {
     optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],
+    optimizeServerReact: true,
+    serverComponentsExternalPackages: ['@firebase/auth', '@firebase/firestore'],
   },
   
   // Configure static generation for better performance
@@ -120,4 +146,5 @@ function generateCSP() {
     return csp.join('; ');
 }
 
-export default nextConfig;
+// Apply bundle analyzer to the base configuration
+export default withBundleAnalyzer(nextConfig);
