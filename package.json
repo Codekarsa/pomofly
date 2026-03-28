@@ -19,7 +19,10 @@
     "pwa:icons": "node scripts/create-placeholder-icons.js",
     "pwa:icons:generate": "node scripts/generate-icons.js",
     "pwa:test": "lighthouse https://pomofly.com --view",
-    "pwa:validate": "pwa-asset-generator validate"
+    "pwa:validate": "pwa-asset-generator validate",
+    "lighthouse:ci": "lhci autorun",
+    "lighthouse:collect": "lhci collect",
+    "lighthouse:assert": "lhci assert"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.29.0",
@@ -61,6 +64,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@lhci/cli": "^0.15.1",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^14.2.1",
     "@testing-library/user-event": "^14.5.2",
