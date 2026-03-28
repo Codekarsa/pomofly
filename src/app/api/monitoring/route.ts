@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { withSecurity } from '@/lib/security-middleware';
 
-export async function GET(request: Request) {
+async function handleGET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type'); // 'errors' | 'metrics' | 'summary'
   const limit = parseInt(searchParams.get('limit') || '50');
@@ -113,7 +114,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: NextRequest) {
   // Endpoint for receiving monitoring data from external sources
   // This would be used if you want to collect monitoring data server-side
   
@@ -151,3 +152,7 @@ export async function POST(request: Request) {
     );
   }
 }
+
+// Export with security middleware
+export const GET = withSecurity(handleGET);
+export const POST = withSecurity(handlePOST);

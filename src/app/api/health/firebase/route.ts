@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkEnvironmentHealth, validateFirebaseConfig, getSanitizedConfig } from '@/lib/firebase-config';
+import { withSecurity } from '@/lib/security-middleware';
 
 /**
  * Firebase Configuration Health Check Endpoint
@@ -7,7 +8,7 @@ import { checkEnvironmentHealth, validateFirebaseConfig, getSanitizedConfig } fr
  * Provides runtime validation and monitoring of Firebase configuration
  * Returns sanitized configuration status without exposing sensitive data
  */
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   try {
     // Perform comprehensive health check
     const health = checkEnvironmentHealth();
@@ -90,7 +91,7 @@ export async function GET(request: NextRequest) {
  * Configuration validation endpoint (POST)
  * Allows testing configuration changes without affecting the running application
  */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     // Only allow in development environment for security
     if (process.env.NODE_ENV === 'production') {
@@ -115,12 +116,12 @@ export async function POST(request: NextRequest) {
     
     try {
       // Set temporary environment variables
-      process.env.NEXT_PUBLIC_FIREBASE_API_KEY = config.apiKey;
-      process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = config.authDomain;
-      process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = config.projectId;
-      process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = config.storageBucket;
-      process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = config.messagingSenderId;
-      process.env.NEXT_PUBLIC_FIREBASE_APP_ID = config.appId;
+      if (config.apiKey) process.env.NEXT_PUBLIC_FIREBASE_API_KEY = config.apiKey;
+      if (config.authDomain) process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = config.authDomain;
+      if (config.projectId) process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = config.projectId;
+      if (config.storageBucket) process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = config.storageBucket;
+      if (config.messagingSenderId) process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = config.messagingSenderId;
+      if (config.appId) process.env.NEXT_PUBLIC_FIREBASE_APP_ID = config.appId;
 
       // Validate the configuration
       const validation = validateFirebaseConfig();
@@ -148,3 +149,7 @@ export async function POST(request: NextRequest) {
     }, { status: 500 });
   }
 }
+
+// Export with security middleware
+export const GET = withSecurity(handleGET);
+export const POST = withSecurity(handlePOST);

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { validateAuth, checkRateLimit } from '@/lib/auth-middleware';
 import { sanitizeServerInput, validateServerInput, sanitizeAIResponse } from '@/lib/security';
+import { withSecurity, validateOriginForSensitiveEndpoint } from '@/lib/security-middleware';
 
 interface TaskBreakdown {
   tasks: {
@@ -38,7 +39,15 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   });
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
+  // Origin validation for sensitive Claude API endpoint
+  if (!validateOriginForSensitiveEndpoint(request)) {
+    return NextResponse.json(
+      { error: 'Forbidden', details: 'Invalid origin for sensitive endpoint' },
+      { status: 403 }
+    );
+  }
+
   // Authentication check
   const authResult = await validateAuth(request);
   if (!authResult.isAuthenticated) {
@@ -321,3 +330,6 @@ IMPORTANT: Task titles should be plain text only, no HTML tags, scripts, or spec
     );
   }
 }
+
+// Export with security middleware
+export const POST = withSecurity(handlePOST);

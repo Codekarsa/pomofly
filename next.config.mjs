@@ -20,31 +20,74 @@ const nextConfig = {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
   },
   
-  // CSP headers for security
+  // Enhanced security headers
   async headers() {
+    const isDev = process.env.NODE_ENV === 'development';
+    
+    const securityHeaders = [
+      {
+        key: 'Content-Security-Policy',
+        value: generateCSP()
+      },
+      {
+        key: 'X-Frame-Options',
+        value: 'DENY'
+      },
+      {
+        key: 'X-Content-Type-Options',
+        value: 'nosniff'
+      },
+      {
+        key: 'X-XSS-Protection',
+        value: '1; mode=block'
+      },
+      {
+        key: 'Referrer-Policy',
+        value: 'strict-origin-when-cross-origin'
+      },
+      {
+        key: 'Permissions-Policy',
+        value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()'
+      },
+      // Remove server identification
+      {
+        key: 'X-Powered-By',
+        value: ''
+      },
+      {
+        key: 'Server',
+        value: 'Pomofly'
+      }
+    ];
+
+    // Add HSTS in production only
+    if (!isDev) {
+      securityHeaders.push({
+        key: 'Strict-Transport-Security',
+        value: 'max-age=31536000; includeSubDomains; preload'
+      });
+    }
+
     return [
       {
         source: '/(.*)',
+        headers: securityHeaders
+      },
+      // API-specific headers
+      {
+        source: '/api/(.*)',
         headers: [
           {
-            key: 'Content-Security-Policy',
-            value: generateCSP()
+            key: 'Cache-Control',
+            value: 'no-store, no-cache, must-revalidate, private'
           },
           {
-            key: 'X-Frame-Options',
-            value: 'DENY'
+            key: 'Pragma',
+            value: 'no-cache'
           },
           {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff'
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'origin-when-cross-origin'
-          },
-          {
-            key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()'
+            key: 'Expires',
+            value: '0'
           }
         ]
       }
@@ -90,29 +133,59 @@ const nextConfig = {
   },
 };
 
-// Enhanced CSP configuration for server-side deployment with XSS protection
+// Enhanced CSP configuration with comprehensive security directives
 function generateCSP() {
+    const isDev = process.env.NODE_ENV === 'development';
+    
     const csp = [
         "default-src 'self'",
-        // More restrictive script policy - remove unsafe-eval for better security
-        "script-src 'self' 'unsafe-inline'", // Note: Next.js requires unsafe-inline
+        
+        // Script sources - strict policy
+        isDev 
+          ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'" // Dev needs eval for hot reload
+          : "script-src 'self' 'unsafe-inline'", // Production: no eval
+          
+        // Styles - allow Google Fonts
         "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
+        
+        // Fonts - Google Fonts + data URIs
         "font-src 'self' fonts.gstatic.com data:",
-        // More restrictive image sources
-        "img-src 'self' data: blob: https://lh3.googleusercontent.com", // Google profile images
+        
+        // Images - strict policy with specific exceptions
+        "img-src 'self' data: blob: https://lh3.googleusercontent.com https://lh4.googleusercontent.com",
+        
+        // Media
         "media-src 'self' data: blob:",
+        
+        // Prevent dangerous elements
         "object-src 'none'",
-        "embed-src 'none'", // Prevent embed tags
+        "embed-src 'none'",
+        
+        // Base URI protection
         "base-uri 'self'",
+        
+        // Form submission
         "form-action 'self'",
+        
+        // Frame protection
         "frame-ancestors 'none'",
-        "frame-src 'none'", // Prevent iframes
-        // Firebase domains + Claude API (Anthropic)
-        "connect-src 'self' *.googleapis.com *.firebase.com *.firebaseapp.com *.cloudfunctions.net wss://*.firebaseio.com https://api.anthropic.com",
-        // Service Worker
-        "worker-src 'self'",
-        // Prevent execution of plugins
-        "plugin-types 'none'",
+        "frame-src 'none'",
+        
+        // Connection sources - Firebase and Claude API
+        `connect-src 'self' *.googleapis.com *.firebase.com *.firebaseapp.com *.cloudfunctions.net wss://*.firebaseio.com https://api.anthropic.com ${isDev ? 'ws: wss:' : ''}`,
+        
+        // Service Workers
+        "worker-src 'self' blob:",
+        
+        // Manifest
+        "manifest-src 'self'",
+        
+        // Prevent plugins
+        "plugin-types",
+        
+        // Upgrade insecure requests in production
+        ...(isDev ? [] : ["upgrade-insecure-requests"]),
+        
         // CSP violation reporting
         "report-uri /api/csp-report"
     ];

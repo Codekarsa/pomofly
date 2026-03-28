@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withSecurity } from '@/lib/security-middleware';
 
 /**
  * CSP violation reporting endpoint
  * Logs CSP violations for security monitoring
  */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const report = await request.json();
     
@@ -25,3 +26,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid report format' }, { status: 400 });
   }
 }
+
+// Export with security middleware
+export const POST = withSecurity(handlePOST);
