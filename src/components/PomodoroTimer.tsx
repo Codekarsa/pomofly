@@ -5,12 +5,15 @@ import { useTasks } from '@/hooks/useTasks';
 import { useProjects } from '@/hooks/useProjects';
 import { useTimeTracking } from '@/hooks/useTimeTracking';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
+import { useMobileTimer } from '@/hooks/useMobileTimer';
 import { Button } from '@/components/ui/button';
+import { MobileButton } from '@/components/ui/mobile-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
+import { Play, Pause, RotateCcw, CheckCircle, Smartphone, Vibrate } from 'lucide-react';
 import SelectedTasksList from './SelectedTasksList';
 import { TimerRecoveryModal } from './TimerRecoveryModal';
 import { TimerPersistence } from '@/lib/timerPersistence';
+import { cn } from '@/lib/utils';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -146,6 +149,19 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     startFresh
   } = usePomodoro(settings, handlePomodoroComplete);
 
+  // Mobile timer enhancements
+  const {
+    isMobile,
+    hasHapticSupport,
+    hasWakeLock,
+    isWakeLockActive,
+    mobileActions
+  } = useMobileTimer(isActive, phase, handlePomodoroComplete, {
+    enableHaptics: true,
+    enableWakeLock: true,
+    enableAutoFocus: true
+  });
+
   // Handle timer start/pause - manage time tracking
   useEffect(() => {
     const taskIds = selectedTaskIdsRef.current;
@@ -220,18 +236,20 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
       const newIds = [...selectedTaskIds, taskId];
       setSelectedTaskIds(newIds);
       event('task_added_to_pomodoro', { task_id: taskId });
+      mobileActions.triggerLightHaptic();
 
       // If timer is active and in pomodoro phase, start tracking the new task
       if (isActive && phase === 'pomodoro') {
         startAllTimeTracking([taskId]);
       }
     }
-  }, [selectedTaskIds, event, isActive, phase, startAllTimeTracking]);
+  }, [selectedTaskIds, event, isActive, phase, startAllTimeTracking, mobileActions]);
 
   const handleRemoveTask = useCallback((taskId: string) => {
     const newIds = selectedTaskIds.filter(id => id !== taskId);
     setSelectedTaskIds(newIds);
     event('task_removed_from_pomodoro', { task_id: taskId });
+    mobileActions.triggerLightHaptic();
 
     // If timer is active, stop tracking the removed task
     if (isActive && phase === 'pomodoro') {
@@ -241,7 +259,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
         stopAllTimeTracking([{ taskId, elapsedSeconds: elapsed }]);
       }
     }
-  }, [selectedTaskIds, event, isActive, phase, tasks, getElapsedTime, stopAllTimeTracking]);
+  }, [selectedTaskIds, event, isActive, phase, tasks, getElapsedTime, stopAllTimeTracking, mobileActions]);
 
   const handleToggleTimer = useCallback(() => {
     toggleTimer();
@@ -330,38 +348,118 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
           ))}
         </div>
 
-        <div className="text-8xl font-bold mb-4 text-center py-6">
-          {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
+        {/* Mobile-optimized timer display */}
+        <div className={cn(
+          "font-bold mb-4 text-center py-6 select-none",
+          isMobile ? "text-6xl sm:text-7xl" : "text-8xl"
+        )}>
+          <div className="relative">
+            {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
+            
+            {/* Mobile status indicators */}
+            {isMobile && (
+              <div className="absolute -top-2 -right-2 flex gap-1">
+                {hasHapticSupport && (
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" title="Haptic feedback available" />
+                )}
+                {isWakeLockActive && (
+                  <div className="w-2 h-2 bg-green-500 rounded-full" title="Screen wake lock active" />
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="flex justify-center space-x-2 mb-6">
-          <Button
-            onClick={handleToggleTimer}
-            variant={isActive ? 'secondary' : 'default'}
-          >
-            {isActive ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
-            {isActive ? 'Pause' : 'Start'}
-          </Button>
-          <Button
+        {/* Mobile-optimized controls */}
+        <div className={cn(
+          "flex justify-center mb-6",
+          isMobile ? "flex-col space-y-3 px-4" : "flex-row space-x-2"
+        )}>
+          <MobileButton
             onClick={() => {
-              resetTimer();
-              event('pomodoro_timer_reset', { phase: phase });
+              handleToggleTimer();
+              mobileActions.triggerLightHaptic();
             }}
-            variant="outline"
+            onLongPress={() => {
+              // Long press to force complete current session
+              handleDoneNext();
+            }}
+            variant={isActive ? 'secondary' : 'default'}
+            className={cn(
+              isMobile && "w-full h-14 text-lg font-semibold",
+              isActive && "bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:hover:bg-red-800"
+            )}
+            touchOptimized={isMobile}
           >
-            <RotateCcw className="mr-2 h-4 w-4" />
-            Reset
-          </Button>
-          {isActive && (
-            <Button
-              onClick={handleDoneNext}
-              variant="default"
+            {isActive ? <Pause className="mr-2 h-5 w-5" /> : <Play className="mr-2 h-5 w-5" />}
+            {isActive ? 'Pause' : 'Start'}
+            {isMobile && (
+              <span className="ml-2 text-sm opacity-70">
+                {isActive ? 'Hold to complete' : 'Tap to start'}
+              </span>
+            )}
+          </MobileButton>
+
+          <div className={cn(
+            "flex",
+            isMobile ? "space-x-2" : "space-x-2"
+          )}>
+            <MobileButton
+              onClick={() => {
+                resetTimer();
+                event('pomodoro_timer_reset', { phase: phase });
+                mobileActions.triggerLightHaptic();
+              }}
+              variant="outline"
+              className={isMobile ? "flex-1 h-12" : ""}
+              touchOptimized={isMobile}
             >
-              <CheckCircle className="mr-2 h-4 w-4" />
-              Done/Next
-            </Button>
-          )}
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Reset
+            </MobileButton>
+
+            {isActive && (
+              <MobileButton
+                onClick={() => {
+                  handleDoneNext();
+                  mobileActions.triggerSuccessHaptic();
+                }}
+                variant="default"
+                className={cn(
+                  "bg-green-600 hover:bg-green-700",
+                  isMobile ? "flex-1 h-12" : ""
+                )}
+                touchOptimized={isMobile}
+              >
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Done
+              </MobileButton>
+            )}
+          </div>
         </div>
+
+        {/* Mobile status info */}
+        {isMobile && (
+          <div className="mb-4 text-center space-y-1">
+            <div className="flex justify-center items-center gap-4 text-sm text-muted-foreground">
+              {hasHapticSupport && (
+                <div className="flex items-center gap-1">
+                  <Vibrate className="h-3 w-3" />
+                  <span>Haptics</span>
+                </div>
+              )}
+              {hasWakeLock && isWakeLockActive && (
+                <div className="flex items-center gap-1">
+                  <Smartphone className="h-3 w-3" />
+                  <span>Screen awake</span>
+                </div>
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Long press main button to complete session early
+            </div>
+          </div>
+        )}
 
         {/* Task Selection - available for authenticated users, always enabled */}
         {user && (

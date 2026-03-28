@@ -3,6 +3,8 @@
 import React, { useState, useMemo } from 'react';
 import { Task } from '@/hooks/useTasks';
 import { Button } from '@/components/ui/button';
+import { MobileButton } from '@/components/ui/mobile-button';
+import { SwipeableTask } from '@/components/ui/swipeable-task';
 import { Input } from '@/components/ui/input';
 import {
   Popover,
@@ -10,6 +12,8 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Plus, X, Search, Clock, Star } from 'lucide-react';
+import { isMobileDevice } from '@/lib/mobileUtils';
+import { cn } from '@/lib/utils';
 
 interface Project {
   id: string;
@@ -37,6 +41,7 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
 }) => {
   const [search, setSearch] = useState('');
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const isMobile = useMemo(() => isMobileDevice(), []);
 
   // Get selected tasks
   const selectedTasks = useMemo(() => {
@@ -98,14 +103,14 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
               const elapsedTime = getElapsedTime(task);
               const isTracking = task.trackingStartedAt != null;
 
-              return (
-                <div
-                  key={task.id}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20"
-                >
+              const TaskContent = (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-medium truncate">
+                      <span className={cn(
+                        "font-medium truncate",
+                        isMobile ? "text-base" : "text-sm"
+                      )}>
                         {task.title}
                       </span>
                       {task.focus && (
@@ -125,28 +130,46 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
                   </div>
 
                   {/* Timer Display */}
-                  <div className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-mono ${
+                  <div className={cn(
+                    "flex items-center gap-1 px-2 py-1 rounded text-xs font-mono",
                     isTracking
-                      ? 'bg-blue-100 text-blue-700 animate-pulse'
+                      ? 'bg-blue-100 text-blue-700 animate-pulse dark:bg-blue-900 dark:text-blue-300'
                       : elapsedTime > 0
-                        ? 'bg-gray-100 text-gray-700'
+                        ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
                         : 'text-gray-400'
-                  }`}>
+                  )}>
                     <Clock className="h-3 w-3" />
                     {formatTime(elapsedTime)}
                   </div>
 
-                  {/* Remove Button */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onRemoveTask(task.id)}
-                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                  {/* Remove Button - only show on desktop */}
+                  {!isMobile && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onRemoveTask(task.id)}
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               );
+
+              // Wrap in SwipeableTask for mobile
+              if (isMobile) {
+                return (
+                  <SwipeableTask
+                    key={task.id}
+                    onSwipeRemove={() => onRemoveTask(task.id)}
+                    showSwipeActions={true}
+                  >
+                    {TaskContent}
+                  </SwipeableTask>
+                );
+              }
+
+              return <div key={task.id}>{TaskContent}</div>;
             })}
           </div>
         )}
@@ -155,13 +178,17 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
         <div className="mt-3">
           <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
             <PopoverTrigger asChild>
-              <Button
+              <MobileButton
                 variant="outline"
-                className="w-full justify-center text-muted-foreground hover:text-foreground"
+                className={cn(
+                  "w-full justify-center text-muted-foreground hover:text-foreground",
+                  isMobile && "h-12 text-base"
+                )}
+                touchOptimized={isMobile}
               >
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className={cn("mr-2", isMobile ? "h-5 w-5" : "h-4 w-4")} />
                 Add Task
-              </Button>
+              </MobileButton>
             </PopoverTrigger>
             <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="center">
               {/* Search Input */}
