@@ -1,4 +1,20 @@
 import '@testing-library/jest-dom'
+import 'jest-axe/extend-expect'
+
+// Configure axe for consistent accessibility testing
+import { configureAxe } from 'jest-axe'
+
+const axe = configureAxe({
+  rules: {
+    // Disable some rules that might be too strict for development
+    'color-contrast': { enabled: false }, // Enable when design is finalized
+    // Add any other rule configurations as needed
+  },
+  tags: ['wcag2a', 'wcag2aa', 'wcag21aa'], // Focus on WCAG 2.1 AA compliance
+})
+
+// Make axe available globally for tests
+global.axe = axe
 
 // Mock Next.js router
 jest.mock('next/router', () => ({
