@@ -1,6 +1,27 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit, validateRequestSize } from '@/lib/auth-middleware';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  // Rate limiting - 20 requests per minute per IP
+  const clientIP = request.ip || request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+  const rateLimitResult = checkRateLimit(`monitoring:${clientIP}`, 20, 60000);
+  
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      { 
+        error: 'Rate limit exceeded', 
+        details: 'Too many monitoring requests. Please try again later.',
+        resetTime: rateLimitResult.resetTime
+      },
+      { 
+        status: 429,
+        headers: {
+          'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString()
+        }
+      }
+    );
+  }
+
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type'); // 'errors' | 'metrics' | 'summary'
   const limit = parseInt(searchParams.get('limit') || '50');
@@ -113,7 +134,36 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  // Rate limiting - 30 requests per minute per IP (higher for POST as it might be automated)
+  const clientIP = request.ip || request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+  const rateLimitResult = checkRateLimit(`monitoring-post:${clientIP}`, 30, 60000);
+  
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      { 
+        error: 'Rate limit exceeded', 
+        details: 'Too many monitoring requests. Please try again later.',
+        resetTime: rateLimitResult.resetTime
+      },
+      { 
+        status: 429,
+        headers: {
+          'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString()
+        }
+      }
+    );
+  }
+
+  // Validate request size (limit to 100KB for monitoring data)
+  const isValidSize = await validateRequestSize(request, 100 * 1024);
+  if (!isValidSize) {
+    return NextResponse.json(
+      { error: 'Request too large', details: 'Monitoring data exceeds maximum size limit' },
+      { status: 413 }
+    );
+  }
+
   // Endpoint for receiving monitoring data from external sources
   // This would be used if you want to collect monitoring data server-side
   

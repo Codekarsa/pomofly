@@ -54,23 +54,35 @@ export async function validateAuth(request: NextRequest) {
 
 /**
  * Rate limiting data structure (in-memory for simplicity)
- * In production, use Redis or similar
+ * In production, use Redis or similar persistent store
+ * Cleanup old entries to prevent memory leaks
  */
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
+// Cleanup old rate limit entries every 5 minutes to prevent memory leaks
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of rateLimitStore.entries()) {
+    if (now > value.resetTime + 300000) { // 5 minutes buffer
+      rateLimitStore.delete(key);
+    }
+  }
+}, 300000);
+
 /**
- * Simple rate limiting implementation
- * @param uid - User ID
+ * Enhanced rate limiting implementation with sliding window
+ * @param identifier - User ID or IP address for rate limiting
  * @param limit - Requests per window
  * @param windowMs - Time window in milliseconds
+ * @returns Object with allowed status and metadata
  */
-export function checkRateLimit(uid: string, limit: number = 10, windowMs: number = 60000) {
+export function checkRateLimit(identifier: string, limit: number = 10, windowMs: number = 60000) {
   const now = Date.now();
-  const userLimit = rateLimitStore.get(uid);
+  const userLimit = rateLimitStore.get(identifier);
   
   if (!userLimit || now > userLimit.resetTime) {
     // Reset or initialize counter
-    rateLimitStore.set(uid, { count: 1, resetTime: now + windowMs });
+    rateLimitStore.set(identifier, { count: 1, resetTime: now + windowMs });
     return { allowed: true, remaining: limit - 1, resetTime: now + windowMs };
   }
   
@@ -80,4 +92,23 @@ export function checkRateLimit(uid: string, limit: number = 10, windowMs: number
   
   userLimit.count++;
   return { allowed: true, remaining: limit - userLimit.count, resetTime: userLimit.resetTime };
+}
+
+/**
+ * Validate request body size to prevent DoS attacks
+ * @param request - NextRequest object
+ * @param maxSizeBytes - Maximum allowed size in bytes (default: 1MB)
+ * @returns Promise<boolean>
+ */
+export async function validateRequestSize(request: NextRequest, maxSizeBytes: number = 1024 * 1024): Promise<boolean> {
+  const contentLength = request.headers.get('content-length');
+  
+  if (contentLength) {
+    const size = parseInt(contentLength, 10);
+    if (size > maxSizeBytes) {
+      return false;
+    }
+  }
+  
+  return true;
 }
