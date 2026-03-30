@@ -1,5 +1,5 @@
-import { useCallback, useContext, createContext, ReactNode, useReducer, useEffect } from 'react';
-import { errorManager, ErrorInfo, ErrorContext, FeedbackData } from '@/lib/errorHandling';
+import React, { useCallback, useContext, createContext, ReactNode, useReducer, useEffect } from 'react';
+import { errorManager, ErrorInfo, ErrorContext as ErrorContextType, FeedbackData } from '@/lib/errorHandling';
 
 interface ErrorState {
   errors: ErrorInfo[];
@@ -54,7 +54,7 @@ function errorReducer(state: ErrorState, action: ErrorAction): ErrorState {
 
 interface ErrorContextValue {
   state: ErrorState;
-  handleError: (error: Error | string, context?: ErrorContext) => ErrorInfo;
+  handleError: (error: Error | string, context?: ErrorContextType) => ErrorInfo;
   clearErrors: () => void;
   removeError: (errorId: string) => void;
   setLoading: (loading: boolean) => void;
@@ -67,7 +67,7 @@ const ErrorContext = createContext<ErrorContextValue | undefined>(undefined);
 export function ErrorProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(errorReducer, initialState);
 
-  const handleError = useCallback((error: Error | string, context: ErrorContext = {}) => {
+  const handleError = useCallback((error: Error | string, context: ErrorContextTypeType = {}) => {
     const errorInfo = errorManager.handleError(error, context);
     dispatch({ type: 'ADD_ERROR', payload: errorInfo });
     return errorInfo;
@@ -136,7 +136,7 @@ export function useSimpleErrorHandler() {
   const withErrorHandling = useCallback(
     <T extends any[], R>(
       operation: (...args: T) => Promise<R> | R,
-      context: ErrorContext = {}
+      context: ErrorContextType = {}
     ) => {
       return async (...args: T): Promise<R | undefined> => {
         setLoading(true);
@@ -212,7 +212,7 @@ export function useApiErrorHandling() {
   const { handleError, retryOperation, state } = useErrorHandling();
 
   const handleApiError = useCallback((error: any, endpoint: string) => {
-    const context: ErrorContext = {
+    const context: ErrorContextType = {
       component: 'api',
       action: endpoint,
       metadata: {
