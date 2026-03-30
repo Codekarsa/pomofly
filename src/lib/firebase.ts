@@ -1,76 +1,167 @@
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getAuth as initAuth, GoogleAuthProvider, Auth } from "firebase/auth";
 import { getFirestore, Firestore } from "firebase/firestore";
+import { validateEnvironment, getSetupInstructions, createDegradationPlan, type ValidationResult } from "./env-validation";
 
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
-};
+// Global validation result and degradation plan
+let validationResult: ValidationResult | null = null;
+let degradationPlan: ReturnType<typeof createDegradationPlan> | null = null;
 
-// Skip Firebase initialization during static site generation (SSG) when env vars aren't available
-// Firebase will be properly initialized at runtime in the browser
-const isServer = typeof window === 'undefined';
-const hasRequiredConfig = !!(
-  firebaseConfig.apiKey &&
-  firebaseConfig.authDomain &&
-  firebaseConfig.projectId
-);
-
+// Firebase instances
 let app: FirebaseApp | undefined;
 let _auth: Auth | undefined;
 let _db: Firestore | undefined;
 let _googleProvider: GoogleAuthProvider | undefined;
 
-if (hasRequiredConfig && !isServer) {
+// Server-side check
+const isServer = typeof window === 'undefined';
+
+/**
+ * Initialize Firebase with comprehensive environment validation
+ */
+function initializeFirebaseWithValidation(): void {
+  // Skip initialization on server-side
+  if (isServer) {
+    return;
+  }
+
+  // Perform environment validation
+  validationResult = validateEnvironment();
+  degradationPlan = createDegradationPlan(validationResult);
+
+  // Handle validation failure
+  if (!validationResult.success) {
+    const instructions = getSetupInstructions(validationResult);
+    
+    // Log detailed setup instructions
+    console.error(
+      'Pomofly: Firebase configuration invalid or missing.\n\n' +
+      instructions.join('\n') +
+      '\n\nApplication will run in degraded mode with limited functionality.'
+    );
+
+    // Store validation failure for UI display
+    (window as any).__POMOFLY_CONFIG_ERROR__ = {
+      errors: validationResult.errors,
+      warnings: validationResult.warnings,
+      instructions: instructions
+    };
+    
+    return;
+  }
+
+  // Firebase configuration is valid, proceed with initialization
+  const firebaseConfig = validationResult.data.firebase;
+
   try {
+    // Initialize Firebase app
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
     _auth = initAuth(app);
     _db = getFirestore(app);
     _googleProvider = new GoogleAuthProvider();
+
+    // Log successful initialization with warnings if any
+    if (validationResult.warnings.length > 0) {
+      console.warn(
+        'Pomofly: Firebase initialized successfully with the following warnings:\n' +
+        validationResult.warnings.map(w => `⚠️ ${w}`).join('\n')
+      );
+    } else {
+      console.log('Pomofly: Firebase initialized successfully with full functionality.');
+    }
+
+    // Store degradation plan for UI access
+    (window as any).__POMOFLY_DEGRADATION_PLAN__ = degradationPlan;
+
   } catch (error) {
-    console.error('Failed to initialize Firebase:', error);
-    // Reset to undefined on initialization failure
+    console.error('Pomofly: Failed to initialize Firebase even with valid configuration:', error);
+    
+    // Reset instances on initialization failure
     app = undefined;
     _auth = undefined;
     _db = undefined;
     _googleProvider = undefined;
+
+    // Store initialization error
+    (window as any).__POMOFLY_INIT_ERROR__ = {
+      message: 'Firebase initialization failed despite valid configuration',
+      error: error instanceof Error ? error.message : String(error)
+    };
   }
-} else if (!hasRequiredConfig && !isServer) {
-  // Only warn in browser if config is missing
-  console.warn(
-    'Firebase configuration missing. Please set the following environment variables:\n' +
-    '- NEXT_PUBLIC_FIREBASE_API_KEY\n' +
-    '- NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN\n' +
-    '- NEXT_PUBLIC_FIREBASE_PROJECT_ID\n' +
-    '- NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET\n' +
-    '- NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID\n' +
-    '- NEXT_PUBLIC_FIREBASE_APP_ID\n' +
-    'Firebase features will be disabled.'
-  );
 }
 
-// Safe getters with runtime validation
+// Initialize Firebase immediately (client-side only)
+initializeFirebaseWithValidation();
+
+// Safe getters with comprehensive error reporting
 export function getAuth(): Auth {
   if (!_auth) {
-    throw new Error('Firebase Auth not initialized. Please check your Firebase configuration.');
+    const configError = !isServer ? (window as any).__POMOFLY_CONFIG_ERROR__ : null;
+    const initError = !isServer ? (window as any).__POMOFLY_INIT_ERROR__ : null;
+    
+    if (configError) {
+      throw new Error(
+        'Firebase Auth not available due to configuration errors. ' +
+        'Please check the browser console for setup instructions.'
+      );
+    } else if (initError) {
+      throw new Error(
+        `Firebase Auth initialization failed: ${initError.error}. ` +
+        'Please check your Firebase project settings and try refreshing.'
+      );
+    } else {
+      throw new Error(
+        'Firebase Auth not initialized. This may be due to server-side rendering or missing configuration.'
+      );
+    }
   }
   return _auth;
 }
 
 export function getDB(): Firestore {
   if (!_db) {
-    throw new Error('Firebase Firestore not initialized. Please check your Firebase configuration.');
+    const configError = !isServer ? (window as any).__POMOFLY_CONFIG_ERROR__ : null;
+    const initError = !isServer ? (window as any).__POMOFLY_INIT_ERROR__ : null;
+    
+    if (configError) {
+      throw new Error(
+        'Firebase Firestore not available due to configuration errors. ' +
+        'Please check the browser console for setup instructions.'
+      );
+    } else if (initError) {
+      throw new Error(
+        `Firebase Firestore initialization failed: ${initError.error}. ` +
+        'Please check your Firebase project settings and try refreshing.'
+      );
+    } else {
+      throw new Error(
+        'Firebase Firestore not initialized. This may be due to server-side rendering or missing configuration.'
+      );
+    }
   }
   return _db;
 }
 
 export function getGoogleProvider(): GoogleAuthProvider {
   if (!_googleProvider) {
-    throw new Error('Google Auth Provider not initialized. Please check your Firebase configuration.');
+    const configError = !isServer ? (window as any).__POMOFLY_CONFIG_ERROR__ : null;
+    const initError = !isServer ? (window as any).__POMOFLY_INIT_ERROR__ : null;
+    
+    if (configError) {
+      throw new Error(
+        'Google Auth Provider not available due to configuration errors. ' +
+        'Please check the browser console for setup instructions.'
+      );
+    } else if (initError) {
+      throw new Error(
+        `Google Auth Provider initialization failed: ${initError.error}. ` +
+        'Please check your Firebase project settings and try refreshing.'
+      );
+    } else {
+      throw new Error(
+        'Google Auth Provider not initialized. This may be due to server-side rendering or missing configuration.'
+      );
+    }
   }
   return _googleProvider;
 }
@@ -81,7 +172,93 @@ export function isFirebaseInitialized(): boolean {
 }
 
 // Export boolean to check if Firebase is available
-export const isFirebaseAvailable = hasRequiredConfig && !isServer;
+export const isFirebaseAvailable = isFirebaseInitialized();
+
+/**
+ * Get the current environment validation status
+ */
+export function getEnvironmentStatus(): {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+  setupInstructions?: string[];
+} {
+  if (isServer) {
+    return {
+      isValid: false,
+      errors: ['Environment validation not available on server-side'],
+      warnings: []
+    };
+  }
+
+  const configError = (window as any).__POMOFLY_CONFIG_ERROR__;
+  const degradationPlan = (window as any).__POMOFLY_DEGRADATION_PLAN__;
+
+  if (configError) {
+    return {
+      isValid: false,
+      errors: configError.errors || [],
+      warnings: configError.warnings || [],
+      setupInstructions: configError.instructions || []
+    };
+  }
+
+  return {
+    isValid: true,
+    errors: [],
+    warnings: validationResult?.warnings || []
+  };
+}
+
+/**
+ * Get the degradation plan showing what features are available
+ */
+export function getFeatureAvailability(): {
+  firebaseAvailable: boolean;
+  claudeAvailable: boolean;
+  monitoringAvailable: boolean;
+  supportedFeatures: string[];
+  disabledFeatures: string[];
+} | null {
+  if (isServer) return null;
+
+  const degradationPlan = (window as any).__POMOFLY_DEGRADATION_PLAN__;
+  return degradationPlan || {
+    firebaseAvailable: false,
+    claudeAvailable: false,
+    monitoringAvailable: false,
+    supportedFeatures: [],
+    disabledFeatures: ['All features disabled due to configuration errors']
+  };
+}
+
+/**
+ * Safe wrapper for Firebase operations that may fail due to configuration issues
+ */
+export async function withFirebaseErrorHandling<T>(
+  operation: () => Promise<T>,
+  fallbackValue: T,
+  operationName: string = 'Firebase operation'
+): Promise<T> {
+  if (!isFirebaseInitialized()) {
+    console.warn(`${operationName} skipped - Firebase not initialized`);
+    return fallbackValue;
+  }
+
+  try {
+    return await operation();
+  } catch (error) {
+    console.error(`${operationName} failed:`, error);
+    
+    // Check if this is a configuration issue
+    const envStatus = getEnvironmentStatus();
+    if (!envStatus.isValid) {
+      console.error('This failure may be related to Firebase configuration issues. Check setup instructions.');
+    }
+    
+    return fallbackValue;
+  }
+}
 
 // Legacy exports for backward compatibility (deprecated)
 export const auth = _auth as Auth;

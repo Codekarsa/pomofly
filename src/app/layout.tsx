@@ -5,6 +5,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import GoogleAnalytics from '@/components/GoogleAnalytics'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import PWAServiceWorker from '@/components/PWAServiceWorker'
+import { ConfigurationError } from '@/components/ConfigurationError'
 import { Suspense } from 'react'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -81,6 +82,7 @@ export default function RootLayout({
             </Suspense>
             {children}
             <PWAServiceWorker />
+            <ConfigurationError />
           </AuthProvider>
         </ErrorBoundary>
       </body>
