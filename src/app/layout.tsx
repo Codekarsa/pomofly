@@ -3,9 +3,12 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from './contexts/AuthContext'
 import GoogleAnalytics from '@/components/GoogleAnalytics'
-import ErrorBoundary from '@/components/ErrorBoundary'
+import { PageErrorBoundary } from '@/components/error/ErrorBoundary'
+import { ErrorProvider } from '@/hooks/useErrorHandling'
+import { OfflineHandler } from '@/components/error/OfflineHandler'
 import PWAServiceWorker from '@/components/PWAServiceWorker'
 import { Suspense } from 'react'
+import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -74,15 +77,20 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} bg-gray-100`}>
-        <ErrorBoundary name="RootLayout" showDetails={process.env.NODE_ENV === 'development'}>
-          <AuthProvider>
-            <Suspense fallback={<div>Loading...</div>}>
-              <GoogleAnalytics GA_MEASUREMENT_ID={process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!} />
-            </Suspense>
-            {children}
-            <PWAServiceWorker />
-          </AuthProvider>
-        </ErrorBoundary>
+        <ErrorProvider>
+          <PageErrorBoundary>
+            <AuthProvider>
+              <OfflineHandler>
+                <Suspense fallback={<div>Loading...</div>}>
+                  <GoogleAnalytics GA_MEASUREMENT_ID={process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!} />
+                </Suspense>
+                {children}
+                <PWAServiceWorker />
+              </OfflineHandler>
+            </AuthProvider>
+          </PageErrorBoundary>
+          <Toaster position="top-right" richColors />
+        </ErrorProvider>
       </body>
     </html>
   )

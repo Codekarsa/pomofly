@@ -5,6 +5,9 @@ import { useProjects } from '../hooks/useProjects';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { useTimeTracking } from '@/hooks/useTimeTracking';
 import { useEstimation, type EstimationResult } from '@/hooks/useEstimation';
+import { useSimpleErrorHandler } from '@/hooks/useErrorHandling';
+import { FeatureErrorBoundary } from '@/components/error/ErrorBoundary';
+import { FeedbackButton } from '@/components/error/FeedbackDialog';
 import { Button } from '@/components/ui/button';
 import { MobileButton } from '@/components/ui/mobile-button';
 import { Input } from '@/components/ui/input';
@@ -241,6 +244,9 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     stopAllTimeTracking
   } = useTasks(selectedProjectId);
   const { event } = useGoogleAnalytics();
+  
+  // Error handling
+  const { withErrorHandling } = useSimpleErrorHandler();
 
   const memoizedProjects = useMemo(() => projects, [projects]);
   const memoizedTasks = useMemo(() => tasks, [tasks]);
@@ -248,29 +254,27 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   // Time tracking hook
   const { activelyTrackedTasks, hasActiveTracking, getElapsedTime, formatTime } = useTimeTracking(memoizedTasks);
 
-  const handleCreateProject = useCallback(async (name: string) => {
-    try {
+  const handleCreateProject = useCallback(
+    withErrorHandling(async (name: string) => {
       const newProjectId = await addProject(name);
       if (newProjectId) {
         setSelectedProjectId(newProjectId);
         event('project_created_from_task_form', { project_name: name });
       }
-    } catch (error) {
-      console.error("Failed to create project:", error);
-    }
-  }, [addProject, event]);
+    }, { component: 'TaskList', action: 'create_project' }), 
+    [addProject, event, withErrorHandling]
+  );
 
-  const handleCreateProjectForEdit = useCallback(async (name: string) => {
-    try {
+  const handleCreateProjectForEdit = useCallback(
+    withErrorHandling(async (name: string) => {
       const newProjectId = await addProject(name);
       if (newProjectId) {
         setEditingTask(prev => prev ? { ...prev, projectId: newProjectId } : prev);
         event('project_created_from_task_form', { project_name: name });
       }
-    } catch (error) {
-      console.error("Failed to create project:", error);
-    }
-  }, [addProject, event]);
+    }, { component: 'TaskList', action: 'create_project_for_edit' }),
+    [addProject, event, withErrorHandling]
+  );
 
   // Handle applying estimation suggestion
   const handleApplyEstimation = useCallback(() => {
@@ -334,10 +338,10 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     event('task_list_view', { total_tasks: tasks.length });
   }, [event, tasks.length]);
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newTaskTitle.trim() && selectedProjectId) {
-      try {
+  const handleSubmit = useCallback(
+    withErrorHandling(async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (newTaskTitle.trim() && selectedProjectId) {
         await addTask(newTaskTitle, selectedProjectId, estimatedPomodoros, newTaskFocus, newTaskLabelIds);
         
         // Track estimation source analytics
@@ -358,12 +362,10 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
         setNewTaskFocus(false);
         setNewTaskLabelIds([]);
         setEstimation(null); // Clear estimation
-      } catch (error) {
-        console.error("Failed to add task:", error);
-        event('task_add_error', { error_message: (error as Error).message });
       }
-    }
-  }, [addTask, event, estimatedPomodoros, newTaskTitle, selectedProjectId, newTaskFocus, newTaskLabelIds, estimation]);
+    }, { component: 'TaskList', action: 'add_task' }),
+    [addTask, event, estimatedPomodoros, newTaskTitle, selectedProjectId, newTaskFocus, newTaskLabelIds, estimation, withErrorHandling]
+  );
 
   const handleUpdateTask = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -656,13 +658,46 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   }, [activelyTrackedTasks, getElapsedTime, stopAllTimeTracking, event]);
 
   if (tasksLoading) return <div>Loading tasks...</div>;
-  if (tasksError) return <div>Error loading tasks: {tasksError.message}</div>;
+  if (tasksError) return (
+    <Card className="w-full border-red-200">
+      <CardContent className="p-6">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Error loading tasks: {tasksError.message}</p>
+          <div className="flex gap-2 justify-center">
+            <Button 
+              onClick={() => window.location.reload()} 
+              variant="outline"
+            >
+              Retry
+            </Button>
+            <FeedbackButton 
+              variant="outline" 
+              initialType="error"
+              context={{ 
+                component: 'TaskList', 
+                error: tasksError.message,
+                action: 'load_tasks'
+              }}
+            >
+              Report Issue
+            </FeedbackButton>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Your Tasks</CardTitle>
-      </CardHeader>
+    <FeatureErrorBoundary>
+      <Card className="w-full">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Your Tasks</CardTitle>
+          <FeedbackButton 
+            variant="ghost" 
+            size="sm"
+            context={{ component: 'TaskList' }}
+          />
+        </CardHeader>
       <CardContent>
         <div className="flex justify-end mb-4">
           {!showAddTaskForm && (
@@ -1088,6 +1123,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
         />
       </Suspense>
     </Card>
+    </FeatureErrorBoundary>
   );
 });
 
