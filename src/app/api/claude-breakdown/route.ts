@@ -219,7 +219,7 @@ IMPORTANT: Task titles should be plain text only, no HTML tags, scripts, or spec
 
     console.log('Assistant Response Content:', aiContent);
 
-    let taskBreakdown: any;
+    let taskBreakdown: TaskBreakdown;
     try {
       taskBreakdown = JSON.parse(aiContent); 
     } catch (parseError) {

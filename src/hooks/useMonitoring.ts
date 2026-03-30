@@ -36,7 +36,7 @@ export function useMonitoring() {
   }, []);
 
   // Track user actions
-  const trackAction = useCallback((action: string, context?: Record<string, any>) => {
+  const trackAction = useCallback((action: string, context?: Record<string, unknown>) => {
     recordMetric(`action_${action}`, 1, ['user_action', action]);
     
     if (process.env.NODE_ENV === 'development') {
@@ -45,7 +45,7 @@ export function useMonitoring() {
   }, [recordMetric]);
 
   // Track feature usage
-  const trackFeature = useCallback((feature: string, metadata?: Record<string, any>) => {
+  const trackFeature = useCallback((feature: string, metadata?: Record<string, unknown>) => {
     recordMetric(`feature_${feature}`, 1, ['feature_usage', feature]);
     
     if (process.env.NODE_ENV === 'development') {
@@ -69,7 +69,7 @@ export function useMonitoring() {
   }, [recordMetric, reportError]);
 
   // Track form interactions
-  const trackFormEvent = useCallback((formName: string, event: 'start' | 'submit' | 'error' | 'abandon', context?: Record<string, any>) => {
+  const trackFormEvent = useCallback((formName: string, event: 'start' | 'submit' | 'error' | 'abandon', context?: Record<string, unknown>) => {
     recordMetric(`form_${event}`, 1, ['form', formName, event]);
     
     if (event === 'error' && context?.error) {
@@ -118,7 +118,8 @@ export function useApiMonitoring() {
       return result;
     } catch (error) {
       const duration = performance.now() - start;
-      const status = (error as any)?.status || (error as any)?.response?.status || 500;
+      const status = (error as Error & { status?: number; response?: { status?: number } })?.status || 
+                      (error as Error & { status?: number; response?: { status?: number } })?.response?.status || 500;
       trackApiCall(endpoint, method, status, duration);
       throw error;
     }
@@ -135,11 +136,11 @@ export function useFormMonitoring(formName: string) {
     trackFormEvent(formName, 'start');
   }, [formName, trackFormEvent]);
 
-  const trackFormSubmit = useCallback((context?: Record<string, any>) => {
+  const trackFormSubmit = useCallback((context?: Record<string, unknown>) => {
     trackFormEvent(formName, 'submit', context);
   }, [formName, trackFormEvent]);
 
-  const trackFormError = useCallback((error: Error, context?: Record<string, any>) => {
+  const trackFormError = useCallback((error: Error, context?: Record<string, unknown>) => {
     trackFormEvent(formName, 'error', { error, ...context });
   }, [formName, trackFormEvent]);
 

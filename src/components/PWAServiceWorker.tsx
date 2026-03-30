@@ -145,7 +145,7 @@ export default PWAServiceWorker;
 // Hook for PWA utilities
 export const usePWA = () => {
   const [isInstalled, setIsInstalled] = useState(false);
-  const [isInstallable, setIsInstallable] = useState(false);
+  const isInstallable = false; // TODO: Implement installable detection
   const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
