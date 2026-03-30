@@ -109,6 +109,7 @@ export function useProjects() {
       // Validate the update data
       const validatedUpdate = validateProjectUpdate({ id, name });
       // Remove the id from updates since we don't want to update the document ID
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { id: _, ...updateData } = validatedUpdate;
 
       if (!user) {

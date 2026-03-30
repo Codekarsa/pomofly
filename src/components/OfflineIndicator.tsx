@@ -51,7 +51,7 @@ export function OfflineToast() {
         <div className="bg-orange-500 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 max-w-sm">
           <WifiOff className="w-5 h-5 flex-shrink-0" />
           <div>
-            <p className="font-medium">You're offline</p>
+            <p className="font-medium">You&apos;re offline</p>
             <p className="text-sm opacity-90">Changes will sync when connection is restored</p>
           </div>
         </div>
