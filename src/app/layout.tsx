@@ -6,26 +6,19 @@ import GoogleAnalytics from '@/components/GoogleAnalytics'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import PWAServiceWorker from '@/components/PWAServiceWorker'
 import { Suspense } from 'react'
+import { generateMetadata, generateStructuredData, pageMetadata } from '@/lib/metadata'
+import Script from 'next/script'
 
 const inter = Inter({ subsets: ['latin'] })
 
+// Generate comprehensive metadata with OpenGraph and Twitter Cards
 export const metadata: Metadata = {
-  title: 'Pomofly - Elegant Pomodoro Timer',
-  description: 'An elegant and minimal Pomodoro timer for productive focus',
-  keywords: ['pomodoro', 'timer', 'productivity', 'focus', 'time management', 'work', 'break'],
-  authors: [{ name: 'Codekarsa' }],
-  creator: 'Codekarsa',
-  publisher: 'Pomofly',
-  applicationName: 'Pomofly',
-  category: 'productivity',
+  ...generateMetadata(pageMetadata.home),
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
     title: 'Pomofly',
-  },
-  formatDetection: {
-    telephone: false,
   },
   icons: {
     icon: [
@@ -46,14 +39,6 @@ export const metadata: Metadata = {
       { url: '/icons/icon-384x384.png', sizes: '384x384', type: 'image/png' },
     ],
   },
-  other: {
-    'msapplication-TileColor': '#3b82f6',
-    'msapplication-config': '/browserconfig.xml',
-    'mobile-web-app-capable': 'yes',
-    'apple-mobile-web-app-capable': 'yes',
-    'apple-mobile-web-app-status-bar-style': 'default',
-    'apple-mobile-web-app-title': 'Pomofly',
-  },
 }
 
 export const viewport: Viewport = {
@@ -71,9 +56,21 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  // Generate structured data for the homepage
+  const structuredData = generateStructuredData(pageMetadata.home)
+
   return (
     <html lang="en">
       <body className={`${inter.className} bg-gray-100`}>
+        {/* Structured Data for SEO */}
+        <Script
+          id="structured-data"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(structuredData),
+          }}
+        />
+        
         <ErrorBoundary name="RootLayout" showDetails={process.env.NODE_ENV === 'development'}>
           <AuthProvider>
             <Suspense fallback={<div>Loading...</div>}>
