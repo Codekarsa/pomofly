@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import { db, auth } from '../lib/firebase';
+import { deleteProjectTransaction, handleTransactionError } from '../lib/transactions';
 import {
   getGuestProjects,
   addGuestProject,
@@ -126,7 +127,7 @@ export function useProjects() {
     }
   }, []);
 
-  const deleteProject = useCallback(async (id: string) => {
+  const deleteProject = useCallback(async (id: string, options?: { deleteTasksAction?: 'delete' | 'unlink' }) => {
     const user = auth.currentUser;
 
     if (!user) {
@@ -137,9 +138,14 @@ export function useProjects() {
     }
 
     try {
-      await deleteDoc(doc(db, "projects", id));
+      // Use transaction to safely delete project with task cleanup
+      await deleteProjectTransaction(
+        user.uid,
+        id,
+        { deleteTasksAction: options?.deleteTasksAction || 'unlink' }
+      );
     } catch (err) {
-      console.error("Error deleting project:", err);
+      handleTransactionError(err as Error, 'delete_project');
       throw err;
     }
   }, []);

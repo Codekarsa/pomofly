@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, increment, writeBatch } from "firebase/firestore";
 import { db, auth, addEstimationRecord } from '../lib/firebase';
+import { completeTaskTransaction, bulkTaskOperationTransaction, completePomodoroSessionTransaction, handleTransactionError } from '../lib/transactions';
 import {
   getGuestTasks,
   addGuestTask,
@@ -183,25 +184,23 @@ export function useTasks(projectId?: string) {
     }
 
     try {
-      const taskRef = doc(db, "tasks", id);
-
       if (!currentCompletionState) {
-        // Store completion data
-        await updateDoc(taskRef, {
-          completed: true,
-          completedAt: new Date(),
-          completedPomodoros: task.totalPomodoroSessions || 0
-        });
-        // Add to estimation history
-        await addEstimationRecord(user.uid, task);
+        // Complete task using transaction for data consistency
+        await completeTaskTransaction(
+          user.uid,
+          id,
+          task,
+          task.totalPomodoroSessions || 0
+        );
       } else {
-        // Mark as incomplete
+        // Mark as incomplete (simple update)
+        const taskRef = doc(db, "tasks", id);
         await updateDoc(taskRef, {
           completed: false
         });
       }
     } catch (err) {
-      console.error("Error toggling task completion:", err);
+      handleTransactionError(err as Error, 'toggle_task_completion');
       throw err;
     }
   }, [tasks]);
@@ -224,12 +223,15 @@ export function useTasks(projectId?: string) {
     }
 
     try {
-      await updateDoc(doc(db, "tasks", id), {
-        totalPomodoroSessions: increment(1),
-        totalTimeSpent: increment(duration)
-      });
+      // Use transaction to record session completion and update task progress atomically
+      await completePomodoroSessionTransaction(
+        user.uid,
+        id,
+        duration,
+        'pomodoro'
+      );
     } catch (err) {
-      console.error("Error incrementing pomodoro session:", err);
+      handleTransactionError(err as Error, 'increment_pomodoro_session');
       throw err;
     }
   }, [tasks]);
@@ -421,6 +423,71 @@ export function useTasks(projectId?: string) {
     }
   }, []);
 
+  // Bulk operations using transactions
+  const bulkCompleteTask = useCallback(async (taskIds: string[]) => {
+    const user = auth.currentUser;
+    
+    if (!user) {
+      // Guest mode - bulk update
+      const allTasks = getGuestTasks();
+      const updatedTasks = allTasks.map(t => 
+        taskIds.includes(t.id) ? { ...t, completed: true, completedAt: new Date() } : t
+      );
+      saveGuestTasks(updatedTasks);
+      refreshGuestTasks();
+      return;
+    }
+
+    try {
+      await bulkTaskOperationTransaction(user.uid, taskIds, 'complete');
+    } catch (err) {
+      handleTransactionError(err as Error, 'bulk_complete_tasks');
+      throw err;
+    }
+  }, [refreshGuestTasks]);
+
+  const bulkArchiveTasks = useCallback(async (taskIds: string[]) => {
+    const user = auth.currentUser;
+    
+    if (!user) {
+      // Guest mode - bulk update
+      const allTasks = getGuestTasks();
+      const updatedTasks = allTasks.map(t => 
+        taskIds.includes(t.id) ? { ...t, archived: true } : t
+      );
+      saveGuestTasks(updatedTasks);
+      refreshGuestTasks();
+      return;
+    }
+
+    try {
+      await bulkTaskOperationTransaction(user.uid, taskIds, 'archive');
+    } catch (err) {
+      handleTransactionError(err as Error, 'bulk_archive_tasks');
+      throw err;
+    }
+  }, [refreshGuestTasks]);
+
+  const bulkDeleteTasks = useCallback(async (taskIds: string[]) => {
+    const user = auth.currentUser;
+    
+    if (!user) {
+      // Guest mode - bulk delete
+      const allTasks = getGuestTasks();
+      const updatedTasks = allTasks.filter(t => !taskIds.includes(t.id));
+      saveGuestTasks(updatedTasks);
+      refreshGuestTasks();
+      return;
+    }
+
+    try {
+      await bulkTaskOperationTransaction(user.uid, taskIds, 'delete');
+    } catch (err) {
+      handleTransactionError(err as Error, 'bulk_delete_tasks');
+      throw err;
+    }
+  }, [refreshGuestTasks]);
+
   return {
     tasks,
     loading,
@@ -438,6 +505,10 @@ export function useTasks(projectId?: string) {
     stopTimeTracking,
     startAllTimeTracking,
     stopAllTimeTracking,
-    refreshGuestTasks
+    refreshGuestTasks,
+    // Bulk operations
+    bulkCompleteTask,
+    bulkArchiveTasks,
+    bulkDeleteTasks
   };
 }
