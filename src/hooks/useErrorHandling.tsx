@@ -67,7 +67,7 @@ const ErrorContext = createContext<ErrorContextValue | undefined>(undefined);
 export function ErrorProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(errorReducer, initialState);
 
-  const handleError = useCallback((error: Error | string, context: ErrorContextTypeType = {}) => {
+  const handleError = useCallback((error: Error | string, context: ErrorContextType = {}) => {
     const errorInfo = errorManager.handleError(error, context);
     dispatch({ type: 'ADD_ERROR', payload: errorInfo });
     return errorInfo;
