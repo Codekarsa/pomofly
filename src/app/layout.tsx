@@ -5,19 +5,16 @@ import { AuthProvider } from './contexts/AuthContext'
 import GoogleAnalytics from '@/components/GoogleAnalytics'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import PWAServiceWorker from '@/components/PWAServiceWorker'
+import StructuredData, { WebsiteStructuredData, SoftwareApplicationStructuredData } from '@/components/StructuredData'
+import { homePageMetadata } from '@/lib/seo-metadata'
 import { Suspense } from 'react'
 
 const inter = Inter({ subsets: ['latin'] })
 
+// Use the enhanced SEO metadata
 export const metadata: Metadata = {
-  title: 'Pomofly - Elegant Pomodoro Timer',
-  description: 'An elegant and minimal Pomodoro timer for productive focus',
-  keywords: ['pomodoro', 'timer', 'productivity', 'focus', 'time management', 'work', 'break'],
-  authors: [{ name: 'Codekarsa' }],
-  creator: 'Codekarsa',
-  publisher: 'Pomofly',
-  applicationName: 'Pomofly',
-  category: 'productivity',
+  ...homePageMetadata,
+  // Keep PWA-specific metadata
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -46,14 +43,6 @@ export const metadata: Metadata = {
       { url: '/icons/icon-384x384.png', sizes: '384x384', type: 'image/png' },
     ],
   },
-  other: {
-    'msapplication-TileColor': '#3b82f6',
-    'msapplication-config': '/browserconfig.xml',
-    'mobile-web-app-capable': 'yes',
-    'apple-mobile-web-app-capable': 'yes',
-    'apple-mobile-web-app-status-bar-style': 'default',
-    'apple-mobile-web-app-title': 'Pomofly',
-  },
 }
 
 export const viewport: Viewport = {
@@ -73,6 +62,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        {/* Structured Data */}
+        <WebsiteStructuredData />
+        <SoftwareApplicationStructuredData />
+      </head>
       <body className={`${inter.className} bg-gray-100`}>
         <ErrorBoundary name="RootLayout" showDetails={process.env.NODE_ENV === 'development'}>
           <AuthProvider>
