@@ -1,5 +1,11 @@
 import '@testing-library/jest-dom'
 
+// Set NODE_ENV to test for proper React behavior
+process.env.NODE_ENV = 'test'
+
+// Force React to run in development mode for tests
+global.__DEV__ = true
+
 // Mock Next.js router
 jest.mock('next/router', () => ({
   useRouter() {
