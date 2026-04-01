@@ -4,8 +4,9 @@
   "private": true,
   "packageManager": "yarn@1.22.22",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "validate-env": "node scripts/validate-env.js",
+    "dev": "npm run validate-env && next dev",
+    "build": "npm run validate-env && next build",
     "start": "next start",
     "deploy": "npm run build && firebase deploy",
     "lint": "next lint",
@@ -65,7 +66,7 @@
     "@testing-library/react": "^14.2.1",
     "@testing-library/user-event": "^14.5.2",
     "@types/jest": "^30.0.0",
-    "@types/node": "^20.16.9",
+    "@types/node": "25.3.5",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "eslint": "^8",
@@ -74,6 +75,6 @@
     "jest-environment-jsdom": "^29.7.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "5.9.3"
   }
 }
