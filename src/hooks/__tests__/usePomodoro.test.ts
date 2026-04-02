@@ -1,9 +1,39 @@
 import { renderHook, act } from '@testing-library/react'
 import { usePomodoro, defaultSettings } from '../usePomodoro'
+import { TimerPersistence } from '@/lib/timerPersistence'
+
+// Mock localStorage
+const localStorageMock = {
+  getItem: jest.fn(),
+  setItem: jest.fn(),
+  removeItem: jest.fn(),
+  clear: jest.fn(),
+}
+
+// Mock sessionStorage  
+const sessionStorageMock = {
+  getItem: jest.fn(),
+  setItem: jest.fn(),
+  removeItem: jest.fn(),
+  clear: jest.fn(),
+}
+
+Object.defineProperty(window, 'localStorage', {
+  value: localStorageMock,
+})
+
+Object.defineProperty(window, 'sessionStorage', {
+  value: sessionStorageMock,
+})
 
 describe('usePomodoro', () => {
   beforeEach(() => {
     jest.useFakeTimers()
+    localStorageMock.getItem.mockReturnValue(null)
+    localStorageMock.setItem.mockClear()
+    localStorageMock.removeItem.mockClear()
+    sessionStorageMock.getItem.mockReturnValue(null)
+    sessionStorageMock.setItem.mockClear()
   })
 
   afterEach(() => {
@@ -209,5 +239,223 @@ describe('usePomodoro', () => {
 
     expect(result.current.minutes.toString().padStart(2, '0')).toBe('25')
     expect(result.current.seconds.toString().padStart(2, '0')).toBe('00')
+  })
+
+  // Timer Recovery Edge Cases Tests
+  describe('Timer Recovery Edge Cases', () => {
+    it('should handle corrupted session data gracefully', () => {
+      // Mock corrupted localStorage data
+      localStorageMock.getItem.mockReturnValue('{"invalid":"json"corrupted}')
+
+      const { result } = renderHook(() => usePomodoro(defaultSettings))
+
+      // Should start fresh and not crash
+      expect(result.current.phase).toBe('pomodoro')
+      expect(result.current.showRecoveryModal).toBe(false)
+    })
+
+    it('should handle session with invalid timestamps', () => {
+      const futureTimestamp = Date.now() + 1000000 // 1000 seconds in future
+      const invalidSession = {
+        phase: 'pomodoro',
+        isActive: true,
+        timerStartedAt: futureTimestamp,
+        pausedTimeRemaining: null,
+        sessionsCompleted: 0,
+        sessionCreatedAt: Date.now(),
+        lastUpdatedAt: Date.now(),
+        settings: defaultSettings,
+      }
+      
+      localStorageMock.getItem.mockReturnValue(JSON.stringify(invalidSession))
+
+      const { result } = renderHook(() => usePomodoro(defaultSettings))
+
+      // Should detect invalid timestamp and start fresh
+      expect(result.current.showRecoveryModal).toBe(false)
+    })
+
+    it('should handle very old session gracefully', () => {
+      const oldTimestamp = Date.now() - (25 * 60 * 60 * 1000) // 25 hours ago
+      const oldSession = {
+        phase: 'pomodoro',
+        isActive: false,
+        timerStartedAt: null,
+        pausedTimeRemaining: null,
+        sessionsCompleted: 0,
+        sessionCreatedAt: oldTimestamp,
+        lastUpdatedAt: oldTimestamp,
+        settings: defaultSettings,
+      }
+      
+      localStorageMock.getItem.mockReturnValue(JSON.stringify(oldSession))
+
+      const { result } = renderHook(() => usePomodoro(defaultSettings))
+
+      // Should clear old session and start fresh
+      expect(result.current.showRecoveryModal).toBe(false)
+      expect(localStorageMock.removeItem).toHaveBeenCalled()
+    })
+
+    it('should handle paused vs active state recovery correctly', () => {
+      const pausedSession = {
+        phase: 'pomodoro',
+        isActive: false,
+        timerStartedAt: null,
+        pausedTimeRemaining: 300, // 5 minutes remaining
+        sessionsCompleted: 0,
+        sessionCreatedAt: Date.now() - 60000, // 1 minute ago
+        lastUpdatedAt: Date.now() - 60000,
+        settings: defaultSettings,
+      }
+      
+      localStorageMock.getItem.mockReturnValue(JSON.stringify(pausedSession))
+
+      const { result } = renderHook(() => usePomodoro(defaultSettings))
+
+      expect(result.current.showRecoveryModal).toBe(true)
+
+      // Restore the session
+      act(() => {
+        result.current.restoreSession(pausedSession)
+      })
+
+      expect(result.current.isActive).toBe(false)
+      expect(result.current.minutes).toBe(5)
+      expect(result.current.seconds).toBe(0)
+    })
+
+    it('should handle multiple task IDs in session recovery', () => {
+      const sessionWithTasks = {
+        phase: 'pomodoro',
+        isActive: true,
+        timerStartedAt: Date.now() - 30000, // 30 seconds ago
+        pausedTimeRemaining: null,
+        sessionsCompleted: 0,
+        sessionCreatedAt: Date.now() - 60000,
+        lastUpdatedAt: Date.now() - 30000,
+        selectedTaskIds: ['task1', 'task2', 'task3'],
+        settings: defaultSettings,
+      }
+      
+      localStorageMock.getItem.mockReturnValue(JSON.stringify(sessionWithTasks))
+
+      const { result } = renderHook(() => usePomodoro(defaultSettings))
+
+      expect(result.current.showRecoveryModal).toBe(true)
+
+      // Get recovery session info
+      const recoveryInfo = result.current.getRecoverySessionInfo()
+      expect(recoveryInfo?.taskCount).toBe(3)
+      expect(recoveryInfo?.wasActive).toBe(true)
+    })
+
+    it('should handle browser restart detection', () => {
+      // Simulate different browser session
+      sessionStorageMock.getItem.mockReturnValue('different_session_id')
+      
+      const activeSession = {
+        phase: 'pomodoro',
+        isActive: true,
+        timerStartedAt: Date.now() - 60000, // 1 minute ago
+        pausedTimeRemaining: null,
+        sessionsCompleted: 0,
+        sessionCreatedAt: Date.now() - 120000,
+        lastUpdatedAt: Date.now() - 60000,
+        browserSessionId: 'old_session_id',
+        settings: defaultSettings,
+      }
+      
+      localStorageMock.getItem.mockReturnValue(JSON.stringify(activeSession))
+
+      const { result } = renderHook(() => usePomodoro(defaultSettings))
+
+      expect(result.current.showRecoveryModal).toBe(true)
+      
+      // Session should be marked as paused due to browser restart
+      const recoveryInfo = result.current.getRecoverySessionInfo()
+      expect(recoveryInfo?.wasActive).toBe(false) // Should be converted to paused
+    })
+
+    it('should validate timer state logical consistency', () => {
+      const inconsistentSession = {
+        phase: 'pomodoro',
+        isActive: true,
+        timerStartedAt: null, // Inconsistent: active but no start time
+        pausedTimeRemaining: null,
+        sessionsCompleted: 0,
+        sessionCreatedAt: Date.now(),
+        lastUpdatedAt: Date.now(),
+        settings: defaultSettings,
+      }
+      
+      localStorageMock.getItem.mockReturnValue(JSON.stringify(inconsistentSession))
+
+      const { result } = renderHook(() => usePomodoro(defaultSettings))
+
+      // Should detect inconsistency and start fresh
+      expect(result.current.showRecoveryModal).toBe(false)
+    })
+
+    it('should handle negative pause time gracefully', () => {
+      const invalidPauseSession = {
+        phase: 'pomodoro',
+        isActive: false,
+        timerStartedAt: null,
+        pausedTimeRemaining: -300, // Invalid negative pause time
+        sessionsCompleted: 0,
+        sessionCreatedAt: Date.now(),
+        lastUpdatedAt: Date.now(),
+        settings: defaultSettings,
+      }
+      
+      localStorageMock.getItem.mockReturnValue(JSON.stringify(invalidPauseSession))
+
+      const { result } = renderHook(() => usePomodoro(defaultSettings))
+
+      // Should detect invalid pause time and start fresh
+      expect(result.current.showRecoveryModal).toBe(false)
+    })
+
+    it('should update selected task IDs correctly', () => {
+      const { result } = renderHook(() => usePomodoro(defaultSettings))
+
+      act(() => {
+        result.current.toggleTimer()
+      })
+
+      act(() => {
+        result.current.updateSelectedTasks(['task1', 'task2'])
+      })
+
+      // Should have called persistence update
+      expect(localStorageMock.setItem).toHaveBeenCalled()
+    })
+
+    it('should provide accurate recovery session info', () => {
+      const sessionWithDetails = {
+        phase: 'shortBreak',
+        isActive: false,
+        timerStartedAt: null,
+        pausedTimeRemaining: 180, // 3 minutes
+        sessionsCompleted: 2,
+        sessionCreatedAt: Date.now() - 300000, // 5 minutes ago
+        lastUpdatedAt: Date.now() - 60000,
+        selectedTaskIds: ['task1'],
+        settings: defaultSettings,
+      }
+      
+      localStorageMock.getItem.mockReturnValue(JSON.stringify(sessionWithDetails))
+
+      const { result } = renderHook(() => usePomodoro(defaultSettings))
+
+      const recoveryInfo = result.current.getRecoverySessionInfo()
+      
+      expect(recoveryInfo?.phase).toBe('shortBreak')
+      expect(recoveryInfo?.remaining).toBe(180)
+      expect(recoveryInfo?.taskCount).toBe(1)
+      expect(recoveryInfo?.wasActive).toBe(false)
+      expect(recoveryInfo?.sessionAge).toBeGreaterThan(300000)
+    })
   })
 }) 

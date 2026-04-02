@@ -48,6 +48,9 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     }
   }, []);
 
+  // Track session creation timestamp
+  const [sessionCreatedAt] = useState(Date.now());
+
   // Persist session whenever state changes
   const persistCurrentSession = useCallback(() => {
     const session: PersistedTimerSession = {
@@ -56,17 +59,19 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
       timerStartedAt,
       pausedTimeRemaining,
       sessionsCompleted,
-      sessionCreatedAt: Date.now(),
+      sessionCreatedAt,
+      lastUpdatedAt: Date.now(),
       settings,
+      selectedTaskIds: undefined, // Will be updated by updateSessionTaskIds if needed
     };
     
     // Only persist if there's meaningful state to save
-    if (isActive || timerStartedAt !== null || pausedTimeRemaining !== null) {
+    if (isActive || timerStartedAt !== null || pausedTimeRemaining !== null || sessionsCompleted > 0) {
       TimerPersistence.saveSession(session);
     } else {
       TimerPersistence.clearSession();
     }
-  }, [phase, isActive, timerStartedAt, pausedTimeRemaining, sessionsCompleted, settings]);
+  }, [phase, isActive, timerStartedAt, pausedTimeRemaining, sessionsCompleted, sessionCreatedAt, settings]);
 
   // Auto-persist when state changes
   useEffect(() => {
@@ -186,22 +191,69 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
 
   // Recovery functions
   const restoreSession = useCallback((session: PersistedTimerSession) => {
-    setPhase(session.phase);
-    setIsActive(session.isActive);
-    setTimerStartedAt(session.timerStartedAt);
-    setPausedTimeRemaining(session.pausedTimeRemaining);
-    setSessionsCompleted(session.sessionsCompleted);
-    setSettings(session.settings);
-    
-    // Update display from restored state
-    const remaining = TimerPersistence.calculateRemainingTime(session);
-    const mins = Math.floor(remaining / 60);
-    const secs = remaining % 60;
-    setMinutes(mins);
-    setSeconds(secs);
-    
-    setShowRecoveryModal(false);
-    setPersistedSession(null);
+    try {
+      // Validate session one more time before restoring
+      if (!TimerPersistence.isValidSession(session)) {
+        console.warn('Cannot restore invalid session');
+        startFresh();
+        return;
+      }
+
+      // Calculate remaining time and validate it's reasonable
+      const remaining = TimerPersistence.calculateRemainingTime(session);
+      const totalDuration = session.settings[session.phase] * 60;
+      
+      if (remaining > totalDuration) {
+        console.warn('Remaining time exceeds total duration, starting fresh');
+        startFresh();
+        return;
+      }
+
+      // Restore state
+      setPhase(session.phase);
+      setSessionsCompleted(session.sessionsCompleted);
+      setSettings(session.settings);
+      
+      // Handle active vs paused state carefully
+      if (session.isActive && session.timerStartedAt && !session.pausedTimeRemaining) {
+        // Timer was active - check if it should still be running
+        if (remaining > 0) {
+          setIsActive(true);
+          setTimerStartedAt(session.timerStartedAt);
+          setPausedTimeRemaining(null);
+        } else {
+          // Timer should have completed, mark as finished
+          setIsActive(false);
+          setTimerStartedAt(null);
+          setPausedTimeRemaining(null);
+          // Note: We don't auto-complete here to avoid confusion
+        }
+      } else if (session.pausedTimeRemaining !== null) {
+        // Timer was paused
+        setIsActive(false);
+        setTimerStartedAt(null);
+        setPausedTimeRemaining(session.pausedTimeRemaining);
+      } else {
+        // Timer was stopped
+        setIsActive(false);
+        setTimerStartedAt(null);
+        setPausedTimeRemaining(null);
+      }
+      
+      // Update display
+      const mins = Math.floor(remaining / 60);
+      const secs = remaining % 60;
+      setMinutes(mins);
+      setSeconds(secs);
+      
+      setShowRecoveryModal(false);
+      setPersistedSession(null);
+      
+      console.info('Successfully restored timer session');
+    } catch (error) {
+      console.warn('Error restoring session:', error);
+      startFresh();
+    }
   }, []);
 
   const startFresh = useCallback(() => {
@@ -218,6 +270,31 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     }
   }, [settings, phase, isActive, timerStartedAt, pausedTimeRemaining]);
 
+  // Function to update selected task IDs in current session
+  const updateSelectedTasks = useCallback((taskIds: string[]) => {
+    TimerPersistence.updateSessionTaskIds(taskIds);
+  }, []);
+
+  // Function to get recovery session metadata for better UX
+  const getRecoverySessionInfo = useCallback(() => {
+    if (!persistedSession) return null;
+    
+    const remaining = TimerPersistence.calculateRemainingTime(persistedSession);
+    const sessionAge = Date.now() - persistedSession.sessionCreatedAt;
+    const wasActive = persistedSession.isActive;
+    const phase = persistedSession.phase;
+    const taskCount = persistedSession.selectedTaskIds?.length || 0;
+    
+    return {
+      remaining,
+      sessionAge,
+      wasActive,
+      phase,
+      taskCount,
+      sessionCreatedAt: new Date(persistedSession.sessionCreatedAt)
+    };
+  }, [persistedSession]);
+
   return {
     phase,
     minutes,
@@ -232,6 +309,9 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     showRecoveryModal,
     persistedSession,
     restoreSession,
-    startFresh
+    startFresh,
+    // Enhanced functionality
+    updateSelectedTasks,
+    getRecoverySessionInfo
   };
 }
