@@ -1,155 +1,150 @@
-// Performance optimization utilities for PomoFly
-
 /**
- * Debounce function to limit the rate of function calls
+ * Performance monitoring utilities for React components
+ * Helps track and optimize render performance
  */
-export function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout;
-  return (...args: Parameters<T>) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
+
+import React from 'react';
+
+export interface PerformanceMetrics {
+  componentName: string;
+  renderCount: number;
+  averageRenderTime: number;
+  maxRenderTime: number;
+  lastRenderTime: number;
+  timestamp: number;
 }
 
-/**
- * Throttle function to limit the rate of function calls
- */
-export function throttle<T extends (...args: any[]) => any>(
-  func: T,
-  limit: number
-): (...args: Parameters<T>) => void {
-  let inThrottle: boolean;
-  return (...args: Parameters<T>) => {
-    if (!inThrottle) {
-      func(...args);
-      inThrottle = true;
-      setTimeout(() => (inThrottle = false), limit);
-    }
-  };
-}
+class PerformanceMonitor {
+  private metrics = new Map<string, PerformanceMetrics>();
+  private isEnabled = process.env.NODE_ENV === 'development';
 
-/**
- * Performance monitoring hook for development
- */
-export function measurePerformance(name: string, fn: () => void) {
-  if (typeof window !== 'undefined' && window.performance) {
-    const startTime = performance.now();
-    fn();
+  startRender(componentName: string): number | null {
+    if (!this.isEnabled) return null;
+    return performance.now();
+  }
+
+  endRender(componentName: string, startTime: number | null): void {
+    if (!this.isEnabled || startTime === null) return;
+
     const endTime = performance.now();
-    console.log(`[Performance] ${name}: ${endTime - startTime}ms`);
-  } else {
-    fn();
-  }
-}
+    const renderTime = endTime - startTime;
 
-/**
- * Lazy image loading utility
- */
-export function createIntersectionObserver(
-  callback: IntersectionObserverCallback,
-  options?: IntersectionObserverInit
-) {
-  if (typeof window !== 'undefined' && 'IntersectionObserver' in window) {
-    return new IntersectionObserver(callback, {
-      rootMargin: '50px 0px',
-      threshold: 0.1,
-      ...options,
-    });
-  }
-  return null;
-}
-
-/**
- * Memoization utility for expensive calculations
- */
-export function memoize<T extends (...args: any[]) => any>(fn: T): T {
-  const cache = new Map();
-  
-  return ((...args: any[]) => {
-    const key = JSON.stringify(args);
-    if (cache.has(key)) {
-      return cache.get(key);
+    const existing = this.metrics.get(componentName);
+    if (existing) {
+      const newRenderCount = existing.renderCount + 1;
+      const newAverageTime = (existing.averageRenderTime * existing.renderCount + renderTime) / newRenderCount;
+      
+      this.metrics.set(componentName, {
+        componentName,
+        renderCount: newRenderCount,
+        averageRenderTime: newAverageTime,
+        maxRenderTime: Math.max(existing.maxRenderTime, renderTime),
+        lastRenderTime: renderTime,
+        timestamp: endTime,
+      });
+    } else {
+      this.metrics.set(componentName, {
+        componentName,
+        renderCount: 1,
+        averageRenderTime: renderTime,
+        maxRenderTime: renderTime,
+        lastRenderTime: renderTime,
+        timestamp: endTime,
+      });
     }
-    
-    const result = fn(...args);
-    cache.set(key, result);
-    return result;
-  }) as T;
+
+    // Log if render time is concerning
+    if (renderTime > 16.67) { // Over 60fps
+      console.warn(`Slow render detected in ${componentName}: ${renderTime.toFixed(2)}ms`);
+    }
+  }
+
+  getMetrics(componentName?: string): PerformanceMetrics[] {
+    if (componentName) {
+      const metric = this.metrics.get(componentName);
+      return metric ? [metric] : [];
+    }
+    return Array.from(this.metrics.values());
+  }
+
+  clearMetrics(): void {
+    this.metrics.clear();
+  }
+
+  logSummary(): void {
+    if (!this.isEnabled) return;
+
+    console.group('Component Performance Summary');
+    const sortedMetrics = Array.from(this.metrics.values())
+      .sort((a, b) => b.averageRenderTime - a.averageRenderTime);
+
+    sortedMetrics.forEach(metric => {
+      console.log(`${metric.componentName}:`, {
+        renders: metric.renderCount,
+        avgTime: `${metric.averageRenderTime.toFixed(2)}ms`,
+        maxTime: `${metric.maxRenderTime.toFixed(2)}ms`,
+        lastTime: `${metric.lastRenderTime.toFixed(2)}ms`,
+      });
+    });
+    console.groupEnd();
+  }
 }
+
+export const performanceMonitor = new PerformanceMonitor();
 
 /**
- * Virtual scrolling utility for large lists
+ * React hook for monitoring component render performance
  */
-export interface VirtualScrollConfig {
-  itemHeight: number;
-  containerHeight: number;
-  overscan?: number;
-}
+export function usePerformanceMonitor(componentName: string) {
+  const startTime = performanceMonitor.startRender(componentName);
+  
+  // This will run after every render
+  React.useEffect(() => {
+    performanceMonitor.endRender(componentName, startTime);
+  });
 
-export function calculateVirtualScrollRange(
-  scrollTop: number,
-  totalItems: number,
-  config: VirtualScrollConfig
-) {
-  const { itemHeight, containerHeight, overscan = 5 } = config;
-  
-  const visibleStart = Math.floor(scrollTop / itemHeight);
-  const visibleEnd = Math.min(
-    visibleStart + Math.ceil(containerHeight / itemHeight),
-    totalItems - 1
-  );
-  
-  const start = Math.max(0, visibleStart - overscan);
-  const end = Math.min(totalItems - 1, visibleEnd + overscan);
-  
   return {
-    start,
-    end,
-    offsetY: start * itemHeight,
-    totalHeight: totalItems * itemHeight,
+    getMetrics: () => performanceMonitor.getMetrics(componentName),
+    logSummary: () => performanceMonitor.logSummary(),
   };
 }
 
 /**
- * Preload component utility
+ * Higher-order component for performance monitoring
  */
-export function preloadComponent(componentImport: () => Promise<any>) {
-  if (typeof window !== 'undefined') {
-    // Preload on user interaction or idle time
-    const preload = () => componentImport();
-    
-    // Preload on mouse hover or focus
-    document.addEventListener('mouseover', preload, { once: true, passive: true });
-    document.addEventListener('focus', preload, { once: true, passive: true });
-    
-    // Preload on idle
-    if ('requestIdleCallback' in window) {
-      requestIdleCallback(preload);
-    } else {
-      setTimeout(preload, 1);
-    }
-  }
+export function withPerformanceMonitoring<P extends object>(
+  Component: React.ComponentType<P>,
+  componentName?: string
+) {
+  const WrappedComponent = React.memo((props: P) => {
+    const name = componentName || Component.displayName || Component.name || 'UnknownComponent';
+    usePerformanceMonitor(name);
+    return <Component {...props} />;
+  });
+
+  WrappedComponent.displayName = `withPerformanceMonitoring(${Component.displayName || Component.name})`;
+  return WrappedComponent;
 }
 
 /**
- * Resource hints for better loading performance
+ * Utility for measuring arbitrary code performance
  */
-export function addResourceHints() {
-  if (typeof document === 'undefined') return;
+export function measurePerformance<T>(
+  label: string,
+  fn: () => T
+): T {
+  if (process.env.NODE_ENV !== 'development') {
+    return fn();
+  }
 
-  // Preconnect to external domains
-  const preconnectLinks = [
-    'https://fonts.googleapis.com',
-    'https://fonts.gstatic.com',
-  ];
+  const start = performance.now();
+  const result = fn();
+  const end = performance.now();
+  const duration = end - start;
 
-  preconnectLinks.forEach(href => {
-    const link = document.createElement('link');
-    link.rel = 'preconnect';
-    link.href = href;
-    document.head.appendChild(link);
-  });
+  if (duration > 10) { // Log if operation takes more than 10ms
+    console.log(`Performance: ${label} took ${duration.toFixed(2)}ms`);
+  }
+
+  return result;
 }
