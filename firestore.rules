@@ -1,0 +1,178 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions for validation and security
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+    
+    function isValidString(field, minLength, maxLength) {
+      return field is string && 
+             field.size() >= minLength && 
+             field.size() <= maxLength;
+    }
+    
+    function isValidUser() {
+      return request.auth != null && 
+             request.auth.uid != null && 
+             request.auth.uid != '';
+    }
+    
+    // Rate limiting helper (simplified - real rate limiting needs external implementation)
+    function withinRateLimit() {
+      // Basic sanity check - reject requests with suspiciously large payloads
+      return request.writeSize < 1000000; // 1MB limit per write
+    }
+    
+    // Task validation functions
+    function isValidTaskData(data) {
+      return data.keys().hasAll(['title', 'projectId', 'userId', 'completed', 
+                               'totalPomodoroSessions', 'totalTimeSpent', 'createdAt', 'focus', 'manualTimeSpent']) &&
+             isValidString(data.title, 1, 500) &&
+             isValidString(data.projectId, 1, 100) &&
+             isValidString(data.userId, 1, 100) &&
+             data.completed is bool &&
+             data.totalPomodoroSessions is int && data.totalPomodoroSessions >= 0 &&
+             data.totalTimeSpent is number && data.totalTimeSpent >= 0 &&
+             data.manualTimeSpent is number && data.manualTimeSpent >= 0 &&
+             data.focus is bool &&
+             data.createdAt is timestamp &&
+             (data.estimatedPomodoros == null || (data.estimatedPomodoros is int && data.estimatedPomodoros >= 1)) &&
+             (data.archived == null || data.archived is bool) &&
+             (data.deadline == null || data.deadline is string) &&
+             (data.trackingStartedAt == null || data.trackingStartedAt is timestamp);
+    }
+    
+    function isValidTaskUpdate(data) {
+      return data.userId == resource.data.userId && // Can't change ownership
+             (data.title == null || isValidString(data.title, 1, 500)) &&
+             (data.completed == null || data.completed is bool) &&
+             (data.totalPomodoroSessions == null || (data.totalPomodoroSessions is int && data.totalPomodoroSessions >= 0)) &&
+             (data.totalTimeSpent == null || (data.totalTimeSpent is number && data.totalTimeSpent >= 0)) &&
+             (data.manualTimeSpent == null || (data.manualTimeSpent is number && data.manualTimeSpent >= 0)) &&
+             (data.estimatedPomodoros == null || (data.estimatedPomodoros is int && data.estimatedPomodoros >= 1)) &&
+             (data.archived == null || data.archived is bool) &&
+             (data.focus == null || data.focus is bool) &&
+             (data.deadline == null || data.deadline is string) &&
+             (data.trackingStartedAt == null || data.trackingStartedAt is timestamp);
+    }
+    
+    // Project validation functions
+    function isValidProjectData(data) {
+      return data.keys().hasAll(['name', 'userId', 'createdAt']) &&
+             isValidString(data.name, 1, 200) &&
+             isValidString(data.userId, 1, 100) &&
+             data.createdAt is timestamp;
+    }
+    
+    function isValidProjectUpdate(data) {
+      return data.userId == resource.data.userId && // Can't change ownership
+             (data.name == null || isValidString(data.name, 1, 200));
+    }
+    
+    // Estimation record validation functions
+    function isValidEstimationData(data) {
+      return data.keys().hasAll(['userId', 'taskId', 'taskTitle', 'estimatedPomodoros', 
+                               'actualPomodoros', 'accuracy', 'completedAt', 'keywords']) &&
+             isValidString(data.userId, 1, 100) &&
+             isValidString(data.taskId, 1, 100) &&
+             isValidString(data.taskTitle, 1, 500) &&
+             (data.projectId == null || isValidString(data.projectId, 1, 100)) &&
+             data.estimatedPomodoros is int && data.estimatedPomodoros >= 1 &&
+             data.actualPomodoros is int && data.actualPomodoros >= 0 &&
+             data.accuracy is number && data.accuracy >= 0 &&
+             data.completedAt is timestamp &&
+             data.keywords is list;
+    }
+    
+    // Tasks collection rules
+    match /tasks/{taskId} {
+      allow read, write: if isValidUser() && 
+                           isOwner(resource.data.userId) && 
+                           withinRateLimit();
+      
+      allow create: if isValidUser() && 
+                      isValidTaskData(request.resource.data) &&
+                      isOwner(request.resource.data.userId) &&
+                      withinRateLimit();
+      
+      allow update: if isValidUser() && 
+                      isOwner(resource.data.userId) &&
+                      isValidTaskUpdate(request.resource.data) &&
+                      withinRateLimit();
+      
+      allow delete: if isValidUser() && 
+                      isOwner(resource.data.userId) &&
+                      withinRateLimit();
+    }
+    
+    // Projects collection rules
+    match /projects/{projectId} {
+      allow read, write: if isValidUser() && 
+                           isOwner(resource.data.userId) && 
+                           withinRateLimit();
+      
+      allow create: if isValidUser() && 
+                      isValidProjectData(request.resource.data) &&
+                      isOwner(request.resource.data.userId) &&
+                      withinRateLimit();
+      
+      allow update: if isValidUser() && 
+                      isOwner(resource.data.userId) &&
+                      isValidProjectUpdate(request.resource.data) &&
+                      withinRateLimit();
+      
+      allow delete: if isValidUser() && 
+                      isOwner(resource.data.userId) &&
+                      withinRateLimit();
+    }
+    
+    // Estimation history collection rules
+    match /estimation_history/{recordId} {
+      allow read: if isValidUser() && 
+                    isOwner(resource.data.userId) && 
+                    withinRateLimit();
+      
+      allow create: if isValidUser() && 
+                      isValidEstimationData(request.resource.data) &&
+                      isOwner(request.resource.data.userId) &&
+                      withinRateLimit();
+      
+      // Estimation records should be immutable once created (no updates/deletes)
+      allow update, delete: if false;
+    }
+    
+    // Audit log collection (write-only for users, read for admins)
+    match /audit_log/{auditId} {
+      // Users can only create audit log entries
+      allow create: if isValidUser() && 
+                      request.resource.data.userId == request.auth.uid &&
+                      withinRateLimit();
+      
+      // Only allow reading for the user's own audit logs
+      allow read: if isValidUser() && 
+                    resource.data.userId == request.auth.uid &&
+                    withinRateLimit();
+      
+      // No updates or deletes allowed (immutable audit trail)
+      allow update, delete: if false;
+    }
+    
+    // User profile collection (if needed in the future)
+    match /users/{userId} {
+      allow read, write: if isValidUser() && 
+                           isOwner(userId) && 
+                           withinRateLimit();
+    }
+    
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
