@@ -16,7 +16,6 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { getGuestTasks, getGuestProjects, clearGuestData } from '@/lib/guestStorage';
 import { collection, addDoc } from "firebase/firestore";
 import { db, auth } from '@/lib/firebase';
@@ -47,6 +46,26 @@ interface MigrationError {
   details?: string;
 }
 
+interface GuestTask {
+  id: string;
+  title: string;
+  projectId: string;
+  completed: boolean;
+  totalPomodoroSessions?: number;
+  totalTimeSpent?: number;
+  createdAt: string;
+  estimatedPomodoros?: number;
+  focus?: boolean;
+  deadline?: string | null;
+  manualTimeSpent?: number;
+}
+
+interface GuestProject {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
 const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
   isOpen,
   onClose,
@@ -57,8 +76,8 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
   const [progress, setProgress] = useState<MigrationProgress>({ step: '', completed: 0, total: 0 });
   const [error, setError] = useState<MigrationError | null>(null);
   const [guestDataPreview, setGuestDataPreview] = useState<{
-    tasks: any[];
-    projects: any[];
+    tasks: GuestTask[];
+    projects: GuestProject[];
   }>({ tasks: [], projects: [] });
 
   // Load guest data preview when modal opens
@@ -182,7 +201,7 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
       
       let errorType: MigrationError['type'] = 'unknown';
       let errorMessage = 'An unexpected error occurred during import.';
-      let errorDetails = (err as Error).message;
+      const errorDetails = (err as Error).message;
 
       if (errorDetails.includes('network') || errorDetails.includes('fetch')) {
         errorType = 'network';

@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type'); // 'errors' | 'metrics' | 'summary'
-  const limit = parseInt(searchParams.get('limit') || '50');
   
   // In a production app, you would:
   // 1. Authenticate this endpoint
