@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { usePomodoro } from '@/hooks/usePomodoro';
 import { useTasks } from '@/hooks/useTasks';
@@ -65,19 +65,26 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     TimerPersistence.updateSessionTaskIds(selectedTaskIds);
   }, [selectedTaskIds]);
 
-  // Filter out invalid/stale task IDs (deleted or completed tasks)
-  useEffect(() => {
-    if (!loading && tasks.length > 0 && selectedTaskIds.length > 0) {
-      const validTaskIds = selectedTaskIds.filter(id => {
-        const task = tasks.find(t => t.id === id);
-        return task && !task.completed;
-      });
-      if (validTaskIds.length !== selectedTaskIds.length) {
-        setSelectedTaskIds(validTaskIds);
-      }
+  // Optimized task filtering using useMemo for O(n) performance
+  const validSelectedTaskIds = useMemo(() => {
+    if (loading || tasks.length === 0 || selectedTaskIds.length === 0) {
+      return selectedTaskIds;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, tasks]);
+    
+    // Create a Map for O(1) task lookups instead of O(n) find operations
+    const taskMap = new Map(tasks.map(task => [task.id, task]));
+    return selectedTaskIds.filter(id => {
+      const task = taskMap.get(id);
+      return task && !task.completed;
+    });
+  }, [loading, tasks, selectedTaskIds]);
+
+  // Update selectedTaskIds only when the filtered result changes
+  useEffect(() => {
+    if (validSelectedTaskIds.length !== selectedTaskIds.length) {
+      setSelectedTaskIds(validSelectedTaskIds);
+    }
+  }, [validSelectedTaskIds, selectedTaskIds]);
 
   // Stable callback that uses refs - won't cause usePomodoro to reset
   const handlePomodoroComplete = useCallback(() => {
