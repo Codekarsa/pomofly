@@ -139,8 +139,8 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
     // Update immediately
     updateDisplay();
 
-    // Then update every 100ms for smooth display
-    const interval = setInterval(updateDisplay, 100);
+    // Then update every 250ms for better performance while keeping smooth display
+    const interval = setInterval(updateDisplay, 250);
 
     return () => clearInterval(interval);
   }, [isActive, getRemainingTime, handlePhaseComplete]);

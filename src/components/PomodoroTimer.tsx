@@ -1,4 +1,18 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+/**
+ * PomodoroTimer Component - Performance Optimized
+ * 
+ * Optimizations applied:
+ * 1. Memoized expensive calculations (validSelectedTasks, todaysSessionCount)
+ * 2. Debounced localStorage writes to reduce I/O operations
+ * 3. Separated TimerDisplay component to isolate re-renders
+ * 4. Separated PhaseButtons component for better memoization
+ * 5. Functional state updates to reduce callback dependencies
+ * 6. Custom React.memo with deep comparison for props
+ * 7. Reduced timer update frequency from 100ms to 250ms
+ * 8. Proper cleanup of debounced functions and intervals
+ */
+
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { usePomodoro } from '@/hooks/usePomodoro';
 import { useTasks } from '@/hooks/useTasks';
@@ -11,6 +25,10 @@ import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
 import SelectedTasksList from './SelectedTasksList';
 import { TimerRecoveryModal } from './TimerRecoveryModal';
 import { TimerPersistence } from '@/lib/timerPersistence';
+import TimerDisplay from './TimerDisplay';
+import PhaseButtons from './PhaseButtons';
+import { useLocalStorageDebounced } from '@/hooks/useLocalStorageDebounced';
+import { debounce } from 'lodash';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -23,7 +41,7 @@ interface PomodoroTimerProps {
   settings: PomodoroSettings;
 }
 
-const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) => {
+const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ settings }) => {
   const { user } = useAuth();
   const { event } = useGoogleAnalytics();
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>(() => {
@@ -59,25 +77,47 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     tasksRef.current = tasks;
   }, [tasks]);
 
-  // Persist selectedTaskIds to localStorage and session
+  // Memoize expensive calculations
+  const validSelectedTasks = useMemo(() => {
+    if (loading || !tasks.length) return [];
+    return tasks.filter(task => selectedTaskIds.includes(task.id) && !task.completed);
+  }, [tasks, selectedTaskIds, loading]);
+
+  const todaysSessionCount = useMemo(() => {
+    const today = new Date().toDateString();
+    return completedSessions.filter(session =>
+      new Date(session.date).toDateString() === today
+    ).length;
+  }, [completedSessions]);
+
+  // Use optimized debounced localStorage hook
+  useLocalStorageDebounced('selectedTaskIds', selectedTaskIds);
+
+  // Update timer session with selected tasks (debounced separately)
+  const debouncedSessionUpdate = useMemo(
+    () => debounce((taskIds: string[]) => {
+      TimerPersistence.updateSessionTaskIds(taskIds);
+    }, 500),
+    []
+  );
+
   useEffect(() => {
-    localStorage.setItem('selectedTaskIds', JSON.stringify(selectedTaskIds));
-    TimerPersistence.updateSessionTaskIds(selectedTaskIds);
-  }, [selectedTaskIds]);
+    debouncedSessionUpdate(selectedTaskIds);
+    return () => {
+      debouncedSessionUpdate.cancel();
+    };
+  }, [selectedTaskIds, debouncedSessionUpdate]);
 
   // Filter out invalid/stale task IDs (deleted or completed tasks)
+  // Use memoized valid tasks and compare by length to avoid unnecessary updates
   useEffect(() => {
     if (!loading && tasks.length > 0 && selectedTaskIds.length > 0) {
-      const validTaskIds = selectedTaskIds.filter(id => {
-        const task = tasks.find(t => t.id === id);
-        return task && !task.completed;
-      });
+      const validTaskIds = validSelectedTasks.map(task => task.id);
       if (validTaskIds.length !== selectedTaskIds.length) {
         setSelectedTaskIds(validTaskIds);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, tasks]);
+  }, [loading, tasks, selectedTaskIds, validSelectedTasks]);
 
   // Stable callback that uses refs - won't cause usePomodoro to reset
   const handlePomodoroComplete = useCallback(() => {
@@ -201,12 +241,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     event('pomodoro_timer_view', { user_authenticated: !!user });
   }, [event, user]);
 
-  const countTodaysSessions = useCallback(() => {
-    const today = new Date().toDateString();
-    return completedSessions.filter(session =>
-      new Date(session.date).toDateString() === today
-    ).length;
-  }, [completedSessions]);
+  // Remove this callback since we're using memoized value instead
 
   const handleDoneNext = useCallback(() => {
     handlePomodoroComplete();
@@ -215,33 +250,43 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     event('pomodoro_phase_switched', { new_phase: phase === 'pomodoro' ? 'shortBreak' : 'pomodoro' });
   }, [handlePomodoroComplete, resetTimer, switchPhase, phase, event]);
 
+  // Optimize handleAddTask with useCallback and stable dependencies
   const handleAddTask = useCallback((taskId: string) => {
-    if (!selectedTaskIds.includes(taskId)) {
-      const newIds = [...selectedTaskIds, taskId];
-      setSelectedTaskIds(newIds);
+    setSelectedTaskIds(currentIds => {
+      if (currentIds.includes(taskId)) return currentIds;
+      
+      const newIds = [...currentIds, taskId];
       event('task_added_to_pomodoro', { task_id: taskId });
 
       // If timer is active and in pomodoro phase, start tracking the new task
       if (isActive && phase === 'pomodoro') {
         startAllTimeTracking([taskId]);
       }
-    }
-  }, [selectedTaskIds, event, isActive, phase, startAllTimeTracking]);
+      
+      return newIds;
+    });
+  }, [event, isActive, phase, startAllTimeTracking]);
 
+  // Optimize handleRemoveTask to use functional state updates
   const handleRemoveTask = useCallback((taskId: string) => {
-    const newIds = selectedTaskIds.filter(id => id !== taskId);
-    setSelectedTaskIds(newIds);
-    event('task_removed_from_pomodoro', { task_id: taskId });
+    setSelectedTaskIds(currentIds => {
+      if (!currentIds.includes(taskId)) return currentIds;
+      
+      const newIds = currentIds.filter(id => id !== taskId);
+      event('task_removed_from_pomodoro', { task_id: taskId });
 
-    // If timer is active, stop tracking the removed task
-    if (isActive && phase === 'pomodoro') {
-      const task = tasks.find(t => t.id === taskId);
-      if (task && task.trackingStartedAt != null) {
-        const elapsed = getElapsedTime(task) - (task.manualTimeSpent ?? 0);
-        stopAllTimeTracking([{ taskId, elapsedSeconds: elapsed }]);
+      // If timer is active, stop tracking the removed task
+      if (isActive && phase === 'pomodoro') {
+        const task = tasksRef.current.find(t => t.id === taskId);
+        if (task && task.trackingStartedAt != null) {
+          const elapsed = getElapsedTime(task) - (task.manualTimeSpent ?? 0);
+          stopAllTimeTracking([{ taskId, elapsedSeconds: elapsed }]);
+        }
       }
-    }
-  }, [selectedTaskIds, event, isActive, phase, tasks, getElapsedTime, stopAllTimeTracking]);
+      
+      return newIds;
+    });
+  }, [event, isActive, phase, getElapsedTime, stopAllTimeTracking]);
 
   const handleToggleTimer = useCallback(() => {
     toggleTimer();
@@ -312,27 +357,16 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
       <CardContent>
         <div className="mb-4 text-lg">
           <span className="font-semibold">Today&apos;s Sessions: </span>
-          <span>{countTodaysSessions()}</span>
+          <span>{todaysSessionCount}</span>
         </div>
 
-        <div className="mb-4 flex justify-center space-x-2">
-          {['pomodoro', 'shortBreak', 'longBreak'].map((timerPhase) => (
-            <Button
-              key={timerPhase}
-              onClick={() => {
-                switchPhase(timerPhase as 'pomodoro' | 'shortBreak' | 'longBreak');
-                event('pomodoro_phase_switched', { new_phase: timerPhase });
-              }}
-              variant={phase === timerPhase ? 'default' : 'outline'}
-            >
-              {timerPhase === 'pomodoro' ? 'Pomodoro' : timerPhase === 'shortBreak' ? 'Short Break' : 'Long Break'}
-            </Button>
-          ))}
-        </div>
+        <PhaseButtons
+          currentPhase={phase}
+          onSwitchPhase={switchPhase}
+          onEvent={event}
+        />
 
-        <div className="text-8xl font-bold mb-4 text-center py-6">
-          {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
-        </div>
+        <TimerDisplay minutes={minutes} seconds={seconds} />
 
         <div className="flex justify-center space-x-2 mb-6">
           <Button
@@ -383,4 +417,13 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
 
 PomodoroTimer.displayName = 'PomodoroTimer';
 
-export default PomodoroTimer;
+// Memoize the component with custom comparison to prevent unnecessary re-renders
+export default React.memo(PomodoroTimer, (prevProps, nextProps) => {
+  // Only re-render if settings actually changed
+  return (
+    prevProps.settings.pomodoro === nextProps.settings.pomodoro &&
+    prevProps.settings.shortBreak === nextProps.settings.shortBreak &&
+    prevProps.settings.longBreak === nextProps.settings.longBreak &&
+    prevProps.settings.longBreakInterval === nextProps.settings.longBreakInterval
+  );
+});
