@@ -1,0 +1,42 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner() {
+      return signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    function isCreatingOwn() {
+      return signedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Owner-managed collections: current (tasks, projects, labels)
+    // and planned (notes, resources, calendar)
+    match /{col}/{docId} {
+      allow read, delete: if col in ['tasks', 'projects', 'labels', 'notes', 'resources', 'calendar']
+                          && isOwner();
+      allow create:       if col in ['tasks', 'projects', 'labels', 'notes', 'resources', 'calendar']
+                          && isCreatingOwn();
+      allow update:       if col in ['tasks', 'projects', 'labels', 'notes', 'resources', 'calendar']
+                          && isOwner()
+                          && request.resource.data.userId == resource.data.userId; // userId immutable
+    }
+
+    // Append-only estimation analytics — the app only creates and reads these
+    match /estimation_history/{docId} {
+      allow read:   if isOwner();
+      allow create: if isCreatingOwn();
+    }
+
+    // Default deny (covers subcollections too, e.g. a future tasks/{id}/comments
+    // needs its own explicit rule before it will work)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

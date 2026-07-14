@@ -43,6 +43,17 @@ jobs:
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks
       
+      # action-hosting-deploy only ships Hosting; rules and indexes need the CLI
+      - name: Deploy Firestore rules and indexes
+        if: github.ref == 'refs/heads/main'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase-sa.json"
+          npx firebase-tools@13 deploy --only firestore --project "$FIREBASE_PROJECT_ID" --non-interactive --force
+
       - name: Deploy to Firebase Hosting (Production)
         if: github.ref == 'refs/heads/main'
         uses: FirebaseExtended/action-hosting-deploy@v0
