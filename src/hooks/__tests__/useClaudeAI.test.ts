@@ -4,6 +4,31 @@ import { useClaudeAI } from '../useClaudeAI'
 // Mock the API route
 global.fetch = jest.fn()
 
+// Mock auth context with an authenticated user
+const mockGetIdToken = jest.fn().mockResolvedValue('test-id-token')
+jest.mock('@/app/contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: {
+      uid: 'test-user-id',
+      email: 'test@example.com',
+      getIdToken: () => mockGetIdToken(),
+    },
+  }),
+}))
+
+// Mock monitoring: pass the API call straight through
+jest.mock('@/hooks/useMonitoring', () => ({
+  useApiMonitoring: () => ({
+    monitorApiCall: (_endpoint: string, _method: string, fn: () => Promise<unknown>) => fn(),
+  }),
+}))
+
+// Mock security helpers
+jest.mock('@/lib/security', () => ({
+  sanitizeTaskTitle: (title: string) => title,
+  checkClientRateLimit: jest.fn(() => ({ allowed: true, resetTime: 0 })),
+}))
+
 describe('useClaudeAI', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -14,12 +39,12 @@ describe('useClaudeAI', () => {
 
     expect(result.current.loading).toBe(false)
     expect(result.current.error).toBe(null)
-    expect(result.current.response).toBe('')
+    expect(typeof result.current.getTaskBreakdown).toBe('function')
   })
 
-  it('should send message successfully', async () => {
+  it('should get task breakdown successfully', async () => {
     const mockResponse = {
-      breakdown: [
+      tasks: [
         { title: 'Task 1', estimatedPomodoros: 2 },
         { title: 'Task 2', estimatedPomodoros: 3 },
       ],
@@ -32,22 +57,24 @@ describe('useClaudeAI', () => {
 
     const { result } = renderHook(() => useClaudeAI())
 
+    let breakdown: unknown
     await act(async () => {
-      await result.current.sendMessage('Break down this complex task')
+      breakdown = await result.current.getTaskBreakdown('Break down this complex task')
     })
 
     expect(result.current.loading).toBe(false)
     expect(result.current.error).toBe(null)
-    expect(result.current.response).toBeDefined()
-    expect(global.fetch).toHaveBeenCalledWith('/api/claude-breakdown', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        message: 'Break down this complex task',
-      }),
-    })
+    expect(breakdown).toEqual(mockResponse)
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/claude-breakdown',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer test-id-token',
+        }),
+      })
+    )
   })
 
   it('should handle API errors', async () => {
@@ -57,11 +84,13 @@ describe('useClaudeAI', () => {
     const { result } = renderHook(() => useClaudeAI())
 
     await act(async () => {
-      await result.current.sendMessage('Break down this complex task')
+      await expect(result.current.getTaskBreakdown('Break down this complex task')).rejects.toThrow(
+        'API Error'
+      )
     })
 
     expect(result.current.loading).toBe(false)
-    expect(result.current.error).toBe(mockError)
+    expect(result.current.error).toBe('API Error')
   })
 
   it('should handle non-ok responses', async () => {
@@ -69,69 +98,80 @@ describe('useClaudeAI', () => {
       ok: false,
       status: 500,
       statusText: 'Internal Server Error',
+      json: async () => ({ error: 'server_error', message: 'Something went wrong' }),
     })
 
     const { result } = renderHook(() => useClaudeAI())
 
     await act(async () => {
-      await result.current.sendMessage('Break down this complex task')
+      await expect(result.current.getTaskBreakdown('Break down this complex task')).rejects.toThrow()
     })
 
     expect(result.current.loading).toBe(false)
-    expect(result.current.error).toBeInstanceOf(Error)
+    expect(result.current.error).toBe('Something went wrong')
   })
 
-  it('should set loading state during API call', async () => {
-    let resolvePromise: (value: unknown) => void
-    const promise = new Promise((resolve) => {
-      resolvePromise = resolve
+  it('should reject empty descriptions', async () => {
+    const { result } = renderHook(() => useClaudeAI())
+
+    await act(async () => {
+      await expect(result.current.getTaskBreakdown('   ')).rejects.toThrow(
+        'Task description is required'
+      )
     })
 
-    ;(global.fetch as jest.Mock).mockReturnValueOnce(promise)
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('should reject descriptions over 2000 characters', async () => {
+    const { result } = renderHook(() => useClaudeAI())
+
+    await act(async () => {
+      await expect(result.current.getTaskBreakdown('x'.repeat(2001))).rejects.toThrow(
+        'less than 2000 characters'
+      )
+    })
+
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('should surface rate limit errors', async () => {
+    const { checkClientRateLimit } = jest.requireMock('@/lib/security')
+    checkClientRateLimit.mockReturnValueOnce({ allowed: false, resetTime: Date.now() + 30000 })
 
     const { result } = renderHook(() => useClaudeAI())
 
-    act(() => {
-      result.current.sendMessage('Break down this complex task')
-    })
-
-    expect(result.current.loading).toBe(true)
-
-    resolvePromise!({
-      ok: true,
-      json: async () => ({ breakdown: [] }),
-    })
-
     await act(async () => {
-      await promise
+      await expect(result.current.getTaskBreakdown('Break down this complex task')).rejects.toThrow(
+        'Rate limit exceeded'
+      )
     })
 
-    expect(result.current.loading).toBe(false)
+    expect(global.fetch).not.toHaveBeenCalled()
   })
 
   it('should clear error when starting new request', async () => {
-    const mockError = new Error('Previous error')
-    ;(global.fetch as jest.Mock).mockRejectedValueOnce(mockError)
+    ;(global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Previous error'))
 
     const { result } = renderHook(() => useClaudeAI())
 
     // First call that fails
     await act(async () => {
-      await result.current.sendMessage('First message')
+      await expect(result.current.getTaskBreakdown('First message')).rejects.toThrow()
     })
 
-    expect(result.current.error).toBe(mockError)
+    expect(result.current.error).toBe('Previous error')
 
     // Second call that succeeds
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ breakdown: [] }),
+      json: async () => ({ tasks: [] }),
     })
 
     await act(async () => {
-      await result.current.sendMessage('Second message')
+      await result.current.getTaskBreakdown('Second message')
     })
 
     expect(result.current.error).toBe(null)
   })
-}) 
+})

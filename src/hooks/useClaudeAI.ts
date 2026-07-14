@@ -13,6 +13,7 @@ interface BreakdownResult {
 interface ErrorResponse {
   error: string;
   message: string;
+  details?: string;
 }
 
 // Client-side timeout configuration (35 seconds, slightly longer than server)
@@ -121,7 +122,7 @@ export const useClaudeAI = () => {
         
         // Additional client-side sanitization for task titles
         if (data?.tasks && Array.isArray(data.tasks)) {
-          data.tasks = data.tasks.map((task: any) => ({
+          data.tasks = data.tasks.map((task: { title?: string; estimatedPomodoros?: number }) => ({
             ...task,
             title: sanitizeTaskTitle(task.title || ''),
           }));

@@ -1,18 +1,22 @@
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useTasks } from '../useTasks'
-import { onSnapshot, addDoc, updateDoc, deleteDoc, increment } from 'firebase/firestore'
+import { onSnapshot, addDoc, updateDoc, deleteDoc, increment, query, where } from 'firebase/firestore'
 
 // Mock Firebase Firestore
 jest.mock('firebase/firestore', () => ({
-  collection: jest.fn(),
-  query: jest.fn(),
-  where: jest.fn(),
+  collection: jest.fn(() => ({ type: 'collection' })),
+  query: jest.fn(() => ({ type: 'query' })),
+  where: jest.fn(() => ({ type: 'where' })),
   onSnapshot: jest.fn(),
   addDoc: jest.fn(),
   updateDoc: jest.fn(),
   deleteDoc: jest.fn(),
-  doc: jest.fn(),
+  doc: jest.fn(() => ({ type: 'doc' })),
   increment: jest.fn(),
+  writeBatch: jest.fn(() => ({
+    update: jest.fn(),
+    commit: jest.fn().mockResolvedValue(undefined),
+  })),
 }))
 
 // Mock Firebase auth
@@ -24,6 +28,7 @@ jest.mock('@/lib/firebase', () => ({
     },
   },
   db: {},
+  addEstimationRecord: jest.fn().mockResolvedValue('estimation-record-id'),
 }))
 
 describe('useTasks', () => {
@@ -44,13 +49,8 @@ describe('useTasks', () => {
   })
 
   it('should initialize with empty tasks array', () => {
-    const mockSnapshot = {
-      forEach: jest.fn(),
-    }
-    mockOnSnapshot.mockImplementation((_query: unknown, onNext: (snapshot: typeof mockSnapshot) => void) => {
-      onNext(mockSnapshot)
-      return jest.fn() // unsubscribe function
-    })
+    // Snapshot never fires: tasks stay empty and loading stays true
+    mockOnSnapshot.mockImplementation(() => jest.fn())
 
     const { result } = renderHook(() => useTasks())
 
@@ -188,8 +188,23 @@ describe('useTasks', () => {
   })
 
   it('should toggle task completion', async () => {
+    // The hook needs the task loaded to record completion data
+    const task = {
+      id: 'task-1',
+      title: 'Test Task 1',
+      projectId: 'project-1',
+      userId: 'test-user-id',
+      completed: false,
+      totalPomodoroSessions: 2,
+      totalTimeSpent: 50,
+      createdAt: new Date(),
+      focus: false,
+      deadline: null,
+    }
     const mockSnapshot = {
-      forEach: jest.fn(),
+      forEach: jest.fn((callback) => {
+        callback({ id: task.id, data: () => task })
+      }),
     }
     mockOnSnapshot.mockImplementation((_query: unknown, onNext: (snapshot: typeof mockSnapshot) => void) => {
       onNext(mockSnapshot)
@@ -197,6 +212,10 @@ describe('useTasks', () => {
     })
 
     const { result } = renderHook(() => useTasks())
+
+    await waitFor(() => {
+      expect(result.current.tasks).toHaveLength(1)
+    })
 
     await act(async () => {
       await result.current.toggleTaskCompletion('task-1', false)
@@ -206,6 +225,7 @@ describe('useTasks', () => {
       expect.anything(),
       expect.objectContaining({
         completed: true,
+        completedPomodoros: 2,
       })
     )
   })
@@ -296,15 +316,11 @@ describe('useTasks', () => {
   })
 
   it('should filter tasks by project when projectId is provided', () => {
-    const mockQuery = jest.fn()
-    const mockWhere = jest.fn()
-    
-    mockQuery.mockReturnValue('filtered-query')
-    mockWhere.mockReturnValue('where-clause')
+    mockOnSnapshot.mockImplementation(() => jest.fn())
 
     renderHook(() => useTasks('project-1'))
 
-    expect(mockQuery).toHaveBeenCalled()
-    expect(mockWhere).toHaveBeenCalledWith('projectId', '==', 'project-1')
+    expect(query).toHaveBeenCalled()
+    expect(where).toHaveBeenCalledWith('projectId', '==', 'project-1')
   })
 }) 

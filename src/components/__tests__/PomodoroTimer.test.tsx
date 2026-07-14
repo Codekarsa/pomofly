@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import PomodoroTimer from '../PomodoroTimer'
 import { defaultSettings } from '@/hooks/usePomodoro'
@@ -21,15 +21,31 @@ jest.mock('@/hooks/useTasks', () => ({
         id: 'task-1',
         title: 'Test Task 1',
         completed: false,
+        trackingStartedAt: null,
+        manualTimeSpent: 0,
+        totalTimeSpent: 0,
       },
       {
         id: 'task-2',
         title: 'Test Task 2',
         completed: false,
+        trackingStartedAt: null,
+        manualTimeSpent: 0,
+        totalTimeSpent: 0,
       },
     ],
     loading: false,
     incrementPomodoroSession: jest.fn(),
+    startAllTimeTracking: jest.fn(),
+    stopAllTimeTracking: jest.fn(),
+  }),
+}))
+
+jest.mock('@/hooks/useProjects', () => ({
+  useProjects: () => ({
+    projects: [],
+    loading: false,
+    error: null,
   }),
 }))
 
@@ -43,6 +59,8 @@ describe('PomodoroTimer', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     jest.useFakeTimers()
+    // Clear persisted timer sessions so the recovery modal doesn't leak between tests
+    window.localStorage.clear()
   })
 
   afterEach(() => {
@@ -122,7 +140,8 @@ describe('PomodoroTimer', () => {
   it('should show task selector when user is authenticated', () => {
     render(<PomodoroTimer settings={defaultSettings} />)
 
-    expect(screen.getByPlaceholderText('Select a task')).toBeInTheDocument()
+    expect(screen.getByText('Working on:')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /add task/i })).toBeInTheDocument()
   })
 
   it('should show Done/Next button when timer is active', async () => {
@@ -160,18 +179,23 @@ describe('PomodoroTimer', () => {
     expect(screen.getByText('30:00')).toBeInTheDocument()
   })
 
+  // The timer ticks every 100ms, so advancing 25 minutes fires 15k callbacks — allow extra time
   it('should count completed sessions', async () => {
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
+    // Sessions are only counted when tasks are selected; the component reads this on mount
+    window.localStorage.setItem('selectedTaskIds', JSON.stringify(['task-1']))
     render(<PomodoroTimer settings={defaultSettings} />)
 
     const startButton = screen.getByRole('button', { name: /start/i })
     await user.click(startButton)
 
     // Complete a pomodoro session
-    jest.advanceTimersByTime(25 * 60 * 1000)
+    await act(async () => {
+      jest.advanceTimersByTime(25 * 60 * 1000)
+    })
 
     await waitFor(() => {
       expect(screen.getByText('1')).toBeInTheDocument()
     })
-  })
+  }, 30000)
 }) 

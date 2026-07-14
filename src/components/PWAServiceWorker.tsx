@@ -9,9 +9,13 @@ interface PWAServiceWorkerProps {
   onInstall?: () => void;
 }
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
 const PWAServiceWorker: React.FC<PWAServiceWorkerProps> = ({ onUpdate, onInstall }) => {
   const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
 
@@ -22,9 +26,9 @@ const PWAServiceWorker: React.FC<PWAServiceWorkerProps> = ({ onUpdate, onInstall
     }
 
     // Listen for install prompt
-    const handleBeforeInstallPrompt = (e: any) => {
+    const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
-      setInstallPrompt(e);
+      setInstallPrompt(e as BeforeInstallPromptEvent);
       setIsInstallable(true);
     };
 

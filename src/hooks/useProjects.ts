@@ -7,16 +7,15 @@ import {
   updateGuestProject,
   deleteGuestProject,
 } from '../lib/guestStorage';
-import { 
-  transformFirebaseProject, 
-  validateProjectCreate, 
+import {
+  transformFirebaseProject,
+  validateProjectCreate,
   validateProjectUpdate,
-  type Project,
-  type ProjectCreate,
-  type ProjectUpdate 
+  type Project
 } from '../lib/validation';
 
-// Project interface now imported from validation.ts
+// Project types now live in validation.ts; re-export for consumers
+export type { Project, ProjectCreate, ProjectUpdate } from '../lib/validation';
 
 export function useProjects() {
   const [projects, setProjects] = useState<Project[]>([]);

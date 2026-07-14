@@ -138,7 +138,7 @@ export function sanitizeRichContent(content: string): string {
 /**
  * Validates AI response structure and sanitizes content
  */
-export function sanitizeAIResponse(response: any): {
+export function sanitizeAIResponse(response: unknown): {
   isValid: boolean;
   sanitizedData?: { tasks: Array<{ title: string; estimatedPomodoros: number }> };
   error?: string;
@@ -147,35 +147,39 @@ export function sanitizeAIResponse(response: any): {
     return { isValid: false, error: 'Invalid response structure' };
   }
 
-  if (!response.tasks || !Array.isArray(response.tasks)) {
+  const tasks = (response as Record<string, unknown>).tasks;
+
+  if (!tasks || !Array.isArray(tasks)) {
     return { isValid: false, error: 'Response must contain tasks array' };
   }
 
-  if (response.tasks.length === 0) {
+  if (tasks.length === 0) {
     return { isValid: false, error: 'Response must contain at least one task' };
   }
 
-  if (response.tasks.length > 50) {
+  if (tasks.length > 50) {
     return { isValid: false, error: 'Too many tasks in response (max 50)' };
   }
 
-  const sanitizedTasks = response.tasks.map((task: any, index: number) => {
+  const sanitizedTasks = tasks.map((task: unknown, index: number) => {
     // Validate task structure
     if (!task || typeof task !== 'object') {
       throw new Error(`Task at index ${index} is not a valid object`);
     }
 
-    if (typeof task.title !== 'string') {
+    const { title, estimatedPomodoros } = task as Record<string, unknown>;
+
+    if (typeof title !== 'string') {
       throw new Error(`Task at index ${index} must have a string title`);
     }
 
-    if (typeof task.estimatedPomodoros !== 'number' || task.estimatedPomodoros < 1 || task.estimatedPomodoros > 100) {
+    if (typeof estimatedPomodoros !== 'number' || estimatedPomodoros < 1 || estimatedPomodoros > 100) {
       throw new Error(`Task at index ${index} must have valid estimatedPomodoros (1-100)`);
     }
 
     // Sanitize task title
-    const sanitizedTitle = sanitizeTaskTitle(task.title);
-    
+    const sanitizedTitle = sanitizeTaskTitle(title);
+
     if (sanitizedTitle.length === 0) {
       throw new Error(`Task at index ${index} title is empty after sanitization`);
     }
@@ -186,7 +190,7 @@ export function sanitizeAIResponse(response: any): {
 
     return {
       title: sanitizedTitle,
-      estimatedPomodoros: Math.floor(task.estimatedPomodoros), // Ensure integer
+      estimatedPomodoros: Math.floor(estimatedPomodoros), // Ensure integer
     };
   });
 
@@ -266,11 +270,11 @@ export function checkClientRateLimit(identifier: string, maxRequests: number, wi
  */
 export function cleanupRateLimit(): void {
   const now = Date.now();
-  for (const [key, entry] of requestCounts.entries()) {
+  requestCounts.forEach((entry, key) => {
     if (entry.resetTime < now) {
       requestCounts.delete(key);
     }
-  }
+  });
 }
 
 // Clean up rate limit entries every 5 minutes

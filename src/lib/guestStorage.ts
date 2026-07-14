@@ -1,5 +1,4 @@
-import { Task } from '@/hooks/useTasks';
-import { Project } from '@/hooks/useProjects';
+import { Task, Project } from '@/lib/validation';
 import { Label } from '@/hooks/useLabels';
 
 const GUEST_TASKS_KEY = 'pomofly_guest_tasks';
@@ -37,12 +36,15 @@ export function saveGuestTasks(tasks: Task[]): void {
   }
 }
 
-export function addGuestTask(task: Omit<Task, 'id'>): Task {
+// createdAt is optional here because task-creation payloads (TaskCreate) do not
+// include it; default it so stored guest tasks never end up with an Invalid Date.
+export function addGuestTask(task: Omit<Task, 'id' | 'createdAt'> & { createdAt?: Date }): Task {
   const tasks = getGuestTasks();
-  const newTask: Task = {
+  const newTask = {
     ...task,
     id: generateGuestId(),
-  };
+    createdAt: task.createdAt ?? new Date(),
+  } as Task;
   tasks.push(newTask);
   saveGuestTasks(tasks);
   return newTask;

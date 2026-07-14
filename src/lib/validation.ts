@@ -17,10 +17,12 @@ export const TaskSchema = z.object({
   createdAt: z.date(),
   estimatedPomodoros: z.number().int().min(1, 'Estimated pomodoros must be at least 1').optional(),
   archived: z.boolean().optional().default(false),
-  focus: z.boolean(),
-  deadline: z.string().nullable(),
-  manualTimeSpent: z.number().min(0, 'Manual time spent cannot be negative'),
-  trackingStartedAt: z.date().nullable(),
+  labelIds: z.array(z.string()).optional(),
+  // Fields added after launch — default them so legacy documents still validate
+  focus: z.boolean().default(false),
+  deadline: z.string().nullable().default(null),
+  manualTimeSpent: z.number().min(0, 'Manual time spent cannot be negative').default(0),
+  trackingStartedAt: z.date().nullable().default(null),
   // NEW: Estimation tracking fields
   completedPomodoros: z.number().int().min(0).optional(),
   estimationSource: z.enum(['manual', 'ai-suggested', 'ai-accepted']).optional(),
@@ -184,29 +186,40 @@ export function safeValidateFirebaseEstimationRecord(data: unknown) {
 /**
  * Transform Firebase document data to validated types
  */
-export function transformFirebaseTask(docData: any): Task {
+
+// Firestore Timestamp-like value: has an optional toDate() (Firestore Timestamp),
+// or is a raw Date/string/number that the Date constructor accepts.
+type FirestoreDateValue = (Date | string | number) & { toDate?: () => Date };
+
+interface FirestoreDocData extends Record<string, unknown> {
+  createdAt?: FirestoreDateValue;
+  trackingStartedAt?: FirestoreDateValue | null;
+  completedAt?: FirestoreDateValue;
+}
+
+export function transformFirebaseTask(docData: FirestoreDocData): Task {
   const transformed = {
     ...docData,
-    createdAt: docData.createdAt?.toDate?.() || new Date(docData.createdAt),
+    createdAt: docData.createdAt?.toDate?.() || new Date(docData.createdAt as Date | string | number),
     trackingStartedAt: docData.trackingStartedAt?.toDate?.() || 
                       (docData.trackingStartedAt ? new Date(docData.trackingStartedAt) : null),
   };
   return validateTask(transformed);
 }
 
-export function transformFirebaseProject(docData: any): Project {
+export function transformFirebaseProject(docData: FirestoreDocData): Project {
   const transformed = {
     ...docData,
-    createdAt: docData.createdAt?.toDate?.() || new Date(docData.createdAt),
+    createdAt: docData.createdAt?.toDate?.() || new Date(docData.createdAt as Date | string | number),
   };
   return validateProject(transformed);
 }
 
-export function transformFirebaseEstimationRecord(docData: any): EstimationRecord {
+export function transformFirebaseEstimationRecord(docData: FirestoreDocData): EstimationRecord {
   const transformed = {
     ...docData,
-    createdAt: docData.createdAt?.toDate?.() || new Date(docData.createdAt),
-    completedAt: docData.completedAt?.toDate?.() || new Date(docData.completedAt),
+    createdAt: docData.createdAt?.toDate?.() || new Date(docData.createdAt as Date | string | number),
+    completedAt: docData.completedAt?.toDate?.() || new Date(docData.completedAt as Date | string | number),
   };
   return validateEstimationRecord(transformed);
 }

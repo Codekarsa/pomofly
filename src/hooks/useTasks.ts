@@ -8,17 +8,15 @@ import {
   deleteGuestTask,
   saveGuestTasks,
 } from '../lib/guestStorage';
-import { 
-  transformFirebaseTask, 
-  validateTaskCreate, 
+import {
+  transformFirebaseTask,
+  validateTaskCreate,
   validateTaskUpdate,
-  safeValidateTask,
-  type Task,
-  type TaskCreate,
-  type TaskUpdate 
+  type Task
 } from '../lib/validation';
 
-// Task interface now imported from validation.ts
+// Task types now live in validation.ts; re-export for consumers
+export type { Task, TaskCreate, TaskUpdate } from '../lib/validation';
 
 export function useTasks(projectId?: string) {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -99,6 +97,8 @@ export function useTasks(projectId?: string) {
         focus: focus ?? false,
         deadline: null,
         estimationSource: estimatedPomodoros ? 'manual' : undefined,
+        // Firestore rejects undefined values, so only include the key when provided
+        ...(labelIds ? { labelIds } : {}),
       });
 
       if (!user) {
@@ -123,7 +123,8 @@ export function useTasks(projectId?: string) {
       // Validate the updates
       const validatedUpdates = validateTaskUpdate({ id: taskId, ...updates });
       // Remove the id from updates since we don't want to update the document ID
-      const { id, ...updateData } = validatedUpdates;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id: _, ...updateData } = validatedUpdates;
 
       if (!user) {
         // Guest mode

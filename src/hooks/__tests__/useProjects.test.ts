@@ -4,14 +4,14 @@ import { onSnapshot, addDoc, updateDoc, deleteDoc } from 'firebase/firestore'
 
 // Mock Firebase Firestore
 jest.mock('firebase/firestore', () => ({
-  collection: jest.fn(),
-  query: jest.fn(),
-  where: jest.fn(),
+  collection: jest.fn(() => ({ type: 'collection' })),
+  query: jest.fn(() => ({ type: 'query' })),
+  where: jest.fn(() => ({ type: 'where' })),
   onSnapshot: jest.fn(),
   addDoc: jest.fn(),
   updateDoc: jest.fn(),
   deleteDoc: jest.fn(),
-  doc: jest.fn(),
+  doc: jest.fn(() => ({ type: 'doc' })),
 }))
 
 // Mock Firebase auth
@@ -26,28 +26,25 @@ jest.mock('@/lib/firebase', () => ({
 }))
 
 describe('useProjects', () => {
-  const mockOnSnapshot = onSnapshot as jest.MockedFunction<typeof onSnapshot>
-  const mockAddDoc = addDoc as jest.MockedFunction<typeof addDoc>
-  const mockUpdateDoc = updateDoc as jest.MockedFunction<typeof updateDoc>
-  const mockDeleteDoc = deleteDoc as jest.MockedFunction<typeof deleteDoc>
+  // Loosely typed mocks: the firestore overloads (e.g. onSnapshot's
+  // SnapshotListenOptions variant) make strict MockedFunction typings unusable here
+  const mockOnSnapshot = onSnapshot as unknown as jest.Mock
+  const mockAddDoc = addDoc as unknown as jest.Mock
+  const mockUpdateDoc = updateDoc as unknown as jest.Mock
+  const mockDeleteDoc = deleteDoc as unknown as jest.Mock
 
   beforeEach(() => {
     jest.clearAllMocks()
-    
+
     // Mock successful Firebase operations
-    mockAddDoc.mockResolvedValue({ id: 'new-project-id' } as { id: string })
+    mockAddDoc.mockResolvedValue({ id: 'new-project-id' })
     mockUpdateDoc.mockResolvedValue(undefined)
     mockDeleteDoc.mockResolvedValue(undefined)
   })
 
   it('should initialize with empty projects array', () => {
-    const mockSnapshot = {
-      forEach: jest.fn(),
-    }
-    mockOnSnapshot.mockImplementation((query, onNext) => {
-      onNext(mockSnapshot)
-      return jest.fn() // unsubscribe function
-    })
+    // Snapshot never fires: projects stay empty and loading stays true
+    mockOnSnapshot.mockImplementation(() => jest.fn())
 
     const { result } = renderHook(() => useProjects())
 
@@ -130,9 +127,7 @@ describe('useProjects', () => {
     const { result } = renderHook(() => useProjects())
 
     await act(async () => {
-      await result.current.updateProject('project-1', {
-        name: 'Updated Project',
-      })
+      await result.current.updateProject('project-1', 'Updated Project')
     })
 
     expect(mockUpdateDoc).toHaveBeenCalledWith(

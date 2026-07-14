@@ -82,22 +82,28 @@ export class TimerPersistence {
     }
   }
 
-  static isValidSession(session: any): session is PersistedTimerSession {
+  static isValidSession(session: unknown): session is PersistedTimerSession {
+    if (!session || typeof session !== 'object') {
+      return false;
+    }
+
+    const candidate = session as Record<string, unknown>;
+    const settings = candidate.settings as Record<string, unknown> | null | undefined;
+
     return (
-      session &&
-      typeof session === 'object' &&
-      ['pomodoro', 'shortBreak', 'longBreak'].includes(session.phase) &&
-      typeof session.isActive === 'boolean' &&
-      (session.timerStartedAt === null || typeof session.timerStartedAt === 'number') &&
-      (session.pausedTimeRemaining === null || typeof session.pausedTimeRemaining === 'number') &&
-      typeof session.sessionsCompleted === 'number' &&
-      typeof session.sessionCreatedAt === 'number' &&
-      session.settings &&
-      typeof session.settings === 'object' &&
-      typeof session.settings.pomodoro === 'number' &&
-      typeof session.settings.shortBreak === 'number' &&
-      typeof session.settings.longBreak === 'number' &&
-      typeof session.settings.longBreakInterval === 'number'
+      typeof candidate.phase === 'string' &&
+      ['pomodoro', 'shortBreak', 'longBreak'].includes(candidate.phase) &&
+      typeof candidate.isActive === 'boolean' &&
+      (candidate.timerStartedAt === null || typeof candidate.timerStartedAt === 'number') &&
+      (candidate.pausedTimeRemaining === null || typeof candidate.pausedTimeRemaining === 'number') &&
+      typeof candidate.sessionsCompleted === 'number' &&
+      typeof candidate.sessionCreatedAt === 'number' &&
+      !!settings &&
+      typeof settings === 'object' &&
+      typeof settings.pomodoro === 'number' &&
+      typeof settings.shortBreak === 'number' &&
+      typeof settings.longBreak === 'number' &&
+      typeof settings.longBreakInterval === 'number'
     );
   }
 

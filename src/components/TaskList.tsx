@@ -30,7 +30,6 @@ import { Combobox } from './ui/combobox';
 import { cn } from '@/lib/utils';
 import LabelPicker, { LabelBadge } from './LabelPicker';
 import { useLabels } from '@/hooks/useLabels';
-import { AIBreakdownModal } from './AIBreakdownModal';
 import { EstimationHint } from './EstimationHint';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -223,7 +222,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [estimationDebounceTimer, setEstimationDebounceTimer] = useState<NodeJS.Timeout | null>(null);
 
   const { projects, addProject } = useProjects();
-  const { getEstimate, loading: estimationLoading } = useEstimation();
+  const { getEstimate } = useEstimation();
   const { labels } = useLabels();
   const {
     tasks,
@@ -402,11 +401,11 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     if (newTaskTitle.length >= 5) {
       const timer = setTimeout(async () => {
         try {
-          const result = await getEstimate({
-            title: newTaskTitle,
-            projectId: selectedProjectId,
-            userEstimate: estimatedPomodoros
-          });
+          const result = await getEstimate(
+            newTaskTitle,
+            selectedProjectId || undefined,
+            estimatedPomodoros
+          );
           
           // Only show suggestion if user estimate doesn't match
           if (result && result.confidence !== 'none' && 

@@ -4,9 +4,17 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { auth } from '@/lib/firebase';
 import { User } from 'firebase/auth';
 
+export interface AuthError {
+  message: string;
+  code?: string;
+}
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  error?: AuthError | null;
+  clearError?: () => void;
+  retryAuth?: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({ user: null, loading: true });

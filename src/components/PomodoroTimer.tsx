@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
 import SelectedTasksList from './SelectedTasksList';
 import { TimerRecoveryModal } from './TimerRecoveryModal';
-import { TimerPersistence } from '@/lib/timerPersistence';
+import { TimerPersistence, PersistedTimerSession } from '@/lib/timerPersistence';
 
 interface PomodoroSettings {
   pomodoro: number;
@@ -252,7 +252,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     });
   }, [toggleTimer, isActive, phase, selectedTaskIds.length, event]);
 
-  const handleRestoreSession = useCallback((session: any) => {
+  const handleRestoreSession = useCallback((session: PersistedTimerSession) => {
     // Restore selected task IDs if available
     if (session.selectedTaskIds && Array.isArray(session.selectedTaskIds)) {
       setSelectedTaskIds(session.selectedTaskIds);
@@ -267,7 +267,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
 
   const handleStartFresh = useCallback(() => {
     startFresh();
-    event('timer_session_start_fresh');
+    event('timer_session_start_fresh', {});
   }, [startFresh, event]);
 
   if (loading) {

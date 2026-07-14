@@ -27,7 +27,7 @@ export default function Dashboard() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMonitoringOpen, setIsMonitoringOpen] = useState(false);
   const { event } = useGoogleAnalytics();
-  const { trackAction, trackFeature, reportError } = useMonitoring();
+  const { trackAction, reportError } = useMonitoring();
   const [settings, setSettings] = useState(defaultSettings);
 
   const { updateSettings } = usePomodoro(settings);

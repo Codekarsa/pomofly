@@ -57,11 +57,20 @@ function showUpdateAvailableNotification() {
   }
 }
 
+// Background Sync API types (not yet in the standard TypeScript DOM lib)
+interface SyncManager {
+  register(tag: string): Promise<void>;
+}
+
+type ServiceWorkerRegistrationWithSync = ServiceWorkerRegistration & {
+  sync: SyncManager;
+};
+
 // Background sync registration
 export function registerBackgroundSync(tag: string) {
   if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
     navigator.serviceWorker.ready.then((registration) => {
-      return registration.sync.register(tag);
+      return (registration as ServiceWorkerRegistrationWithSync).sync.register(tag);
     });
   }
 }
@@ -70,7 +79,7 @@ export function registerBackgroundSync(tag: string) {
 export function isStandalone(): boolean {
   return (
     window.matchMedia('(display-mode: standalone)').matches ||
-    (window.navigator as any).standalone === true
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
   );
 }
 

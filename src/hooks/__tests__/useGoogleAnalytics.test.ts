@@ -4,8 +4,8 @@ import { useGoogleAnalytics } from '../useGoogleAnalytics'
 describe('useGoogleAnalytics', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    // Mock gtag
-    global.gtag = jest.fn()
+    // Mock gtag (window has an index signature via @next/third-parties)
+    window.gtag = jest.fn()
   })
 
   it('should return event function', () => {
@@ -20,7 +20,7 @@ describe('useGoogleAnalytics', () => {
 
     result.current.event('test_event', { param1: 'value1', param2: 'value2' })
 
-    expect(global.gtag).toHaveBeenCalledWith('event', 'test_event', {
+    expect(window.gtag).toHaveBeenCalledWith('event', 'test_event', {
       param1: 'value1',
       param2: 'value2',
     })
@@ -31,7 +31,7 @@ describe('useGoogleAnalytics', () => {
 
     result.current.event('test_event', {})
 
-    expect(global.gtag).toHaveBeenCalledWith('event', 'test_event', {})
+    expect(window.gtag).toHaveBeenCalledWith('event', 'test_event', {})
   })
 
   it('should handle complex parameters', () => {
@@ -50,6 +50,6 @@ describe('useGoogleAnalytics', () => {
 
     result.current.event('task_completed', complexParams)
 
-    expect(global.gtag).toHaveBeenCalledWith('event', 'task_completed', complexParams)
+    expect(window.gtag).toHaveBeenCalledWith('event', 'task_completed', complexParams)
   })
 }) 

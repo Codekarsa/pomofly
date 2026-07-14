@@ -9,6 +9,16 @@ interface AuthOperationState {
   success: boolean;
 }
 
+// Auth operations expected from AuthContext.
+// TODO: AuthContextType (src/app/contexts/AuthContext.tsx) does not implement
+// these yet; this hook will fail at runtime until they are added there.
+interface AuthContextOperations {
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, displayName?: string) => Promise<void>;
+  logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+}
+
 interface AuthOperationResult {
   signInWithEmail: (email: string, password: string) => Promise<boolean>;
   signUpWithEmail: (email: string, password: string, displayName?: string) => Promise<boolean>;
@@ -22,7 +32,7 @@ interface AuthOperationResult {
  * Hook for handling authentication operations with loading states and error handling
  */
 export const useAuthOperations = (): AuthOperationResult => {
-  const { signIn, signUp, logout, resetPassword } = useAuth();
+  const { signIn, signUp, logout, resetPassword } = useAuth() as unknown as AuthContextOperations;
   const [state, setState] = useState<AuthOperationState>({
     loading: false,
     error: null,

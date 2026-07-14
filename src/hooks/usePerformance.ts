@@ -23,7 +23,7 @@ export function useDebounce<T>(value: T, delay: number): T {
 /**
  * Hook for throttled callbacks
  */
-export function useThrottle<T extends (...args: any[]) => any>(
+export function useThrottle<T extends (...args: never[]) => unknown>(
   callback: T,
   delay: number
 ): T {
@@ -33,7 +33,7 @@ export function useThrottle<T extends (...args: any[]) => any>(
 /**
  * Hook for debounced callbacks
  */
-export function useDebounceCallback<T extends (...args: any[]) => any>(
+export function useDebounceCallback<T extends (...args: never[]) => unknown>(
   callback: T,
   delay: number
 ): T {
@@ -43,7 +43,7 @@ export function useDebounceCallback<T extends (...args: any[]) => any>(
 /**
  * Hook for memoized expensive calculations
  */
-export function useMemoizedCallback<T extends (...args: any[]) => any>(
+export function useMemoizedCallback<T extends (...args: never[]) => unknown>(
   callback: T,
   deps: React.DependencyList
 ): T {

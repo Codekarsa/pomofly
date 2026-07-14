@@ -3,7 +3,7 @@ import { collection, query, where, getDocs, orderBy, limit } from 'firebase/fire
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/app/contexts/AuthContext';
 
-interface EstimationResult {
+export interface EstimationResult {
   suggestedPomodoros: number;
   confidence: 'high' | 'medium' | 'low' | 'none';
   reasoning: string;

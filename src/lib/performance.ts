@@ -3,7 +3,7 @@
 /**
  * Debounce function to limit the rate of function calls
  */
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: never[]) => unknown>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
@@ -17,7 +17,7 @@ export function debounce<T extends (...args: any[]) => any>(
 /**
  * Throttle function to limit the rate of function calls
  */
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends (...args: never[]) => unknown>(
   func: T,
   limit: number
 ): (...args: Parameters<T>) => void {
@@ -65,16 +65,16 @@ export function createIntersectionObserver(
 /**
  * Memoization utility for expensive calculations
  */
-export function memoize<T extends (...args: any[]) => any>(fn: T): T {
-  const cache = new Map();
-  
-  return ((...args: any[]) => {
+export function memoize<T extends (...args: never[]) => unknown>(fn: T): T {
+  const cache = new Map<string, ReturnType<T>>();
+
+  return ((...args: Parameters<T>) => {
     const key = JSON.stringify(args);
     if (cache.has(key)) {
       return cache.get(key);
     }
     
-    const result = fn(...args);
+    const result = fn(...args) as ReturnType<T>;
     cache.set(key, result);
     return result;
   }) as T;
@@ -116,7 +116,7 @@ export function calculateVirtualScrollRange(
 /**
  * Preload component utility
  */
-export function preloadComponent(componentImport: () => Promise<any>) {
+export function preloadComponent(componentImport: () => Promise<unknown>) {
   if (typeof window !== 'undefined') {
     // Preload on user interaction or idle time
     const preload = () => componentImport();

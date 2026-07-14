@@ -100,11 +100,9 @@ import {
   orderBy, 
   limit 
 } from "firebase/firestore";
-import { 
-  EstimationRecordCreate, 
+import {
   EstimationRecord,
   transformFirebaseEstimationRecord,
-  extractKeywords,
   Task
 } from "./validation";
 
