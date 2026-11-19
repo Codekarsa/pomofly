@@ -92,13 +92,14 @@ const ProjectList = React.memo(() => {
         <CardTitle>Your Projects</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleAddProject} className="flex items-center space-x-2 mb-6">
+        <form onSubmit={handleAddProject} className="flex flex-col sm:flex-row sm:items-center gap-2 mb-6">
           <Input
             type="text"
             value={newProjectName}
             onChange={(e) => setNewProjectName(e.target.value)}
             placeholder="New project name"
-            className="flex-grow"
+            aria-label="New project name"
+            className="flex-grow min-w-0"
           />
           <Button type="submit" size="sm">
             <Plus className="w-4 h-4 mr-2" />
@@ -125,7 +126,7 @@ const ProjectList = React.memo(() => {
                   <span className="text-sm font-medium">{project.name}</span>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" aria-label={`Actions for ${project.name}`}>
                         <MoreHorizontal className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>

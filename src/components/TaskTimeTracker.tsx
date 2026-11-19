@@ -25,7 +25,7 @@ const TaskTimeTracker: React.FC<TaskTimeTrackerProps> = ({
     <div className="flex items-center gap-1">
       <Button
         variant="ghost"
-        size="icon"
+        size="sm"
         onClick={(e) => {
           e.stopPropagation();
           if (isTracking) {
@@ -35,14 +35,15 @@ const TaskTimeTracker: React.FC<TaskTimeTrackerProps> = ({
           }
         }}
         disabled={disabled}
-        className={`h-6 w-6 ${isTracking ? 'text-red-500 hover:text-red-600 hover:bg-red-50' : 'text-blue-500 hover:text-blue-600 hover:bg-blue-50'}`}
-        aria-label={isTracking ? "Stop tracking" : "Start tracking"}
+        className={`h-7 px-1.5 gap-1 text-xs ${isTracking ? 'text-red-500 hover:text-red-600 hover:bg-red-50' : 'text-blue-500 hover:text-blue-600 hover:bg-blue-50'}`}
+        aria-label={isTracking ? "Stop tracking" : "Track time"}
       >
         {isTracking ? (
           <Square className="h-3 w-3" fill="currentColor" />
         ) : (
           <Play className="h-3 w-3" fill="currentColor" />
         )}
+        {isTracking ? 'Stop tracking' : 'Track time'}
       </Button>
       <span
         className={`text-xs font-mono px-1.5 py-0.5 rounded min-w-[45px] text-center ${

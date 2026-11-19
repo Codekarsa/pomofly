@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 type Settings = {
   pomodoro: number;
@@ -21,6 +22,13 @@ interface SettingsModalProps {
 
 const SettingsModal = memo(({ isOpen, onClose, settings, onSave, event }: SettingsModalProps) => {
   const [localSettings, setLocalSettings] = useState<Settings>(settings);
+  const openerRef = useRef<HTMLElement | null>(null);
+  const labels: Record<keyof Settings, string> = {
+    pomodoro: 'Focus duration (minutes)',
+    shortBreak: 'Short break (minutes)',
+    longBreak: 'Long break (minutes)',
+    longBreakInterval: 'Long break after (focus sessions)',
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -65,18 +73,24 @@ const SettingsModal = memo(({ isOpen, onClose, settings, onSave, event }: Settin
     event('settings_modal_closed', { changes_saved: false, changes_made: changesMade });
   }, [localSettings, onClose, settings, event]);
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-semibold mb-4">Timer Settings</h2>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleDialogClose(); }}>
+      <DialogContent
+        aria-modal="true"
+        className="w-[calc(100%-2rem)] max-w-md max-h-[90dvh] overflow-y-auto rounded-lg"
+        onOpenAutoFocus={() => { openerRef.current = document.activeElement as HTMLElement; }}
+        onCloseAutoFocus={(e) => { e.preventDefault(); openerRef.current?.focus(); }}
+      >
+        <DialogHeader>
+          <DialogTitle>Timer Settings</DialogTitle>
+          <DialogDescription>Alternate focus sessions with short breaks. Take a longer break after several focus sessions.</DialogDescription>
+        </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             {Object.entries(localSettings).map(([key, value]) => (
-              <div key={key} className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor={key} className="text-right capitalize">
-                  {key.replace(/([A-Z])/g, ' $1').trim()}
+              <div key={key} className="space-y-2">
+                <Label htmlFor={key}>
+                  {labels[key as keyof Settings]}
                 </Label>
                 <Input
                   id={key}
@@ -84,7 +98,6 @@ const SettingsModal = memo(({ isOpen, onClose, settings, onSave, event }: Settin
                   type="number"
                   value={value.toString()}
                   onChange={handleChange}
-                  className="col-span-3"
                   min="1"
                 />
               </div>
@@ -97,8 +110,8 @@ const SettingsModal = memo(({ isOpen, onClose, settings, onSave, event }: Settin
             <Button type="submit">Save changes</Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 });
 

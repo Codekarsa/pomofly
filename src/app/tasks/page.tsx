@@ -37,10 +37,10 @@ export default function TasksPage() {
           
           <div className="space-y-6 sm:space-y-8">
             <TodayFocusSection settings={settings} />
-            <TaskList settings={settings} />
+            <TaskList />
           </div>
         </div>
       </div>
     </AppLayout>
   );
-} 
+}

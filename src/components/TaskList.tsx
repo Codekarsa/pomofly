@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useTasks, Task } from '../hooks/useTasks';
 import { useProjects } from '../hooks/useProjects';
@@ -44,20 +44,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-
-// Lazy load the heavy AI Breakdown Modal
-const AIBreakdownModal = lazy(() => import('./AIBreakdownModal').then(module => ({ default: module.AIBreakdownModal })));
-
-interface PomodoroSettings {
-  pomodoro: number;
-  shortBreak: number;
-  longBreak: number;
-  longBreakInterval: number;
-}
-
-interface TaskListProps {
-  settings: PomodoroSettings;
-}
 
 type AnalyticsEvent = (action: string, params: object) => void;
 
@@ -123,7 +109,7 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
                 {task.projectId && <ProjectBadge projectId={task.projectId} />}
                 <TaskLabels labelIds={task.labelIds} />
                 <span className="text-xs text-muted-foreground">
-                  ({task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0})
+                  {task.totalPomodoroSessions || 0} focus sessions completed{task.estimatedPomodoros ? ` · ${task.estimatedPomodoros} estimated` : ''}
                 </span>
                 {task.deadline && (
                   <span className={`text-xs px-2 py-1 rounded ${
@@ -194,7 +180,7 @@ const sortOptions = [
   { value: 'focus', label: 'Focus' },
 ];
 
-const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
+const TaskList = React.memo(() => {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [estimatedPomodoros, setEstimatedPomodoros] = useState<number | undefined>(undefined);
   const [selectedProjectId, setSelectedProjectId] = useState('');
@@ -206,7 +192,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 5;
   const [showAddTaskForm, setShowAddTaskForm] = useState(false);
-  const [showAIBreakdownModal, setShowAIBreakdownModal] = useState(false);
+  const [addTaskError, setAddTaskError] = useState<string | null>(null);
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [labelFilter, setLabelFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -335,6 +321,17 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+    setAddTaskError(null);
+    if (!newTaskTitle.trim()) {
+      setAddTaskError('Enter a task title.');
+      e.currentTarget.scrollIntoView({ block: 'start' });
+      return;
+    }
+    if (!selectedProjectId) {
+      setAddTaskError('Choose or create a project before adding your task.');
+      e.currentTarget.scrollIntoView({ block: 'start' });
+      return;
+    }
     if (newTaskTitle.trim() && selectedProjectId) {
       try {
         await addTask(newTaskTitle, selectedProjectId, estimatedPomodoros, newTaskFocus, newTaskLabelIds);
@@ -353,12 +350,13 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
         
         // Reset form
         setNewTaskTitle('');
-        setEstimatedPomodoros(0);
+        setEstimatedPomodoros(undefined);
         setNewTaskFocus(false);
         setNewTaskLabelIds([]);
         setEstimation(null); // Clear estimation
       } catch (error) {
         console.error("Failed to add task:", error);
+        setAddTaskError('Could not add the task. Please try again.');
         event('task_add_error', { error_message: (error as Error).message });
       }
     }
@@ -602,13 +600,6 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
     }
   }, [currentPage, event, activeTasks.length, itemsPerPage]);
 
-  const handleAIBreakdownSave = (tasks: { title: string; estimatedPomodoros: number }[]) => {
-    tasks.forEach(task => {
-      addTask(task.title, selectedProjectId, task.estimatedPomodoros);
-    });
-    setShowAIBreakdownModal(false);
-  };
-
   // Time tracking handlers
   const handleStartTracking = useCallback(async (taskId: string) => {
     try {
@@ -660,28 +651,24 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>Your Tasks</CardTitle>
+        <CardTitle>{tasks.length === 0 ? 'What would you like to work on?' : 'Your Tasks'}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex justify-end mb-4">
-          {!showAddTaskForm && (
+        <div className="flex flex-wrap justify-end gap-2 mb-4">
+          {!showAddTaskForm && tasks.length > 0 && (
             <Button onClick={() => setShowAddTaskForm(true)} className="mr-2">
               Add Task
             </Button>
           )}
-          <Button
-            disabled
-            className="ml-2 bg-indigo-600 text-white opacity-50 cursor-not-allowed"
-            title="Coming soon"
-          >
-            Task Breakdown with AI
-          </Button>
         </div>
 
-        {showAddTaskForm && (
+        {(showAddTaskForm || tasks.length === 0) && (
           <form onSubmit={handleSubmit} className="space-y-4 mb-6">
-            <div className="flex items-center space-x-2">
+            {addTaskError && <p role="alert" className="text-sm text-destructive">{addTaskError}</p>}
+            <div className="space-y-1">
+              <label htmlFor="new-task-title" className="text-sm font-medium">Task title (required)</label>
               <Input
+                id="new-task-title"
                 type="text"
                 value={newTaskTitle}
                 onChange={(e) => setNewTaskTitle(e.target.value)}
@@ -689,15 +676,18 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                 className="w-full"
               />
             </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-1/2">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="min-w-0 space-y-1">
+                <label htmlFor="new-task-estimate" className="text-sm font-medium">Estimated focus sessions (optional)</label>
                 <div className="flex items-center gap-2">
                   <Input
+                    id="new-task-estimate"
                     type="number"
-                    value={estimatedPomodoros}
+                    min="1"
+                    value={estimatedPomodoros ?? ''}
                     onChange={(e) => setEstimatedPomodoros(e.target.value ? parseInt(e.target.value) : undefined)}
-                    placeholder="Estimated Pomodoros"
-                    className="flex-1"
+                    placeholder="Number of focus sessions"
+                    className="flex-1 min-w-0"
                   />
                   <span className="text-sm text-muted-foreground">🍅</span>
                 </div>
@@ -712,17 +702,20 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                   </div>
                 )}
               </div>
-              <div className="w-1/2">
+              <div className="min-w-0 space-y-1">
+                <label htmlFor="new-task-project" className="text-sm font-medium">Project (required)</label>
                 <Combobox
+                  id="new-task-project"
                   options={memoizedProjects.map(project => ({ value: project.id, label: project.name }))}
                   value={selectedProjectId}
                   onChange={(value) => setSelectedProjectId(value)}
                   placeholder="Select a project"
                   onCreateNew={handleCreateProject}
                 />
+                <p className="text-xs text-muted-foreground">Type a project name to find or create one.</p>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 type="button"
                 variant="ghost"
@@ -748,28 +741,30 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                 <Plus className="w-4 h-4 mr-2" />
                 Add Task
               </Button>
-              <Button type="button" onClick={() => setShowAddTaskForm(false)} variant="outline" className="w-1/2">
+              {tasks.length > 0 && <Button type="button" onClick={() => setShowAddTaskForm(false)} variant="outline" className="w-1/2">
                 Cancel
-              </Button>
+              </Button>}
             </div>
           </form>
         )}
 
+        {tasks.length > 0 && <>
         <hr />
-        <div className="flex items-center gap-2 mb-4">
-          <div className="relative w-full max-w-xs">
+        <p className="text-xs text-muted-foreground my-3">Track time records elapsed work without a countdown. For timed focus sessions and breaks, use the <Link href="/" className="underline">Timer</Link>.</p>
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 mb-4">
+          <div className="relative w-full sm:max-w-xs">
             <Input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search tasks..."
-              className="pl-9 w-full"
+              className="!pl-9 w-full"
               aria-label="Search tasks"
             />
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           </div>
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="min-w-[110px]">
+            <SelectTrigger className="w-auto flex-1 min-w-[110px]">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
@@ -873,7 +868,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
         )}
         <ul className="space-y-2">
           {paginatedActiveTasks.map((task) => (
-            <li key={task.id} className={`flex items-center justify-between p-2 rounded-md transition-colors ${selectedTasks.has(task.id) ? 'bg-blue-50' : 'hover:bg-accent'}`}>
+            <li key={task.id} className={`flex items-start sm:items-center justify-between gap-2 p-2 rounded-md transition-colors ${selectedTasks.has(task.id) ? 'bg-blue-50' : 'hover:bg-accent'}`}>
               {editingTask && editingTask.id === task.id ? (
                 <form onSubmit={handleUpdateTask} className="flex flex-col space-y-2 w-full">
                   <div className="flex items-center space-x-2">
@@ -924,7 +919,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                 </form>
               ) : (
                 <>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex flex-1 min-w-0 flex-wrap items-center gap-2">
                     <Checkbox
                       checked={selectedTasks.has(task.id)}
                       onCheckedChange={() => handleToggleSelection(task.id)}
@@ -944,14 +939,15 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                       size="icon"
                       onClick={() => handleToggleTaskFocus(task.id, task.focus || false)}
                       className={`${task.focus ? 'text-yellow-500' : 'text-gray-400'}`}
+                      aria-label={task.focus ? 'Remove from focus' : 'Add to focus'}
                     >
                       <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
                     </MobileButton>
-                    <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
+                    <span className={`min-w-0 break-words max-w-full text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
                     {task.projectId && <ProjectBadge projectId={task.projectId} />}
                     <TaskLabels labelIds={task.labelIds} />
                     <span className="text-xs text-muted-foreground">
-                      ({task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0})
+                      {task.totalPomodoroSessions || 0} focus sessions completed{task.estimatedPomodoros ? ` · ${task.estimatedPomodoros} estimated` : ''}
                     </span>
                     {task.deadline && (
                       <span className={`text-xs px-2 py-1 rounded ${
@@ -974,7 +970,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <MobileButton variant="ghost" size="icon">
+                      <MobileButton variant="ghost" size="icon" className="shrink-0" aria-label={`Actions for ${task.title}`}>
                         <MoreHorizontal className="w-4 h-4" />
                       </MobileButton>
                     </DropdownMenuTrigger>
@@ -1033,6 +1029,7 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
             aria-labelledby="show-completed-label"
           />
         </div>
+        </>}
         {showCompleted && (
           <CompletedTasksSection
             tasks={completedTasks}
@@ -1077,15 +1074,6 @@ const TaskList: React.FC<TaskListProps> = React.memo(({ settings }) => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Suspense fallback={null}>
-        <AIBreakdownModal
-          isOpen={showAIBreakdownModal}
-          onClose={() => setShowAIBreakdownModal(false)}
-          onSave={handleAIBreakdownSave}
-          settings={settings}
-          projects={projects}
-        />
-      </Suspense>
     </Card>
   );
 });

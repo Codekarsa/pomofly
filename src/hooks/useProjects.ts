@@ -6,6 +6,7 @@ import {
   addGuestProject,
   updateGuestProject,
   deleteGuestProject,
+  GUEST_PROJECTS_CHANGED_EVENT,
 } from '../lib/guestStorage';
 import {
   transformFirebaseProject,
@@ -29,11 +30,16 @@ export function useProjects() {
     if (!user) {
       // Guest mode: use localStorage
       setIsGuest(true);
-      const guestProjects = getGuestProjects();
-      setProjects(guestProjects);
+      const refresh = () => setProjects(getGuestProjects());
+      refresh();
+      window.addEventListener(GUEST_PROJECTS_CHANGED_EVENT, refresh);
+      window.addEventListener('storage', refresh);
       setLoading(false);
       setError(null);
-      return;
+      return () => {
+        window.removeEventListener(GUEST_PROJECTS_CHANGED_EVENT, refresh);
+        window.removeEventListener('storage', refresh);
+      };
     }
 
     setIsGuest(false);
@@ -78,7 +84,6 @@ export function useProjects() {
     if (!user) {
       // Guest mode
       const newProject = addGuestProject(name);
-      setProjects(prev => [...prev, newProject]);
       return newProject.id;
     }
 
@@ -114,7 +119,6 @@ export function useProjects() {
       if (!user) {
         // Guest mode
         updateGuestProject(id, updateData.name!);
-        setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updateData } : p));
         return;
       }
 
@@ -131,7 +135,6 @@ export function useProjects() {
     if (!user) {
       // Guest mode
       deleteGuestProject(id);
-      setProjects(prev => prev.filter(p => p.id !== id));
       return;
     }
 

@@ -1,5 +1,6 @@
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useProjects } from '../useProjects'
+import { auth } from '@/lib/firebase'
 import { onSnapshot, addDoc, updateDoc, deleteDoc } from 'firebase/firestore'
 
 // Mock Firebase Firestore
@@ -170,4 +171,25 @@ describe('useProjects', () => {
       expect(result.current.loading).toBe(false)
     })
   })
-}) 
+
+  it('keeps project names synchronized between guest consumers', async () => {
+    const signedInUser = auth.currentUser
+    localStorage.clear()
+    Object.assign(auth, { currentUser: null })
+    const { result, unmount } = renderHook(() => ({ editor: useProjects(), viewer: useProjects() }))
+    try {
+      let projectId = ''
+      await act(async () => { projectId = await result.current.editor.addProject('Work') })
+      expect(result.current.editor.projects.map(project => project.name)).toEqual(['Work'])
+      expect(result.current.viewer.projects.map(project => project.name)).toEqual(['Work'])
+      await act(async () => { await result.current.viewer.updateProject(projectId, 'Client work') })
+      expect(result.current.editor.projects[0].name).toBe('Client work')
+      await act(async () => { await result.current.editor.deleteProject(projectId) })
+      expect(result.current.viewer.projects).toEqual([])
+    } finally {
+      unmount()
+      Object.assign(auth, { currentUser: signedInUser })
+      localStorage.clear()
+    }
+  })
+})

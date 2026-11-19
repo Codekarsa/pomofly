@@ -7,6 +7,7 @@ import {
   updateGuestTask,
   deleteGuestTask,
   saveGuestTasks,
+  GUEST_TASKS_CHANGED_EVENT,
 } from '../lib/guestStorage';
 import {
   transformFirebaseTask,
@@ -30,14 +31,19 @@ export function useTasks(projectId?: string) {
     if (!user) {
       // Guest mode: use localStorage
       setIsGuest(true);
-      let guestTasks = getGuestTasks();
-      if (projectId) {
-        guestTasks = guestTasks.filter(t => t.projectId === projectId);
-      }
-      setTasks(guestTasks);
+      const refresh = () => {
+        const guestTasks = getGuestTasks();
+        setTasks(projectId ? guestTasks.filter(t => t.projectId === projectId) : guestTasks);
+      };
+      refresh();
+      window.addEventListener(GUEST_TASKS_CHANGED_EVENT, refresh);
+      window.addEventListener('storage', refresh);
       setLoading(false);
       setError(null);
-      return;
+      return () => {
+        window.removeEventListener(GUEST_TASKS_CHANGED_EVENT, refresh);
+        window.removeEventListener('storage', refresh);
+      };
     }
 
     setIsGuest(false);
@@ -104,7 +110,6 @@ export function useTasks(projectId?: string) {
       if (!user) {
         // Guest mode
         const newTask = addGuestTask(newTaskData);
-        setTasks(prev => [...prev, newTask]);
         return newTask.id;
       }
 
@@ -129,9 +134,8 @@ export function useTasks(projectId?: string) {
       if (!user) {
         // Guest mode
         updateGuestTask(taskId, updateData);
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
-      return;
-    }
+        return;
+      }
 
       const taskRef = doc(db, "tasks", taskId);
       await updateDoc(taskRef, updateData);
@@ -147,7 +151,6 @@ export function useTasks(projectId?: string) {
     if (!user) {
       // Guest mode
       deleteGuestTask(id);
-      setTasks(prev => prev.filter(t => t.id !== id));
       return;
     }
 
@@ -179,7 +182,6 @@ export function useTasks(projectId?: string) {
       }
       
       updateGuestTask(id, updates);
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
       return;
     }
 
@@ -219,7 +221,6 @@ export function useTasks(projectId?: string) {
           totalTimeSpent: task.totalTimeSpent + duration
         };
         updateGuestTask(id, updates);
-        setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
       }
       return;
     }
@@ -241,7 +242,6 @@ export function useTasks(projectId?: string) {
     if (!user) {
       // Guest mode
       updateGuestTask(id, { archived: true });
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, archived: true } : t));
       return;
     }
 
@@ -259,7 +259,6 @@ export function useTasks(projectId?: string) {
     if (!user) {
       // Guest mode
       updateGuestTask(id, { focus: !currentFocusState });
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, focus: !currentFocusState } : t));
       return;
     }
 
@@ -279,7 +278,6 @@ export function useTasks(projectId?: string) {
     if (!user) {
       // Guest mode
       updateGuestTask(id, { deadline });
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, deadline } : t));
       return;
     }
 
@@ -300,7 +298,6 @@ export function useTasks(projectId?: string) {
     if (!user) {
       // Guest mode
       updateGuestTask(taskId, { trackingStartedAt: now });
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, trackingStartedAt: now } : t));
       return;
     }
 
@@ -326,7 +323,6 @@ export function useTasks(projectId?: string) {
           manualTimeSpent: task.manualTimeSpent + elapsedSeconds
         };
         updateGuestTask(taskId, updates);
-        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
       }
       return;
     }
@@ -354,9 +350,6 @@ export function useTasks(projectId?: string) {
         taskIds.includes(t.id) ? { ...t, trackingStartedAt: now } : t
       );
       saveGuestTasks(updatedTasks);
-      setTasks(prev => prev.map(t =>
-        taskIds.includes(t.id) ? { ...t, trackingStartedAt: now } : t
-      ));
       return;
     }
 
@@ -392,17 +385,6 @@ export function useTasks(projectId?: string) {
         return t;
       });
       saveGuestTasks(updatedTasks);
-      setTasks(prev => prev.map(t => {
-        const stopInfo = tasksToStop.find(s => s.taskId === t.id);
-        if (stopInfo) {
-          return {
-            ...t,
-            trackingStartedAt: null,
-            manualTimeSpent: t.manualTimeSpent + stopInfo.elapsedSeconds
-          };
-        }
-        return t;
-      }));
       return;
     }
 

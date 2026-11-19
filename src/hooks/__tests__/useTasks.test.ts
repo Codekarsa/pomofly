@@ -1,5 +1,6 @@
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useTasks } from '../useTasks'
+import { auth } from '@/lib/firebase'
 import { onSnapshot, addDoc, updateDoc, deleteDoc, increment, query, where } from 'firebase/firestore'
 
 // Mock Firebase Firestore
@@ -323,4 +324,42 @@ describe('useTasks', () => {
     expect(query).toHaveBeenCalled()
     expect(where).toHaveBeenCalledWith('projectId', '==', 'project-1')
   })
-}) 
+
+  it('keeps guest task consumers synchronized without duplicating tasks or losing project filters', async () => {
+    const signedInUser = auth.currentUser
+    localStorage.clear()
+    Object.assign(auth, { currentUser: null })
+
+    const { result, unmount } = renderHook(() => ({
+      all: useTasks(),
+      work: useTasks('work'),
+      personal: useTasks('personal'),
+    }))
+
+    try {
+      let taskId = ''
+      await act(async () => {
+        taskId = await result.current.all.addTask('Draft report', 'work', 2, true)
+        await result.current.work.addTask('Buy groceries', 'personal')
+      })
+      expect(result.current.all.tasks.map(task => task.title)).toEqual(['Draft report', 'Buy groceries'])
+      expect(result.current.work.tasks.map(task => task.title)).toEqual(['Draft report'])
+      expect(result.current.personal.tasks.map(task => task.title)).toEqual(['Buy groceries'])
+      expect(result.current.work.tasks[0].focus).toBe(true)
+
+      await act(async () => { await result.current.work.toggleTaskFocus(taskId, true) })
+      expect(result.current.all.tasks[0].focus).toBe(false)
+
+      await act(async () => { await result.current.all.toggleTaskCompletion(taskId, false) })
+      expect(result.current.work.tasks[0].completed).toBe(true)
+
+      await act(async () => { await result.current.work.deleteTask(taskId) })
+      expect(result.current.all.tasks.map(task => task.title)).toEqual(['Buy groceries'])
+      expect(result.current.work.tasks).toEqual([])
+    } finally {
+      unmount()
+      Object.assign(auth, { currentUser: signedInUser })
+      localStorage.clear()
+    }
+  })
+})

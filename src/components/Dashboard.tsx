@@ -145,7 +145,7 @@ export default function Dashboard() {
                       <TodayFocusSection settings={settings} />
                     </Suspense>
                     <Suspense fallback={<TaskListLoader />}>
-                      <TaskList settings={settings} />
+                      <TaskList />
                     </Suspense>
                   </TaskErrorBoundary>
                 </>

@@ -112,14 +112,14 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
                         <Star className="w-3 h-3 text-amber-500 flex-shrink-0" fill="currentColor" />
                       )}
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
                       {projectName && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground truncate max-w-[100px]">
                           {projectName}
                         </span>
                       )}
                       <span className="text-xs text-muted-foreground">
-                        ({task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0})
+                        {task.totalPomodoroSessions || 0} focus sessions completed{task.estimatedPomodoros ? ` · ${task.estimatedPomodoros} estimated` : ''}
                       </span>
                     </div>
                   </div>
@@ -140,6 +140,7 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
                   <Button
                     variant="ghost"
                     size="icon"
+                    aria-label={`Remove ${task.title} from timer`}
                     onClick={() => onRemoveTask(task.id)}
                     className="h-7 w-7 text-muted-foreground hover:text-destructive"
                   >
@@ -173,7 +174,7 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
                     placeholder="Search tasks..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="pl-9 h-9"
+                    className="!pl-9 h-9"
                     autoFocus
                   />
                 </div>
@@ -209,7 +210,7 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
                                 </span>
                               )}
                               <span className="text-xs text-muted-foreground">
-                                ({task.totalPomodoroSessions || 0}/{task.estimatedPomodoros || 0})
+                                {task.totalPomodoroSessions || 0} focus sessions completed{task.estimatedPomodoros ? ` · ${task.estimatedPomodoros} estimated` : ''}
                               </span>
                             </div>
                           </div>

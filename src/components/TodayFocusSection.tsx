@@ -274,11 +274,15 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
     );
   }
 
+  if (focusedTasks.length === 0) {
+    return <p className="text-sm text-muted-foreground px-2">Star a task to keep it in Today&apos;s Focus.</p>;
+  }
+
   return (
     <Card className="w-full mb-6 border border-border/50 bg-card shadow-sm rounded-xl">
       {/* Header */}
       <CardHeader className="pb-3 pt-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap gap-2 items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30">
               <Star className="w-4 h-4 text-amber-600 dark:text-amber-400" fill="currentColor" />
@@ -304,19 +308,7 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
       </CardHeader>
 
       <CardContent className="pt-0 pb-5">
-        {focusedTasks.length === 0 ? (
-          /* Empty State */
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
-              <Star className="w-6 h-6 text-muted-foreground" />
-            </div>
-            <p className="text-sm font-medium text-muted-foreground">No focused tasks</p>
-            <p className="text-xs text-muted-foreground/70 mt-1">
-              Star a task to add it here
-            </p>
-          </div>
-        ) : (
-          <>
+        <p className="text-xs text-muted-foreground mb-3">Track time records elapsed work only. Use the <Link href="/" className="underline">Timer</Link> for focus sessions and breaks.</p>
             {/* Select All Bar */}
             <div className="flex items-center gap-3 mb-4 pb-3 border-b border-border/50">
               <Checkbox
@@ -401,7 +393,7 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
                       </div>
 
                       {/* Row 2: Deadline + Timer + Progress Bar in one line */}
-                      <div className="flex items-center gap-2 mt-1.5">
+                      <div className="flex flex-wrap items-center gap-2 mt-1.5">
                         {task.deadline && <DeadlineBadge deadline={task.deadline} />}
                         <TaskTimeTracker
                           formattedTime={formatTime(getElapsedTime(task))}
@@ -422,13 +414,14 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
                       </div>
                     </div>
 
-                    {/* Action Menu - Shows on hover */}
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                    {/* Task actions */}
+                    <div className="flex items-center gap-1">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
                             variant="ghost"
                             size="icon"
+                            aria-label={`Actions for ${task.title}`}
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
                           >
                             <MoreHorizontal className="w-4 h-4" />
@@ -479,8 +472,6 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
                 />
               </div>
             )}
-          </>
-        )}
       </CardContent>
     </Card>
   );

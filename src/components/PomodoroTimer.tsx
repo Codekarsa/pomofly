@@ -45,6 +45,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
 
   const [completedSessions, setCompletedSessions] = useState<{ date: string }[]>([]);
   const wasActiveRef = useRef(false);
+  const phaseRef = useRef('pomodoro');
 
   // Use refs to avoid callback dependency issues that cause timer to reset
   const selectedTaskIdsRef = useRef<string[]>([]);
@@ -67,7 +68,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
 
   // Filter out invalid/stale task IDs (deleted or completed tasks)
   useEffect(() => {
-    if (!loading && tasks.length > 0 && selectedTaskIds.length > 0) {
+    if (!loading && selectedTaskIds.length > 0) {
       const validTaskIds = selectedTaskIds.filter(id => {
         const task = tasks.find(t => t.id === id);
         return task && !task.completed;
@@ -81,10 +82,11 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
 
   // Stable callback that uses refs - won't cause usePomodoro to reset
   const handlePomodoroComplete = useCallback(() => {
+    if (phaseRef.current !== 'pomodoro') return;
     const taskIds = selectedTaskIdsRef.current;
     const currentTasks = tasksRef.current;
 
-    if (user && taskIds.length > 0) {
+    if (taskIds.length > 0) {
       // Stop time tracking for all selected tasks
       const selectedTasks = currentTasks.filter(t => taskIds.includes(t.id));
       const tasksToStop = selectedTasks
@@ -130,7 +132,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
         phase: 'pomodoro'
       });
     }
-  }, [user, settings.pomodoro, incrementPomodoroSession, stopAllTimeTracking, event]);
+  }, [settings.pomodoro, incrementPomodoroSession, stopAllTimeTracking, event]);
 
   const {
     phase,
@@ -145,6 +147,10 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     restoreSession,
     startFresh
   } = usePomodoro(settings, handlePomodoroComplete);
+
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
 
   // Handle timer start/pause - manage time tracking
   useEffect(() => {
@@ -306,16 +312,13 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
       )}
 
       <Card className="w-full mx-auto">
-      <CardHeader>
-        <CardTitle>Pomodoro Timer</CardTitle>
-      </CardHeader>
-      <CardContent>
+      <CardContent className="pt-6">
         <div className="mb-4 text-lg">
           <span className="font-semibold">Today&apos;s Sessions: </span>
           <span>{countTodaysSessions()}</span>
         </div>
 
-        <div className="mb-4 flex justify-center space-x-2">
+        <div className="mb-4 flex flex-wrap justify-center gap-2">
           {['pomodoro', 'shortBreak', 'longBreak'].map((timerPhase) => (
             <Button
               key={timerPhase}
@@ -330,11 +333,11 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
           ))}
         </div>
 
-        <div className="text-8xl font-bold mb-4 text-center py-6">
+        <div className="text-6xl sm:text-8xl font-bold mb-4 text-center py-6">
           {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
         </div>
 
-        <div className="flex justify-center space-x-2 mb-6">
+        <div className="flex flex-wrap justify-center gap-2 mb-6">
           <Button
             onClick={handleToggleTimer}
             variant={isActive ? 'secondary' : 'default'}
@@ -358,23 +361,20 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
               variant="default"
             >
               <CheckCircle className="mr-2 h-4 w-4" />
-              Done/Next
+              {phase === 'pomodoro' ? 'Finish session' : 'End break'}
             </Button>
           )}
         </div>
 
-        {/* Task Selection - available for authenticated users, always enabled */}
-        {user && (
-          <SelectedTasksList
-            tasks={tasks}
-            projects={projects}
-            selectedTaskIds={selectedTaskIds}
-            onAddTask={handleAddTask}
-            onRemoveTask={handleRemoveTask}
-            getElapsedTime={getElapsedTime}
-            formatTime={formatTime}
-          />
-        )}
+        <SelectedTasksList
+          tasks={tasks}
+          projects={projects}
+          selectedTaskIds={selectedTaskIds}
+          onAddTask={handleAddTask}
+          onRemoveTask={handleRemoveTask}
+          getElapsedTime={getElapsedTime}
+          formatTime={formatTime}
+        />
       </CardContent>
     </Card>
     </>

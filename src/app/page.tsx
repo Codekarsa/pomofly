@@ -29,7 +29,7 @@ export default function HomePage() {
         <div className="max-w-2xl mx-auto">
           <div className="mb-6 sm:mb-8 text-center px-2">
             <h1 className="text-2xl sm:text-3xl font-bold mb-2">Pomodoro Timer</h1>
-            <p className="text-muted-foreground text-sm sm:text-base">Focus on your work with timed sessions</p>
+            <p className="text-muted-foreground text-sm sm:text-base">Work for {settings.pomodoro} minutes, then take a {settings.shortBreak}-minute break. Repeat, with a longer break every {settings.longBreakInterval} focus sessions.</p>
           </div>
           <div className="px-2 sm:px-0">
             <PomodoroTimer settings={memoizedSettings} />

@@ -4,6 +4,8 @@ import { Label } from '@/hooks/useLabels';
 const GUEST_TASKS_KEY = 'pomofly_guest_tasks';
 const GUEST_PROJECTS_KEY = 'pomofly_guest_projects';
 const GUEST_LABELS_KEY = 'pomofly_guest_labels';
+export const GUEST_TASKS_CHANGED_EVENT = 'pomofly:guest-tasks-changed';
+export const GUEST_PROJECTS_CHANGED_EVENT = 'pomofly:guest-projects-changed';
 
 // Helper to generate unique IDs for guest data
 export function generateGuestId(): string {
@@ -31,6 +33,7 @@ export function saveGuestTasks(tasks: Task[]): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(GUEST_TASKS_KEY, JSON.stringify(tasks));
+    window.dispatchEvent(new Event(GUEST_TASKS_CHANGED_EVENT));
   } catch (error) {
     console.error('Error saving guest tasks:', error);
   }
@@ -85,6 +88,7 @@ export function saveGuestProjects(projects: Project[]): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(GUEST_PROJECTS_KEY, JSON.stringify(projects));
+    window.dispatchEvent(new Event(GUEST_PROJECTS_CHANGED_EVENT));
   } catch (error) {
     console.error('Error saving guest projects:', error);
   }
@@ -184,6 +188,8 @@ export function clearGuestData(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(GUEST_TASKS_KEY);
   localStorage.removeItem(GUEST_PROJECTS_KEY);
+  window.dispatchEvent(new Event(GUEST_TASKS_CHANGED_EVENT));
+  window.dispatchEvent(new Event(GUEST_PROJECTS_CHANGED_EVENT));
 }
 
 export function getGuestDataSummary(): { taskCount: number; projectCount: number } {

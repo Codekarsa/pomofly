@@ -7,7 +7,7 @@ import GuestBanner from './GuestBanner';
 import { usePomodoro, defaultSettings } from '@/hooks/usePomodoro';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { Button } from "@/components/ui/button";
-import { Github } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { signInWithPopup, signOut } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
 import { hasGuestData, getGuestDataSummary } from '@/lib/guestStorage';
@@ -29,6 +29,10 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const { event } = useGoogleAnalytics();
 
   const { updateSettings } = usePomodoro(settings);
+
+  useEffect(() => {
+    setShowGuestBanner(localStorage.getItem('guestBannerDismissed') !== 'true');
+  }, []);
 
   // Check for guest data when user signs in
   useEffect(() => {
@@ -80,6 +84,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   };
 
   const handleDismissGuestBanner = useCallback(() => {
+    localStorage.setItem('guestBannerDismissed', 'true');
     setShowGuestBanner(false);
   }, []);
 
@@ -92,28 +97,20 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const isGuest = !user;
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      <Sidebar onSettingsClick={handleSettingsOpen} onSignIn={handleSignIn} />
-      <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex flex-col md:flex-row h-dvh bg-gray-100">
+      <Sidebar onSettingsClick={handleSettingsOpen} />
+      <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
         {/* Guest Banner */}
         {isGuest && showGuestBanner && (
-          <GuestBanner onSignIn={handleSignIn} onDismiss={handleDismissGuestBanner} />
+          <GuestBanner onDismiss={handleDismissGuestBanner} />
         )}
         {/* Top Header */}
-        <header className="bg-white border-b border-gray-200 px-6 py-3">
+        <header className="shrink-0 bg-white border-b border-gray-200 px-4 md:px-6 py-3">
           <div className="flex justify-between items-center">
-            <h1 className="text-xl font-semibold text-gray-900">Pomofly</h1>
-            <div className="flex items-center space-x-2">
-              <Button variant="ghost" size="sm" asChild>
-                <a
-                  href="https://github.com/Codekarsa/pomofly"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center"
-                >
-                  <Github className="w-4 h-4 mr-2" />
-                  <span className="hidden sm:inline">Star on GitHub</span>
-                </a>
+            <span className="md:hidden text-xl font-semibold text-gray-900">Pomofly</span>
+            <div className="flex items-center space-x-2 ml-auto">
+              <Button variant="ghost" size="icon" className="md:hidden" onClick={handleSettingsOpen} aria-label="Settings">
+                <Settings className="w-5 h-5" />
               </Button>
               {user ? (
                 <Button variant="ghost" size="sm" onClick={handleSignOut}>
@@ -127,7 +124,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             </div>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 min-h-0 overflow-y-auto">
           {children}
         </main>
       </div>

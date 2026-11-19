@@ -23,6 +23,7 @@ interface Option {
 }
 
 interface ComboboxProps {
+  id?: string;
   options: Option[];
   value: string;
   onChange: (value: string) => void;
@@ -31,6 +32,7 @@ interface ComboboxProps {
 }
 
 export const Combobox: React.FC<ComboboxProps> = ({
+  id,
   options,
   value,
   onChange,
@@ -49,6 +51,8 @@ export const Combobox: React.FC<ComboboxProps> = ({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          id={id}
+          type="button"
           variant="outline"
           role="combobox"
           aria-expanded={open}

@@ -4,10 +4,12 @@ import userEvent from '@testing-library/user-event'
 import PomodoroTimer from '../PomodoroTimer'
 import { defaultSettings } from '@/hooks/usePomodoro'
 
+let mockGuest = false
+
 // Mock the hooks
 jest.mock('@/app/contexts/AuthContext', () => ({
   useAuth: () => ({
-    user: {
+    user: mockGuest ? null : {
       uid: 'test-user-id',
       email: 'test@example.com',
     },
@@ -58,6 +60,7 @@ jest.mock('@/hooks/useGoogleAnalytics', () => ({
 describe('PomodoroTimer', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockGuest = false
     jest.useFakeTimers()
     // Clear persisted timer sessions so the recovery modal doesn't leak between tests
     window.localStorage.clear()
@@ -70,7 +73,6 @@ describe('PomodoroTimer', () => {
   it('should render timer with default settings', () => {
     render(<PomodoroTimer settings={defaultSettings} />)
 
-    expect(screen.getByText('Pomodoro Timer')).toBeInTheDocument()
     expect(screen.getByText('25:00')).toBeInTheDocument()
     expect(screen.getByText('Today\'s Sessions:')).toBeInTheDocument()
     expect(screen.getByText('0')).toBeInTheDocument()
@@ -144,20 +146,33 @@ describe('PomodoroTimer', () => {
     expect(screen.getByRole('button', { name: /add task/i })).toBeInTheDocument()
   })
 
-  it('should show Done/Next button when timer is active', async () => {
+  it('should finish focus sessions without counting breaks as focus', async () => {
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
+    window.localStorage.setItem('selectedTaskIds', JSON.stringify(['task-1']))
     render(<PomodoroTimer settings={defaultSettings} />)
 
     const startButton = screen.getByRole('button', { name: /start/i })
     await user.click(startButton)
 
-    expect(screen.getByRole('button', { name: /done\/next/i })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /finish session/i }))
+    expect(screen.getByText('1')).toBeInTheDocument()
+    expect(screen.getByText('05:00')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /start/i }))
+    await user.click(screen.getByRole('button', { name: /end break/i }))
+    expect(screen.getByText('1')).toBeInTheDocument()
+    expect(screen.getByText('25:00')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Short Break' }))
+    await user.click(screen.getByRole('button', { name: /start/i }))
+    await act(async () => { jest.advanceTimersByTime(5 * 60 * 1000) })
+    expect(screen.getByText('1')).toBeInTheDocument()
+    expect(screen.getByText('25:00')).toBeInTheDocument()
   })
 
-  it('should not show Done/Next button when timer is not active', () => {
+  it('should not show finish session button when timer is not active', () => {
     render(<PomodoroTimer settings={defaultSettings} />)
 
-    expect(screen.queryByRole('button', { name: /done\/next/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /finish session/i })).not.toBeInTheDocument()
   })
 
   it('should display correct time format', () => {
@@ -180,11 +195,14 @@ describe('PomodoroTimer', () => {
   })
 
   // The timer ticks every 100ms, so advancing 25 minutes fires 15k callbacks — allow extra time
-  it('should count completed sessions', async () => {
+  it.each([false, true])('should count completed sessions with guest mode %s', async (guest) => {
+    mockGuest = guest
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
     // Sessions are only counted when tasks are selected; the component reads this on mount
     window.localStorage.setItem('selectedTaskIds', JSON.stringify(['task-1']))
     render(<PomodoroTimer settings={defaultSettings} />)
+    expect(screen.getByText('Working on:')).toBeInTheDocument()
+    expect(screen.getByText('Test Task 1')).toBeInTheDocument()
 
     const startButton = screen.getByRole('button', { name: /start/i })
     await user.click(startButton)
@@ -198,4 +216,4 @@ describe('PomodoroTimer', () => {
       expect(screen.getByText('1')).toBeInTheDocument()
     })
   }, 30000)
-}) 
+})
