@@ -169,6 +169,22 @@ describe('PomodoroTimer', () => {
     expect(screen.getByText('25:00')).toBeInTheDocument()
   })
 
+  it('counts standalone focus across remounts, excludes breaks and previous days', async () => {
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    localStorage.setItem('pomofly_completed_sessions', JSON.stringify([{ date: yesterday }]))
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
+    const first = render(<PomodoroTimer settings={defaultSettings} />)
+    expect(screen.getByText('0')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Start' }))
+    await user.click(screen.getByRole('button', { name: /finish session/i }))
+    expect(screen.getByText('1')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Start' }))
+    await user.click(screen.getByRole('button', { name: /end break/i }))
+    first.unmount()
+    render(<PomodoroTimer settings={defaultSettings} />)
+    expect(screen.getByText('1')).toBeInTheDocument()
+  })
+
   it('should not show finish session button when timer is not active', () => {
     render(<PomodoroTimer settings={defaultSettings} />)
 

@@ -224,6 +224,7 @@ export default function TaskDetailClient() {
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
                       className="text-xl font-semibold"
+                      aria-label="Task title"
                       autoFocus
                     />
                   ) : (
@@ -244,16 +245,16 @@ export default function TaskDetailClient() {
                 <div className="flex items-center gap-2">
                   {isEditing ? (
                     <>
-                      <Button variant="ghost" size="icon" onClick={handleCancelEdit}>
+                      <Button variant="ghost" size="icon" onClick={handleCancelEdit} aria-label="Cancel editing">
                         <X className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={handleSaveEdit}>
+                      <Button variant="ghost" size="icon" onClick={handleSaveEdit} aria-label="Save task">
                         <Check className="w-4 h-4" />
                       </Button>
                     </>
                   ) : (
                     <>
-                      <Button variant="ghost" size="icon" onClick={handleStartEdit}>
+                      <Button variant="ghost" size="icon" onClick={handleStartEdit} aria-label="Edit task">
                         <Pencil className="w-4 h-4" />
                       </Button>
                       <Button
@@ -261,6 +262,7 @@ export default function TaskDetailClient() {
                         size="icon"
                         onClick={() => setShowDeleteConfirm(true)}
                         className="text-red-500 hover:text-red-600"
+                        aria-label="Delete task"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -272,7 +274,7 @@ export default function TaskDetailClient() {
 
             <CardContent className="space-y-6">
               {/* Status Buttons */}
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <Button
                   variant={task.completed ? "default" : "outline"}
                   size="sm"
@@ -307,6 +309,7 @@ export default function TaskDetailClient() {
                       value={editDeadline}
                       onChange={(e) => setEditDeadline(e.target.value)}
                       className="mt-1"
+                      aria-label="Deadline"
                     />
                   ) : (
                     <p className="font-medium">
@@ -347,22 +350,27 @@ export default function TaskDetailClient() {
                       onChange={(e) => setEditEstimatedPomodoros(e.target.value ? parseInt(e.target.value) : undefined)}
                       className="mt-1"
                       placeholder="0"
+                      aria-label="Estimated focus sessions"
                     />
                   ) : (
-                    <p className="font-medium">{task.estimatedPomodoros || 0} pomodoros</p>
+                    <p className="font-medium">{task.estimatedPomodoros ? `${task.estimatedPomodoros} focus sessions` : 'Not set'}</p>
                   )}
                 </div>
               </div>
 
               {/* Progress Bar */}
               <div className="pt-4 border-t">
-                <p className="text-sm text-muted-foreground mb-2">Progress</p>
-                <PomodoroProgressBar
-                  completed={task.totalPomodoroSessions || 0}
-                  estimated={task.estimatedPomodoros || 0}
-                  size="md"
-                  showLabel={true}
-                />
+                <p className="text-sm text-muted-foreground mb-2">
+                  {task.totalPomodoroSessions || 0} focus sessions completed{task.estimatedPomodoros ? ` · ${task.estimatedPomodoros} estimated` : ' · No estimate set'}
+                </p>
+                {!!task.estimatedPomodoros && (
+                  <PomodoroProgressBar
+                    completed={task.totalPomodoroSessions || 0}
+                    estimated={task.estimatedPomodoros}
+                    size="md"
+                    showLabel={false}
+                  />
+                )}
               </div>
             </CardContent>
           </Card>

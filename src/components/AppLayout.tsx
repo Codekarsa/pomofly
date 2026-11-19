@@ -4,7 +4,8 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import Sidebar from './Sidebar';
 import SettingsModal from './SettingsModal';
 import GuestBanner from './GuestBanner';
-import { usePomodoro, defaultSettings } from '@/hooks/usePomodoro';
+import { defaultSettings } from '@/hooks/usePomodoro';
+import { usePomodoroSettings } from '@/app/contexts/PomodoroSettingsContext';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { Button } from "@/components/ui/button";
 import { Settings } from 'lucide-react';
@@ -22,13 +23,11 @@ interface AppLayoutProps {
 const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const { user, loading } = useAuth();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settings, setSettings] = useState(defaultSettings);
+  const { settings, updateSettings } = usePomodoroSettings();
   const [showGuestBanner, setShowGuestBanner] = useState(true);
   const [showMigrationModal, setShowMigrationModal] = useState(false);
   const [guestDataSummary, setGuestDataSummary] = useState({ taskCount: 0, projectCount: 0 });
   const { event } = useGoogleAnalytics();
-
-  const { updateSettings } = usePomodoro(settings);
 
   useEffect(() => {
     setShowGuestBanner(localStorage.getItem('guestBannerDismissed') !== 'true');
@@ -52,7 +51,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   }, []);
 
   const handleSettingsSave = useCallback((newSettings: typeof defaultSettings) => {
-    setSettings(newSettings);
     updateSettings(newSettings);
     setIsSettingsOpen(false);
     event('settings_saved', {

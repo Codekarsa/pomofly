@@ -1,27 +1,17 @@
 'use client'
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import AppLayout from '@/components/AppLayout';
 import PomodoroTimer from '@/components/PomodoroTimer';
-import { defaultSettings } from '@/hooks/usePomodoro';
+import { usePomodoroSettings } from '@/app/contexts/PomodoroSettingsContext';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 
 export default function HomePage() {
-  const [settings, setSettings] = useState(defaultSettings);
+  const { settings, loaded } = usePomodoroSettings();
   const { event } = useGoogleAnalytics();
-
-  useEffect(() => {
-    const savedSettings = localStorage.getItem('pomodoroSettings');
-    if (savedSettings) {
-      const parsedSettings = JSON.parse(savedSettings);
-      setSettings(parsedSettings);
-    }
-  }, []);
 
   useEffect(() => {
     event('timer_page_view', {});
   }, [event]);
-
-  const memoizedSettings = useMemo(() => settings, [settings]);
 
   return (
     <AppLayout>
@@ -32,7 +22,7 @@ export default function HomePage() {
             <p className="text-muted-foreground text-sm sm:text-base">Work for {settings.pomodoro} minutes, then take a {settings.shortBreak}-minute break. Repeat, with a longer break every {settings.longBreakInterval} focus sessions.</p>
           </div>
           <div className="px-2 sm:px-0">
-            <PomodoroTimer settings={memoizedSettings} />
+            {loaded && <PomodoroTimer settings={settings} />}
           </div>
         </div>
       </div>

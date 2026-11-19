@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from './contexts/AuthContext'
+import { PomodoroSettingsProvider } from './contexts/PomodoroSettingsContext'
 import GoogleAnalytics from '@/components/GoogleAnalytics'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import PWAServiceWorker from '@/components/PWAServiceWorker'
@@ -79,7 +80,7 @@ export default function RootLayout({
             <Suspense fallback={<div>Loading...</div>}>
               <GoogleAnalytics GA_MEASUREMENT_ID={process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!} />
             </Suspense>
-            {children}
+            <PomodoroSettingsProvider>{children}</PomodoroSettingsProvider>
             <PWAServiceWorker />
           </AuthProvider>
         </ErrorBoundary>

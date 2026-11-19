@@ -32,6 +32,8 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
   // Session recovery state
   const [persistedSession, setPersistedSession] = useState<PersistedTimerSession | null>(null);
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+  const [recoveryChecked, setRecoveryChecked] = useState(false);
+  const previousSettingsRef = useRef(initialSettings);
 
   // Use ref for onComplete to prevent dependency changes from resetting timer
   const onCompleteRef = useRef(onComplete);
@@ -46,6 +48,7 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
       setPersistedSession(session);
       setShowRecoveryModal(true);
     }
+    setRecoveryChecked(true);
   }, []);
 
   // Persist session whenever state changes
@@ -70,8 +73,9 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
 
   // Auto-persist when state changes
   useEffect(() => {
+    if (!recoveryChecked || showRecoveryModal) return;
     persistCurrentSession();
-  }, [persistCurrentSession]);
+  }, [persistCurrentSession, recoveryChecked, showRecoveryModal]);
 
   // Calculate remaining time from timestamp (accurate, no drift)
   const getRemainingTime = useCallback((): number => {
@@ -113,8 +117,21 @@ export function usePomodoro(initialSettings: PomodoroSettings, onComplete?: () =
 
   const updateSettings = useCallback((newSettings: PomodoroSettings) => {
     setSettings(newSettings);
-    localStorage.setItem('pomodoroSettings', JSON.stringify(newSettings));
-  }, []);
+    setIsActive(false);
+    setTimerStartedAt(null);
+    setPausedTimeRemaining(null);
+    setMinutes(newSettings[phase]);
+    setSeconds(0);
+    setShowRecoveryModal(false);
+    setPersistedSession(null);
+  }, [phase]);
+
+  useEffect(() => {
+    if (previousSettingsRef.current !== initialSettings) {
+      previousSettingsRef.current = initialSettings;
+      updateSettings(initialSettings);
+    }
+  }, [initialSettings, updateSettings]);
 
   // Timer display update effect - uses timestamp for accuracy
   useEffect(() => {

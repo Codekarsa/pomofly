@@ -44,8 +44,21 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   const { getElapsedTime, formatTime } = useTimeTracking(tasks);
 
   const [completedSessions, setCompletedSessions] = useState<{ date: string }[]>([]);
+  const [sessionsLoaded, setSessionsLoaded] = useState(false);
   const wasActiveRef = useRef(false);
   const phaseRef = useRef('pomodoro');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('pomofly_completed_sessions');
+    if (saved) setCompletedSessions(JSON.parse(saved));
+    setSessionsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (sessionsLoaded) {
+      localStorage.setItem('pomofly_completed_sessions', JSON.stringify(completedSessions));
+    }
+  }, [completedSessions, sessionsLoaded]);
 
   // Use refs to avoid callback dependency issues that cause timer to reset
   const selectedTaskIdsRef = useRef<string[]>([]);
@@ -83,6 +96,11 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   // Stable callback that uses refs - won't cause usePomodoro to reset
   const handlePomodoroComplete = useCallback(() => {
     if (phaseRef.current !== 'pomodoro') return;
+    const now = new Date();
+    setCompletedSessions(prev => [
+      ...prev.filter(session => new Date(session.date).toDateString() === now.toDateString()),
+      { date: now.toISOString() }
+    ]);
     const taskIds = selectedTaskIdsRef.current;
     const currentTasks = tasksRef.current;
 
@@ -119,7 +137,6 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
         incrementPomodoroSession(taskId, settings.pomodoro);
       });
 
-      setCompletedSessions(prev => [...prev, { date: new Date().toISOString() }]);
       event('pomodoro_session_completed', {
         duration: settings.pomodoro,
         task_ids: taskIds,

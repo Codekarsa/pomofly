@@ -21,7 +21,7 @@ interface SettingsModalProps {
 }
 
 const SettingsModal = memo(({ isOpen, onClose, settings, onSave, event }: SettingsModalProps) => {
-  const [localSettings, setLocalSettings] = useState<Settings>(settings);
+  const [localSettings, setLocalSettings] = useState<{ [K in keyof Settings]: number | '' }>(settings);
   const openerRef = useRef<HTMLElement | null>(null);
   const labels: Record<keyof Settings, string> = {
     pomodoro: 'Focus duration (minutes)',
@@ -49,7 +49,7 @@ const SettingsModal = memo(({ isOpen, onClose, settings, onSave, event }: Settin
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    const newValue = value === '' ? 1 : Math.max(1, parseInt(value, 10));
+    const newValue = value === '' ? '' : parseInt(value, 10);
     setLocalSettings(prev => ({ ...prev, [name]: newValue }));
     event('setting_changed', { setting_name: name, new_value: newValue });
   }, [event]);
@@ -58,7 +58,12 @@ const SettingsModal = memo(({ isOpen, onClose, settings, onSave, event }: Settin
     e.preventDefault();
     const changesMade = JSON.stringify(localSettings) !== JSON.stringify(settings);
     if (changesMade) {
-      onSave(localSettings);
+      onSave({
+        pomodoro: Number(localSettings.pomodoro),
+        shortBreak: Number(localSettings.shortBreak),
+        longBreak: Number(localSettings.longBreak),
+        longBreakInterval: Number(localSettings.longBreakInterval),
+      });
       event('settings_saved', { 
         ...localSettings,
         changes_made: changesMade
@@ -83,7 +88,7 @@ const SettingsModal = memo(({ isOpen, onClose, settings, onSave, event }: Settin
       >
         <DialogHeader>
           <DialogTitle>Timer Settings</DialogTitle>
-          <DialogDescription>Alternate focus sessions with short breaks. Take a longer break after several focus sessions.</DialogDescription>
+          <DialogDescription>Alternate focus sessions with short breaks. Saving changes resets the current timer.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
@@ -99,6 +104,7 @@ const SettingsModal = memo(({ isOpen, onClose, settings, onSave, event }: Settin
                   value={value.toString()}
                   onChange={handleChange}
                   min="1"
+                  required
                 />
               </div>
             ))}

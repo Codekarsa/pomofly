@@ -102,6 +102,7 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
                   size="icon"
                   onClick={() => onToggleTaskFocus(task.id, task.focus || false)}
                   className={`${task.focus ? 'text-yellow-500' : 'text-gray-400'}`}
+                  aria-label={task.focus ? 'Remove from focus' : 'Add to focus'}
                 >
                   <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
                 </MobileButton>
@@ -124,7 +125,7 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <MobileButton variant="ghost" size="icon">
+                  <MobileButton variant="ghost" size="icon" aria-label={`Actions for ${task.title}`}>
                     <MoreHorizontal className="w-4 h-4" />
                   </MobileButton>
                 </DropdownMenuTrigger>
@@ -224,7 +225,7 @@ const TaskList = React.memo(() => {
     stopTimeTracking,
     startAllTimeTracking,
     stopAllTimeTracking
-  } = useTasks(selectedProjectId);
+  } = useTasks();
   const { event } = useGoogleAnalytics();
 
   const memoizedProjects = useMemo(() => projects, [projects]);
@@ -448,7 +449,7 @@ const TaskList = React.memo(() => {
       tasks = tasks.filter(task => task.focus);
     }
     if (search.trim()) {
-      tasks = tasks.filter(task => task.title.toLowerCase().includes(search.toLowerCase()));
+      tasks = tasks.filter(task => task.title.toLowerCase().includes(search.trim().toLowerCase()));
     }
     return tasks;
   }, [memoizedTasks, projectFilter, labelFilter, statusFilter, search]);
@@ -865,6 +866,11 @@ const TaskList = React.memo(() => {
                 : 'Select all'}
             </span>
           </div>
+        )}
+        {filteredTasks.length === 0 && (
+          <p role="status" className="py-6 text-center text-sm text-muted-foreground">
+            No tasks match your search or filters. Try another search or adjust the filters.
+          </p>
         )}
         <ul className="space-y-2">
           {paginatedActiveTasks.map((task) => (

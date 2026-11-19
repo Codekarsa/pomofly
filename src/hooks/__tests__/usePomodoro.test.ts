@@ -4,6 +4,7 @@ import { usePomodoro, defaultSettings } from '../usePomodoro'
 describe('usePomodoro', () => {
   beforeEach(() => {
     jest.useFakeTimers()
+    window.localStorage.clear()
   })
 
   afterEach(() => {
@@ -187,6 +188,42 @@ describe('usePomodoro', () => {
     expect(result.current.settings).toEqual(newSettings)
   })
 
+  it('preserves a paused session across remount and restores its exact remaining time', () => {
+    const first = renderHook(() => usePomodoro(defaultSettings))
+    act(() => first.result.current.toggleTimer())
+    act(() => jest.advanceTimersByTime(63000))
+    act(() => first.result.current.toggleTimer())
+    expect(first.result.current.minutes).toBe(23)
+    expect(first.result.current.seconds).toBe(57)
+    first.unmount()
+
+    const restored = renderHook(() => usePomodoro(defaultSettings))
+    expect(restored.result.current.showRecoveryModal).toBe(true)
+    expect(JSON.parse(localStorage.getItem('pomofly_timer_session')!).pausedTimeRemaining).toBe(1437)
+    act(() => restored.result.current.restoreSession(restored.result.current.persistedSession!))
+    expect(restored.result.current.minutes).toBe(23)
+    expect(restored.result.current.seconds).toBe(57)
+    expect(restored.result.current.isActive).toBe(false)
+    act(() => restored.result.current.toggleTimer())
+    act(() => jest.advanceTimersByTime(2000))
+    expect(restored.result.current.seconds).toBe(55)
+  })
+
+  it('applies changed settings and resets the current timer without recovery on remount', () => {
+    const timer = renderHook(({ settings }) => usePomodoro(settings), {
+      initialProps: { settings: defaultSettings }
+    })
+    act(() => timer.result.current.toggleTimer())
+    act(() => jest.advanceTimersByTime(3000))
+    timer.rerender({ settings: { pomodoro: 17, shortBreak: 3, longBreak: 11, longBreakInterval: 2 } })
+    expect(timer.result.current.minutes).toBe(17)
+    expect(timer.result.current.seconds).toBe(0)
+    expect(timer.result.current.isActive).toBe(false)
+    timer.unmount()
+    const next = renderHook(() => usePomodoro(defaultSettings))
+    expect(next.result.current.showRecoveryModal).toBe(false)
+  })
+
   it('should count down seconds correctly', () => {
     const { result } = renderHook(() => usePomodoro(defaultSettings))
 
@@ -210,4 +247,4 @@ describe('usePomodoro', () => {
     expect(result.current.minutes.toString().padStart(2, '0')).toBe('25')
     expect(result.current.seconds.toString().padStart(2, '0')).toBe('00')
   })
-}) 
+})
