@@ -870,13 +870,13 @@ const TaskList = React.memo(() => {
           {paginatedActiveTasks.map((task) => (
             <li key={task.id} className={`flex items-start sm:items-center justify-between gap-2 p-2 rounded-md transition-colors ${selectedTasks.has(task.id) ? 'bg-blue-50' : 'hover:bg-accent'}`}>
               {editingTask && editingTask.id === task.id ? (
-                <form onSubmit={handleUpdateTask} className="flex flex-col space-y-2 w-full">
-                  <div className="flex items-center space-x-2">
+                <form onSubmit={handleUpdateTask} className="flex flex-col space-y-2 w-full min-w-0">
+                  <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
                     <Input
                       type="text"
                       value={editingTask.title}
                       onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
-                      className="flex-grow"
+                      className="flex-1 min-w-0"
                       placeholder="Task title"
                     />
                     <Input
@@ -887,7 +887,7 @@ const TaskList = React.memo(() => {
                       className="w-24"
                     />
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Combobox
                       options={memoizedProjects.map(project => ({ value: project.id, label: project.name }))}
                       value={editingTask.projectId || ''}
@@ -907,12 +907,12 @@ const TaskList = React.memo(() => {
                 <form onSubmit={(e) => {
                   e.preventDefault();
                   handleSetTaskDeadline(task.id, editingDeadline.deadline || null);
-                }} className="flex items-center space-x-2 w-full">
+                }} className="flex flex-wrap items-center gap-2 w-full min-w-0">
                   <Input
                     type="date"
                     value={editingDeadline.deadline}
                     onChange={(e) => setEditingDeadline({ ...editingDeadline, deadline: e.target.value })}
-                    className="flex-grow"
+                    className="flex-1 min-w-0 basis-full sm:basis-auto"
                   />
                   <MobileButton type="submit" size="sm" variant="outline">Save</MobileButton>
                   <MobileButton type="button" size="sm" variant="ghost" onClick={() => setEditingDeadline(null)}>Cancel</MobileButton>

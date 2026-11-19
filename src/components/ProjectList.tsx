@@ -111,12 +111,12 @@ const ProjectList = React.memo(() => {
           {displayedProjects.map((project) => (
             <li key={project.id} className="flex items-center justify-between p-2 hover:bg-accent rounded-md transition-colors">
               {editingProject && editingProject.id === project.id ? (
-                <form onSubmit={handleUpdateProject} className="flex items-center space-x-2 w-full">
+                <form onSubmit={handleUpdateProject} className="flex flex-wrap items-center gap-2 w-full min-w-0">
                   <Input
                     type="text"
                     value={editingProject.name}
                     onChange={(e) => setEditingProject({ ...editingProject, name: e.target.value })}
-                    className="flex-grow"
+                    className="flex-1 min-w-0 basis-full sm:basis-auto"
                   />
                   <Button type="submit" size="sm" variant="outline">Save</Button>
                   <Button type="button" size="sm" variant="ghost" onClick={() => setEditingProject(null)}>Cancel</Button>
