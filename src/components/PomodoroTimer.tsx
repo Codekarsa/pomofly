@@ -94,13 +94,15 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   }, [loading, tasks]);
 
   // Stable callback that uses refs - won't cause usePomodoro to reset
-  const handlePomodoroComplete = useCallback(() => {
+  const handlePomodoroComplete = useCallback((completed: boolean) => {
     if (phaseRef.current !== 'pomodoro') return;
     const now = new Date();
-    setCompletedSessions(prev => [
-      ...prev.filter(session => new Date(session.date).toDateString() === now.toDateString()),
-      { date: now.toISOString() }
-    ]);
+    if (completed) {
+      setCompletedSessions(prev => [
+        ...prev.filter(session => new Date(session.date).toDateString() === now.toDateString()),
+        { date: now.toISOString() }
+      ]);
+    }
     const taskIds = selectedTaskIdsRef.current;
     const currentTasks = tasksRef.current;
 
@@ -132,20 +134,22 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
         stopAllTimeTracking(tasksToStop);
       }
 
-      // Increment pomodoro session for all selected tasks
-      taskIds.forEach(taskId => {
-        incrementPomodoroSession(taskId, settings.pomodoro);
-      });
+      // Only a full countdown earns session and planned-duration credit.
+      if (completed) {
+        taskIds.forEach(taskId => {
+          incrementPomodoroSession(taskId, settings.pomodoro);
+        });
+      }
 
-      event('pomodoro_session_completed', {
-        duration: settings.pomodoro,
+      event(completed ? 'pomodoro_session_completed' : 'pomodoro_session_ended_early', {
+        planned_duration: settings.pomodoro,
         task_ids: taskIds,
         task_count: taskIds.length,
         phase: 'pomodoro'
       });
     } else {
-      event('pomodoro_session_completed', {
-        duration: settings.pomodoro,
+      event(completed ? 'pomodoro_session_completed' : 'pomodoro_session_ended_early', {
+        planned_duration: settings.pomodoro,
         phase: 'pomodoro'
       });
     }
@@ -159,6 +163,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     toggleTimer,
     resetTimer,
     switchPhase,
+    endPhase,
     showRecoveryModal,
     persistedSession,
     restoreSession,
@@ -232,11 +237,8 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   }, [completedSessions]);
 
   const handleDoneNext = useCallback(() => {
-    handlePomodoroComplete();
-    resetTimer();
-    switchPhase(phase === 'pomodoro' ? 'shortBreak' : 'pomodoro');
-    event('pomodoro_phase_switched', { new_phase: phase === 'pomodoro' ? 'shortBreak' : 'pomodoro' });
-  }, [handlePomodoroComplete, resetTimer, switchPhase, phase, event]);
+    endPhase();
+  }, [endPhase]);
 
   const handleAddTask = useCallback((taskId: string) => {
     if (!selectedTaskIds.includes(taskId)) {
@@ -378,10 +380,16 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
               variant="default"
             >
               <CheckCircle className="mr-2 h-4 w-4" />
-              {phase === 'pomodoro' ? 'Finish session' : 'End break'}
+              {phase === 'pomodoro' ? 'End early' : 'End break'}
             </Button>
           )}
         </div>
+
+        {isActive && phase === 'pomodoro' && (
+          <p className="text-sm text-muted-foreground text-center mb-4">
+            Ending early saves elapsed task time, but does not count as a completed focus session.
+          </p>
+        )}
 
         <SelectedTasksList
           tasks={tasks}

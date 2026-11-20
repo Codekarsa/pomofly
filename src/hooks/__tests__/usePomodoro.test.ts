@@ -171,6 +171,33 @@ describe('usePomodoro', () => {
     expect(result.current.minutes).toBe(15)
   })
 
+  it('keeps the break cycle across remounts and excludes early endings', () => {
+    const settings = { ...defaultSettings, pomodoro: 1, longBreakInterval: 2 }
+    let timer = renderHook(() => usePomodoro(settings))
+    act(() => timer.result.current.toggleTimer())
+    act(() => jest.advanceTimersByTime(60000))
+    expect(timer.result.current.phase).toBe('shortBreak')
+    timer.unmount()
+
+    timer = renderHook(() => usePomodoro(settings))
+    expect(timer.result.current.showRecoveryModal).toBe(false)
+    expect(timer.result.current.phase).toBe('shortBreak')
+    act(() => timer.result.current.endPhase())
+    act(() => timer.result.current.toggleTimer())
+    act(() => jest.advanceTimersByTime(7000))
+    act(() => timer.result.current.endPhase())
+    expect(timer.result.current.phase).toBe('shortBreak')
+    act(() => timer.result.current.endPhase())
+
+    for (const expectedBreak of ['longBreak', 'shortBreak', 'longBreak']) {
+      act(() => timer.result.current.toggleTimer())
+      act(() => jest.advanceTimersByTime(60000))
+      expect(timer.result.current.phase).toBe(expectedBreak)
+      act(() => timer.result.current.endPhase())
+      expect(timer.result.current.phase).toBe('pomodoro')
+    }
+  })
+
   it('should update settings', () => {
     const { result } = renderHook(() => usePomodoro(defaultSettings))
 

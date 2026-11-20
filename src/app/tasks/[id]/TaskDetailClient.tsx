@@ -137,6 +137,7 @@ export default function TaskDetailClient() {
 
   // Format time spent
   const formatTimeSpent = (seconds: number) => {
+    if (seconds > 0 && seconds < 60) return '<1m';
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     if (hours > 0) {

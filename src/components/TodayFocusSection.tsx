@@ -25,6 +25,16 @@ import PomodoroProgressBar from './PomodoroProgressBar';
 import { LabelBadge } from './LabelPicker';
 import { useLabels } from '@/hooks/useLabels';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -66,6 +76,7 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
   const { projects } = useProjects();
   const { labels } = useLabels();
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
 
   const focusedTasks = useMemo(() => {
     return tasks.filter(task => task.focus && !task.completed);
@@ -444,7 +455,7 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
                             Set Deadline
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => deleteTask(task.id)}
+                            onClick={() => setTaskToDelete(task)}
                             className="text-red-600 focus:text-red-600 dark:text-red-400"
                           >
                             <Trash2 className="w-4 h-4 mr-2" />
@@ -473,6 +484,25 @@ const TodayFocusSection: React.FC<TodayFocusSectionProps> = () => {
               </div>
             )}
       </CardContent>
+      <AlertDialog open={taskToDelete !== null} onOpenChange={(open) => { if (!open) setTaskToDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete “{taskToDelete?.title}”? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { if (taskToDelete) deleteTask(taskToDelete.id); }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };

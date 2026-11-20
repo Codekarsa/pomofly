@@ -154,7 +154,7 @@ describe('PomodoroTimer', () => {
     const startButton = screen.getByRole('button', { name: /start/i })
     await user.click(startButton)
 
-    await user.click(screen.getByRole('button', { name: /finish session/i }))
+    await act(async () => { jest.advanceTimersByTime(25 * 60 * 1000) })
     expect(screen.getByText('1')).toBeInTheDocument()
     expect(screen.getByText('05:00')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /start/i }))
@@ -176,7 +176,7 @@ describe('PomodoroTimer', () => {
     const first = render(<PomodoroTimer settings={defaultSettings} />)
     expect(screen.getByText('0')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Start' }))
-    await user.click(screen.getByRole('button', { name: /finish session/i }))
+    await act(async () => { jest.advanceTimersByTime(25 * 60 * 1000) })
     expect(screen.getByText('1')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Start' }))
     await user.click(screen.getByRole('button', { name: /end break/i }))
@@ -185,10 +185,25 @@ describe('PomodoroTimer', () => {
     expect(screen.getByText('1')).toBeInTheDocument()
   })
 
-  it('should not show finish session button when timer is not active', () => {
+  it('ends early without awarding a session and still credits the next full countdown', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
+    render(<PomodoroTimer settings={defaultSettings} />)
+    await user.click(screen.getByRole('button', { name: 'Start' }))
+    await act(async () => { jest.advanceTimersByTime(7000) })
+    await user.click(screen.getByRole('button', { name: 'End early' }))
+    expect(screen.getByText('0')).toBeInTheDocument()
+    expect(screen.getByText('05:00')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Start' }))
+    await user.click(screen.getByRole('button', { name: 'End break' }))
+    await user.click(screen.getByRole('button', { name: 'Start' }))
+    await act(async () => { jest.advanceTimersByTime(25 * 60 * 1000) })
+    expect(screen.getByText('1')).toBeInTheDocument()
+  })
+
+  it('should not show end early button when timer is not active', () => {
     render(<PomodoroTimer settings={defaultSettings} />)
 
-    expect(screen.queryByRole('button', { name: /finish session/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /end early/i })).not.toBeInTheDocument()
   })
 
   it('should display correct time format', () => {
