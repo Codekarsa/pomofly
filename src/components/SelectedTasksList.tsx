@@ -99,17 +99,17 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
   };
 
   return (
-    <div className="border rounded-lg bg-card">
+    <div className="rounded-lg bg-card">
       {/* Header */}
-      <div className="px-4 py-3 border-b bg-muted/50">
-        <span className="font-medium text-sm">Tasks for this timer</span>
+      <div className="px-4 py-3 border-b">
+        <span className="font-medium text-sm">Selected tasks</span>
       </div>
 
       {/* Selected Tasks List */}
       <div className="p-2">
         {selectedTasks.length === 0 ? (
           <div className="px-4 py-6 text-center text-muted-foreground text-sm">
-            Choose or create a task, then press Start. You can also focus without a task.
+            Choose or create a task, or focus without one.
           </div>
         ) : (
           <div className="space-y-2">
@@ -121,7 +121,7 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
               return (
                 <div
                   key={task.id}
-                  className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20"
+                  className="flex flex-wrap items-center gap-3 border-b p-3"
                 >
                   <div className="basis-full sm:basis-auto sm:flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
@@ -147,10 +147,10 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
                   {/* Timer Display */}
                   <div className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-mono ${
                     isTracking
-                      ? 'bg-blue-100 text-blue-700 animate-pulse'
+                      ? 'bg-secondary text-primary'
                       : elapsedTime > 0
-                        ? 'bg-gray-100 text-gray-700'
-                        : 'text-gray-400'
+                        ? 'bg-muted text-foreground'
+                        : 'text-muted-foreground'
                   }`}>
                     <Clock className="h-3 w-3" />
                     {formatTime(elapsedTime)}

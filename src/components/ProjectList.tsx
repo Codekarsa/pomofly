@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import { useProjects } from '../hooks/useProjects';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Pencil, Trash2, Plus, MoreHorizontal } from 'lucide-react';
+import { Pencil, Trash2, Plus, MoreHorizontal, FolderOpen } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,11 +88,11 @@ const ProjectList = React.memo(() => {
   if (error) return <div>Error: {error.message}</div>;
 
   return (
-    <Card className="w-full">
-      <CardHeader>
+    <Card className="w-full border-0 bg-transparent">
+      <CardHeader className="px-0 pt-0">
         <CardTitle>Your Projects</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-0">
         <form onSubmit={handleAddProject} className="flex flex-col sm:flex-row sm:items-center gap-2 mb-6">
           <Input
             type="text"
@@ -101,15 +102,16 @@ const ProjectList = React.memo(() => {
             aria-label="New project name"
             className="flex-grow min-w-0"
           />
-          <Button type="submit" size="sm">
+          <Button type="submit" disabled={!newProjectName.trim()}>
             <Plus className="w-4 h-4 mr-2" />
             Add Project
           </Button>
         </form>
 
-        <ul className="space-y-2">
+        {projects.length === 0 && <p className="py-6 text-sm text-muted-foreground">Start with one project, like Work or Personal. You can always add more later.</p>}
+        <ul>
           {displayedProjects.map((project) => (
-            <li key={project.id} className="flex items-center justify-between p-2 hover:bg-accent rounded-md transition-colors">
+            <li key={project.id} className="flex items-center justify-between gap-3 border-b py-5">
               {editingProject && editingProject.id === project.id ? (
                 <form onSubmit={handleUpdateProject} className="flex flex-wrap items-center gap-2 w-full min-w-0">
                   <Input
@@ -123,7 +125,10 @@ const ProjectList = React.memo(() => {
                 </form>
               ) : (
                 <>
-                  <span className="text-sm font-medium">{project.name}</span>
+                  <Link href={`/tasks?project=${encodeURIComponent(project.id)}`} className="flex min-w-0 flex-1 items-center gap-3 text-base hover:underline">
+                    <FolderOpen className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+                    <span className="min-w-0 break-words [overflow-wrap:anywhere]">{project.name}</span>
+                  </Link>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="sm" aria-label={`Actions for ${project.name}`}>

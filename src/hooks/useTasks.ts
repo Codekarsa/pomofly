@@ -7,6 +7,7 @@ import {
   updateGuestTask,
   deleteGuestTask,
   saveGuestTasks,
+  generateGuestId,
   GUEST_TASKS_CHANGED_EVENT,
 } from '../lib/guestStorage';
 import {
@@ -90,7 +91,7 @@ export function useTasks(projectId?: string) {
     }
   }, [isGuest, projectId]);
 
-  const addTask = useCallback(async (title: string, taskProjectId = '', estimatedPomodoros?: number, focus?: boolean, labelIds?: string[]) => {
+  const addTask = useCallback(async (title: string, taskProjectId = '', estimatedPomodoros?: number, focus?: boolean, labelIds?: string[], dates: Pick<Task, 'plannedFor' | 'deadline'> = { deadline: null }) => {
     const user = auth.currentUser;
 
     try {
@@ -100,7 +101,8 @@ export function useTasks(projectId?: string) {
         userId: user?.uid || 'guest',
         completed: false,
         focus: focus ?? false,
-        deadline: null,
+        deadline: dates.deadline,
+        plannedFor: dates.plannedFor ?? null,
         // Firestore rejects undefined values, so only include the key when provided
         ...(estimatedPomodoros !== undefined ? { estimatedPomodoros, estimationSource: 'manual' } : {}),
         ...(labelIds ? { labelIds } : {}),
@@ -118,6 +120,47 @@ export function useTasks(projectId?: string) {
       console.error("Error adding task:", err);
       throw err;
     }
+  }, []);
+
+  const addTasks = useCallback(async (titles: string[], taskProjectId = '', estimatedPomodoros?: number, focus = false, labelIds: string[] = [], dates: Pick<Task, 'plannedFor' | 'deadline'> = { deadline: null }) => {
+    if (titles.length === 0 || titles.length > 500) throw new Error('Enter between 1 and 500 tasks.');
+    const user = auth.currentUser;
+    // Validate every line before writing any tasks, so a bad line cannot create a partial batch.
+    const data = titles.map(title => validateTaskCreate({
+      title: title.trim(), projectId: taskProjectId, userId: user?.uid || 'guest',
+      completed: false, focus, labelIds, deadline: dates.deadline, plannedFor: dates.plannedFor ?? null,
+      ...(estimatedPomodoros !== undefined ? { estimatedPomodoros, estimationSource: 'manual' } : {}),
+    }));
+    const createdAt = new Date();
+    if (!user) {
+      const newTasks = data.map(task => ({ ...task, id: generateGuestId(), createdAt }));
+      saveGuestTasks([...getGuestTasks(), ...newTasks]);
+      return newTasks.map(task => task.id);
+    }
+    const batch = writeBatch(db);
+    const refs = data.map(task => {
+      const ref = doc(collection(db, 'tasks'));
+      batch.set(ref, { ...task, createdAt });
+      return ref;
+    });
+    await batch.commit();
+    return refs.map(ref => ref.id);
+  }, []);
+
+  const setTaskDates = useCallback(async (taskIds: string[], dates: Partial<Pick<Task, 'plannedFor' | 'deadline'>>) => {
+    if (taskIds.length === 0) return;
+    if (taskIds.length > 500) throw new Error('Select at most 500 tasks at a time.');
+    const validated = validateTaskUpdate({ id: taskIds[0], ...dates });
+    const updates = Object.fromEntries(Object.entries(validated).filter(([key]) =>
+      (key === 'plannedFor' || key === 'deadline') && Object.prototype.hasOwnProperty.call(dates, key)
+    ));
+    if (!auth.currentUser) {
+      saveGuestTasks(getGuestTasks().map(task => taskIds.includes(task.id) ? { ...task, ...updates } : task));
+      return;
+    }
+    const batch = writeBatch(db);
+    taskIds.forEach(id => batch.update(doc(db, 'tasks', id), updates));
+    await batch.commit();
   }, []);
 
   const updateTask = useCallback(async (taskId: string, updates: Partial<Task>) => {
@@ -414,6 +457,8 @@ export function useTasks(projectId?: string) {
     error,
     isGuest,
     addTask,
+    addTasks,
+    setTaskDates,
     updateTask,
     deleteTask,
     toggleTaskCompletion,

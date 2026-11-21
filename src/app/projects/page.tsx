@@ -20,8 +20,8 @@ export default function ProjectsPage() {
       <div className="container mx-auto px-4 py-4 sm:py-8">
         <div className="max-w-4xl mx-auto">
           <div className="mb-6 sm:mb-8 px-2">
-            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Projects</h1>
-            <p className="text-muted-foreground text-sm sm:text-base">Create and manage project names to organize your tasks. Filter by project on the Tasks page.</p>
+            <h1 className="font-display mb-3 text-4xl sm:text-5xl">A home for your work.</h1>
+            <p className="text-muted-foreground text-sm">Group related tasks into projects. Keep everything else in Inbox.</p>
           </div>
           
           <ProjectList />

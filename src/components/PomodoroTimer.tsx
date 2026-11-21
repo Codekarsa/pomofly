@@ -6,6 +6,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { useProjects } from '@/hooks/useProjects';
 import { useTimeTracking } from '@/hooks/useTimeTracking';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
+import MyDay, { DailyProgress } from './MyDay';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Play, Pause, RotateCcw, CheckCircle } from 'lucide-react';
@@ -50,13 +51,18 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     addTask,
     incrementPomodoroSession,
     startAllTimeTracking,
-    stopAllTimeTracking
+    stopAllTimeTracking,
+    toggleTaskCompletion
   } = useTasks();
   const { projects } = useProjects();
   const { getElapsedTime, formatTime } = useTimeTracking(tasks);
 
   const [completedSessions, setCompletedSessions] = useState<{ date: string }[]>([]);
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
+  const [showTimer, setShowTimer] = useState(() => !!focusRequest);
+  const [lastCompletedTaskIds, setLastCompletedTaskIds] = useState<string[] | null>(null);
+  const [savingCompletion, setSavingCompletion] = useState(false);
+  const [completionError, setCompletionError] = useState<string | null>(null);
   const wasActiveRef = useRef(false);
   const phaseRef = useRef('pomodoro');
 
@@ -125,6 +131,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     }
     const taskIds = selectedTaskIdsRef.current;
     const currentTasks = tasksRef.current;
+    setLastCompletedTaskIds(completed ? [...taskIds] : null);
 
     if (taskIds.length > 0) {
       // Stop time tracking for all selected tasks
@@ -268,6 +275,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   }, [endPhase]);
 
   const handleAddTask = useCallback((taskId: string) => {
+    setShowTimer(true);
     if (!selectedTaskIds.includes(taskId)) {
       const newIds = [...selectedTaskIds, taskId];
       setSelectedTaskIds(newIds);
@@ -301,6 +309,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   }, [selectedTaskIds, event, isActive, phase, tasks, getElapsedTime, stopAllTimeTracking]);
 
   const handleToggleTimer = useCallback(() => {
+    if (!isActive) setLastCompletedTaskIds(null);
     toggleTimer();
     event('pomodoro_timer_toggled', {
       action: isActive ? 'pause' : 'start',
@@ -310,6 +319,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   }, [toggleTimer, isActive, phase, selectedTaskIds.length, event]);
 
   const handleRestoreSession = useCallback((session: PersistedTimerSession) => {
+    setShowTimer(true);
     // Restore selected task IDs if available
     if (session.selectedTaskIds && Array.isArray(session.selectedTaskIds)) {
       setSelectedTaskIds(session.selectedTaskIds);
@@ -327,6 +337,34 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
     event('timer_session_start_fresh', {});
   }, [startFresh, event]);
 
+  const beginFocus = (taskId?: string) => {
+    if (taskId && !selectedTaskIds.includes(taskId)) setSelectedTaskIds([taskId]);
+    setShowTimer(true);
+  };
+
+  const markSessionTasksDone = async () => {
+    if (savingCompletion) return;
+    setSavingCompletion(true);
+    setCompletionError(null);
+    try {
+      for (const task of tasks.filter(task => lastCompletedTaskIds?.includes(task.id) && !task.completed)) {
+        await toggleTaskCompletion(task.id, false);
+      }
+    } catch {
+      setCompletionError('Could not complete the task. Please try again.');
+    } finally {
+      setSavingCompletion(false);
+    }
+  };
+
+  const taskPicker = <SelectedTasksList
+    tasks={tasks} projects={projects} selectedTaskIds={selectedTaskIds}
+    onAddTask={handleAddTask} onCreateTask={handleCreateTask} onRemoveTask={handleRemoveTask}
+    getElapsedTime={getElapsedTime} formatTime={formatTime}
+  />;
+  const selectedTasks = tasks.filter(task => selectedTaskIds.includes(task.id) && !task.completed);
+  const unfinishedSessionTasks = tasks.filter(task => lastCompletedTaskIds?.includes(task.id) && !task.completed);
+
   if (loading) {
     return (
       <Card className="w-full mx-auto">
@@ -337,10 +375,10 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
           <div className="flex flex-col items-center justify-center py-8">
             {/* Timer circle skeleton with pulse animation */}
             <div className="relative w-48 h-48 mb-6">
-              <div className="absolute inset-0 rounded-full border-8 border-gray-200"></div>
-              <div className="absolute inset-0 rounded-full border-8 border-t-red-500 border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+              <div className="absolute inset-0 rounded-full border-8 border-border"></div>
+              <div className="absolute inset-0 rounded-full border-8 border-t-primary border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-4xl font-mono text-gray-300 animate-pulse">--:--</div>
+                <div className="text-4xl font-mono text-muted-foreground animate-pulse">--:--</div>
               </div>
             </div>
             <p className="text-muted-foreground animate-pulse">Loading timer...</p>
@@ -362,46 +400,70 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
         />
       )}
 
-      <Card className="w-full mx-auto">
-      <CardContent className="pt-6">
-        <div className="mb-4 text-lg">
-          <span className="font-semibold">Today&apos;s Sessions: </span>
-          <span>{countTodaysSessions()}</span>
+      {!showTimer && !isActive && phase === 'pomodoro' ? (
+        <MyDay tasks={tasks} projects={projects} selectedTaskIds={selectedTaskIds}
+          sessions={countTodaysSessions()} onBeginFocus={beginFocus} taskPicker={taskPicker} />
+      ) : <div className="mx-auto max-w-3xl">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="font-display text-3xl">{phase === 'pomodoro' ? 'A little space to focus.' : 'A little space to breathe.'}</h1>
+          {!isActive && minutes === settings.pomodoro && seconds === 0 && phase === 'pomodoro' && <Button variant="ghost" onClick={() => setShowTimer(false)}>Back to my day</Button>}
         </div>
-
-        <div className="mb-4 flex flex-wrap justify-center gap-2">
+        {lastCompletedTaskIds !== null && !isActive && phase !== 'pomodoro' && <section role="status" className="mb-6 rounded-xl border bg-secondary/50 p-5 text-center">
+          <CheckCircle className="mx-auto mb-3 h-7 w-7 text-primary" aria-hidden="true" />
+          <h2 className="font-display mb-2 text-2xl">A little more room to breathe.</h2>
+          <p className="text-sm text-muted-foreground">Session complete. {settings.pomodoro} focused {settings.pomodoro === 1 ? 'minute' : 'minutes'}, one small step forward.</p>
+          {unfinishedSessionTasks.length > 0 && <>
+            <p className="mt-2 text-xs text-muted-foreground">Your task stays open until you finish it.</p>
+            <Button variant="outline" size="sm" className="mt-3" disabled={savingCompletion} onClick={() => void markSessionTasksDone()}>
+              {savingCompletion ? 'Saving…' : unfinishedSessionTasks.length === 1 ? 'Mark task done' : `Mark ${unfinishedSessionTasks.length} tasks done`}
+            </Button>
+          </>}
+          {completionError && <p role="alert" className="mt-2 text-sm text-destructive">{completionError}</p>}
+        </section>}
+        <div className="mb-6 flex flex-wrap justify-center gap-1" aria-label="Timer phase">
           {['pomodoro', 'shortBreak', 'longBreak'].map((timerPhase) => (
             <Button
               key={timerPhase}
               onClick={() => {
+                setLastCompletedTaskIds(null);
                 switchPhase(timerPhase as 'pomodoro' | 'shortBreak' | 'longBreak');
                 event('pomodoro_phase_switched', { new_phase: timerPhase });
               }}
-              variant={phase === timerPhase ? 'default' : 'outline'}
+              variant={phase === timerPhase ? 'secondary' : 'ghost'}
+              aria-pressed={phase === timerPhase}
             >
               {timerPhase === 'pomodoro' ? 'Pomodoro' : timerPhase === 'shortBreak' ? 'Short Break' : 'Long Break'}
             </Button>
           ))}
         </div>
 
-        <div className="text-6xl sm:text-8xl font-bold mb-4 text-center py-6">
+        <div className="mb-4 text-center">
+          <p className="mb-2 text-xs text-muted-foreground">{phase !== 'pomodoro' ? 'Step away, stretch, get some water.' : isActive ? 'Everything else can wait.' : 'One task. One session.'}</p>
+          <h2 className="break-words text-xl font-medium tracking-tight [overflow-wrap:anywhere]">{phase === 'pomodoro' ? selectedTasks[0]?.title || 'Focus, at your own pace.' : phase === 'shortBreak' ? 'Take a short break.' : 'Make time for a longer rest.'}</h2>
+          {phase === 'pomodoro' && selectedTasks[0] && <p className="mt-2 text-xs text-muted-foreground">{projects.find(project => project.id === selectedTasks[0].projectId)?.name || 'Inbox'}{selectedTasks.length > 1 ? ` · ${selectedTasks.length} tasks selected` : ''}</p>}
+        </div>
+        <div className="mb-4 py-3 text-center text-7xl font-light tracking-tighter text-primary tabular-nums sm:text-8xl" aria-label="Time remaining">
           {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
         </div>
 
-        <div className="flex flex-wrap justify-center gap-2 mb-6">
+        <div className="mb-3 flex justify-center">
           <Button
             onClick={handleToggleTimer}
             variant={isActive ? 'secondary' : 'default'}
+            size="lg"
           >
             {isActive ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
             {isActive ? 'Pause' : 'Start'}
           </Button>
+        </div>
+        <p className="mb-4 text-center text-xs text-muted-foreground">{phase === 'pomodoro' ? `${settings.pomodoro} ${settings.pomodoro === 1 ? 'minute' : 'minutes'} of focus, then a break.` : 'Rest is part of making progress.'}</p>
+        <div className="mb-6 flex flex-wrap justify-center gap-2">
           <Button
             onClick={() => {
               resetTimer();
               event('pomodoro_timer_reset', { phase: phase });
             }}
-            variant="outline"
+            variant="ghost"
           >
             <RotateCcw className="mr-2 h-4 w-4" />
             Reset
@@ -409,7 +471,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
           {isActive && (
             <Button
               onClick={handleDoneNext}
-              variant="default"
+              variant="ghost"
             >
               <CheckCircle className="mr-2 h-4 w-4" />
               {phase === 'pomodoro' ? 'End early' : 'End break'}
@@ -437,18 +499,12 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
           </div>
         )}
 
-        <SelectedTasksList
-          tasks={tasks}
-          projects={projects}
-          selectedTaskIds={selectedTaskIds}
-          onAddTask={handleAddTask}
-          onCreateTask={handleCreateTask}
-          onRemoveTask={handleRemoveTask}
-          getElapsedTime={getElapsedTime}
-          formatTime={formatTime}
-        />
-      </CardContent>
-    </Card>
+        <div className="mb-7 flex justify-center"><DailyProgress count={countTodaysSessions()} /></div>
+        <details open={selectedTasks.length === 0 || !!focusRequest} className="border-t pt-4">
+          <summary className="cursor-pointer py-2 text-sm text-muted-foreground">Tasks for this timer{selectedTasks.length ? ` (${selectedTasks.length})` : ''}</summary>
+          <div className="mt-3">{taskPicker}</div>
+        </details>
+      </div>}
     </>
   );
 });

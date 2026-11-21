@@ -36,6 +36,7 @@ export function saveGuestTasks(tasks: Task[]): void {
     window.dispatchEvent(new Event(GUEST_TASKS_CHANGED_EVENT));
   } catch (error) {
     console.error('Error saving guest tasks:', error);
+    throw error;
   }
 }
 

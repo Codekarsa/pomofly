@@ -74,7 +74,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.className} bg-gray-100`}>
+      <body className={`${inter.className} bg-background text-foreground`}>
         <ErrorBoundary name="RootLayout" showDetails={process.env.NODE_ENV === 'development'}>
           <AuthProvider>
             <Suspense fallback={<div>Loading...</div>}>

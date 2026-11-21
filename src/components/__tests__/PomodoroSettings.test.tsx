@@ -32,6 +32,7 @@ it('shares saved settings between the modal and timer, including after reload', 
   const user = userEvent.setup()
   const app = <PomodoroSettingsProvider><Settings /><Timer /></PomodoroSettingsProvider>
   const first = render(app)
+  await user.click(screen.getByRole('button', { name: 'Begin focus' }))
   await user.click(screen.getByRole('button', { name: 'Settings' }))
   for (const [name, value] of [
     ['Focus duration (minutes)', '17'], ['Short break (minutes)', '3'],
@@ -44,6 +45,7 @@ it('shares saved settings between the modal and timer, including after reload', 
   expect(screen.getByText('17:00')).toBeInTheDocument()
   first.unmount()
   render(app)
+  await user.click(screen.getByRole('button', { name: 'Begin focus' }))
   expect(screen.getByText('17:00')).toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Settings' }))
   expect(screen.getByLabelText('Focus duration (minutes)')).toHaveValue(17)

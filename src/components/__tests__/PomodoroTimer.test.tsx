@@ -1,10 +1,19 @@
 import React from 'react'
-import { render, screen, waitFor, act } from '@testing-library/react'
+import { render as renderComponent, screen, waitFor, act, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import PomodoroTimer from '../PomodoroTimer'
 import { defaultSettings } from '@/hooks/usePomodoro'
 
 let mockGuest = false
+let mockHasTasks = true
+
+// Timer scenarios enter through the same deliberate, idle step as a person.
+function render(element: React.ReactElement) {
+  const view = renderComponent(element)
+  const begin = screen.queryByRole('button', { name: 'Begin focus' })
+  if (begin) fireEvent.click(begin)
+  return view
+}
 jest.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams(window.location.search) }))
 
 // Mock the hooks
@@ -19,7 +28,7 @@ jest.mock('@/app/contexts/AuthContext', () => ({
 
 jest.mock('@/hooks/useTasks', () => ({
   useTasks: () => ({
-    tasks: [
+    tasks: mockHasTasks ? [
       {
         id: 'task-1',
         title: 'Test Task 1',
@@ -36,7 +45,7 @@ jest.mock('@/hooks/useTasks', () => ({
         manualTimeSpent: 0,
         totalTimeSpent: 0,
       },
-    ],
+    ] : [],
     loading: false,
     incrementPomodoroSession: jest.fn(),
     startAllTimeTracking: jest.fn(),
@@ -62,6 +71,7 @@ describe('PomodoroTimer', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockGuest = false
+    mockHasTasks = true
     jest.useFakeTimers()
     // Clear persisted timer sessions so the recovery modal doesn't leak between tests
     window.localStorage.clear()
@@ -71,12 +81,15 @@ describe('PomodoroTimer', () => {
     jest.useRealTimers()
   })
 
-  it('should render timer with default settings', () => {
-    render(<PomodoroTimer settings={defaultSettings} />)
-
+  it('opens My day first and requires a deliberate start after choosing focus', () => {
+    renderComponent(<PomodoroTimer settings={defaultSettings} />)
+    expect(screen.getByRole('heading', { name: 'A good day starts small.' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Test Task 1' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Pause' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Begin focus' }))
     expect(screen.getByText('25:00')).toBeInTheDocument()
-    expect(screen.getByText('Today\'s Sessions:')).toBeInTheDocument()
-    expect(screen.getByText('0')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start' })).toBeVisible()
+    expect(screen.getByRole('progressbar', { name: 'Daily focus goal' })).toHaveAttribute('aria-valuenow', '0')
   })
 
   it('should render phase buttons', () => {
@@ -142,8 +155,7 @@ describe('PomodoroTimer', () => {
 
   it('should show task selector when user is authenticated', () => {
     render(<PomodoroTimer settings={defaultSettings} />)
-
-    expect(screen.getByText('Tasks for this timer')).toBeInTheDocument()
+    fireEvent.click(screen.getByText(/Tasks for this timer/))
     expect(screen.getByRole('button', { name: /choose or create task/i })).toBeInTheDocument()
   })
 
@@ -171,6 +183,7 @@ describe('PomodoroTimer', () => {
   })
 
   it('counts standalone focus across remounts, excludes breaks and previous days', async () => {
+    mockHasTasks = false
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     localStorage.setItem('pomofly_completed_sessions', JSON.stringify([{ date: yesterday }]))
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
@@ -230,11 +243,11 @@ describe('PomodoroTimer', () => {
   it.each([false, true])('should count completed sessions with guest mode %s', async (guest) => {
     mockGuest = guest
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
-    // Sessions are only counted when tasks are selected; the component reads this on mount
+    // Selected tasks receive credit, while the daily count also supports standalone focus.
     window.localStorage.setItem('selectedTaskIds', JSON.stringify(['task-1']))
     render(<PomodoroTimer settings={defaultSettings} />)
-    expect(screen.getByText('Tasks for this timer')).toBeInTheDocument()
-    expect(screen.getByText('Test Task 1')).toBeInTheDocument()
+    expect(screen.getByText(/Tasks for this timer/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Test Task 1' })).toBeInTheDocument()
 
     const startButton = screen.getByRole('button', { name: /start/i })
     await user.click(startButton)

@@ -51,15 +51,15 @@ export function TimerRecoveryModal({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-blue-600" />
+            <Clock className="h-5 w-5 text-primary" />
             <DialogTitle>Resume Previous Session?</DialogTitle>
           </div>
         </DialogHeader>
         
         <div className="space-y-4">
-          <div className="bg-blue-50 rounded-lg p-4">
-            <h3 className="font-medium text-blue-900 mb-2">Previous Session Found</h3>
-            <div className="text-sm text-blue-700 space-y-1">
+          <div className="bg-secondary rounded-lg p-4">
+            <h3 className="font-medium text-foreground mb-2">Previous Session Found</h3>
+            <div className="text-sm text-muted-foreground space-y-1">
               <div>• <strong>Phase:</strong> {phaseDisplayName}</div>
               <div>• <strong>Time remaining:</strong> {remainingMinutes}:{remainingSeconds.toString().padStart(2, '0')}</div>
               <div>• <strong>Status:</strong> {session.isActive ? 'Running' : 'Paused'}</div>
@@ -78,7 +78,7 @@ export function TimerRecoveryModal({
             </div>
           )}
 
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <Button 
               onClick={handleRestore} 
               disabled={isRestoring}
@@ -107,7 +107,7 @@ export function TimerRecoveryModal({
             </Button>
           </div>
 
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             We automatically save your timer progress to help you continue where you left off.
           </p>
         </div>

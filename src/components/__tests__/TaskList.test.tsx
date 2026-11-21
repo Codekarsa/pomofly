@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, act, within } from '@testing-library/react'
+import { render, screen, act, within, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import TaskList from '../TaskList'
 import TodayFocusSection from '../TodayFocusSection'
@@ -17,6 +17,9 @@ beforeAll(() => {
     value: class { observe() {} unobserve() {} disconnect() {} }
   })
   Element.prototype.scrollIntoView = jest.fn()
+  Element.prototype.hasPointerCapture = jest.fn(() => false)
+  Element.prototype.setPointerCapture = jest.fn()
+  Element.prototype.releasePointerCapture = jest.fn()
 })
 
 it('keeps creation project separate from list filtering and explains empty search results', async () => {
@@ -32,7 +35,7 @@ it('keeps creation project separate from list filtering and explains empty searc
   const user = userEvent.setup()
   render(<TaskList />)
   await user.click(screen.getByRole('button', { name: 'Add Task' }))
-  await user.click(screen.getByText('Optional details: project, estimate, star & labels'))
+  await user.click(screen.getByText('Optional details: project, dates, estimate, star & labels'))
   await user.click(screen.getByRole('combobox', { name: 'Project (optional)' }))
   await user.click(screen.getByRole('option', { name: 'Personal' }))
   expect(screen.getByText('Draft launch email')).toBeVisible()
@@ -65,7 +68,7 @@ it('creates a title-only Inbox task and hands it to an idle focus timer without 
   TimerPersistence.saveSession({ phase: 'shortBreak', isActive: false, timerStartedAt: null,
     pausedTimeRemaining: null, sessionsCompleted: 2, sessionCreatedAt: Date.now(), settings: defaultSettings })
   render(<PomodoroTimer settings={defaultSettings} />)
-  expect(screen.getByText('Write the first chapter')).toBeVisible()
+  expect(screen.getByRole('heading', { name: 'Write the first chapter' })).toBeVisible()
   expect(screen.getByText('25:00')).toBeVisible()
   expect(screen.getByRole('button', { name: 'Start' })).toBeVisible()
   expect(JSON.parse(localStorage.getItem('selectedTaskIds')!)).toEqual([task.id])
@@ -83,7 +86,7 @@ it('creates and selects a task directly from the empty timer', async () => {
   expect(screen.getByRole('button', { name: 'Create and select task' })).toBeDisabled()
   await user.type(screen.getByRole('textbox', { name: 'Search or name a new task' }), 'Prepare a presentation')
   await user.click(screen.getByRole('button', { name: 'Create and select task' }))
-  expect(screen.getByText('Prepare a presentation')).toBeVisible()
+  expect(screen.getByRole('heading', { name: 'Prepare a presentation' })).toBeVisible()
   const [task] = JSON.parse(localStorage.getItem('pomofly_guest_tasks')!)
   expect(task.projectId).toBe('')
   expect(JSON.parse(localStorage.getItem('selectedTaskIds')!)).toEqual([task.id])
@@ -127,7 +130,7 @@ it.each([true, false])('preserves an existing running=%s session when opening an
   expect(screen.getByText(/Your previous timer has been kept/)).toBeVisible()
   await user.click(screen.getByRole('button', { name: 'Keep current tasks' }))
   expect(screen.queryByText('Buy groceries')).not.toBeInTheDocument()
-  expect(screen.getByText('Draft launch email')).toBeVisible()
+  expect(screen.getByRole('heading', { name: 'Draft launch email' })).toBeVisible()
   expect(JSON.parse(localStorage.getItem('selectedTaskIds')!)).toEqual(['draft'])
   expect(screen.getByRole('button', { name: isActive ? 'Pause' : 'Start' })).toBeVisible()
 })
@@ -165,6 +168,7 @@ it('saves actual guest task time on an early ending without full-session credit'
     ]))
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
     render(<PomodoroTimer settings={defaultSettings} />)
+    await user.click(screen.getByRole('button', { name: 'Begin focus' }))
     await user.click(screen.getByRole('button', { name: 'Start' }))
     act(() => jest.advanceTimersByTime(7000))
     await user.click(screen.getByRole('button', { name: 'End early' }))
@@ -175,6 +179,142 @@ it('saves actual guest task time on an early ending without full-session credit'
     expect(task.totalPomodoroSessions).toBe(0)
     expect(JSON.parse(localStorage.getItem('pomofly_completed_sessions')!)).toEqual([])
     expect(screen.getByText('05:00')).toBeInTheDocument()
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
+it('suggests planned work first and separates a completed session from finishing the task', async () => {
+  jest.useFakeTimers({ now: new Date(2026, 10, 21, 12) })
+  try {
+    localStorage.clear()
+    const taskDefaults = { createdAt: new Date(), completed: false, manualTimeSpent: 0, totalTimeSpent: 0, totalPomodoroSessions: 0 }
+    localStorage.setItem('pomofly_guest_tasks', JSON.stringify([
+      { ...taskDefaults, id: 'future', title: 'Future starred work', plannedFor: '2026-11-24', focus: true },
+      { ...taskDefaults, id: 'inbox', title: 'An unscheduled idea' },
+      { ...taskDefaults, id: 'today', title: 'Work planned for today', plannedFor: '2026-11-21' },
+    ]))
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
+    render(<PomodoroTimer settings={{ ...defaultSettings, pomodoro: 1 }} />)
+    expect(screen.getByRole('heading', { name: 'Work planned for today' })).toBeVisible()
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Begin focus' })) })
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Start' })) })
+    await act(async () => { jest.advanceTimersByTime(60000) })
+    expect(screen.getByRole('progressbar', { name: 'Daily focus goal' })).toHaveAttribute('aria-valuenow', '1')
+    expect(screen.getByRole('status')).toHaveTextContent('Session complete. 1 focused minute')
+    const tasks = () => JSON.parse(localStorage.getItem('pomofly_guest_tasks')!)
+    expect(tasks().find((task: { id: string }) => task.id === 'today')).toMatchObject({ completed: false, totalPomodoroSessions: 1, totalTimeSpent: 1, manualTimeSpent: 60, trackingStartedAt: null })
+    await user.click(screen.getByRole('button', { name: 'Mark task done' }))
+    expect(tasks().find((task: { id: string }) => task.id === 'today').completed).toBe(true)
+    expect(tasks().find((task: { id: string }) => task.id === 'future')).toMatchObject({ completed: false, plannedFor: '2026-11-24', totalPomodoroSessions: 0 })
+    await user.click(screen.getByRole('button', { name: 'Start' }))
+    expect(screen.queryByRole('button', { name: 'Mark task done' })).not.toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: 'Daily focus goal' })).toHaveAttribute('aria-valuenow', '1')
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
+it('pastes 50 tasks in four project batches with shared planning dates and keeps intake open', async () => {
+  localStorage.clear()
+  const groups = [['Launch', 13], ['Website', 13], ['Client', 12], ['Operations', 12]] as const
+  localStorage.setItem('pomofly_guest_projects', JSON.stringify(groups.map(([name]) => ({ id: name, name, userId: 'guest', createdAt: new Date() }))))
+  const user = userEvent.setup()
+  const view = render(<TaskList />)
+  await user.click(screen.getByRole('button', { name: 'Paste multiple tasks' }))
+  fireEvent.change(screen.getByLabelText('Planned for (optional)'), { target: { value: '2026-11-22' } })
+  fireEvent.change(screen.getByLabelText('Due by (optional)'), { target: { value: '2026-11-27' } })
+  for (const [name, count] of groups) {
+    await user.click(screen.getByRole('combobox', { name: 'Project (optional)' }))
+    await user.click(screen.getByRole('option', { name }))
+    await user.click(screen.getByRole('textbox', { name: 'Task titles (one per line)' }))
+    await user.paste(Array.from({ length: count }, (_, index) => `  ${name} task ${index + 1}  `).join('\r\n\n'))
+    await user.click(screen.getByRole('button', { name: `Add ${count} tasks` }))
+    expect(screen.getByRole('textbox', { name: 'Task titles (one per line)' })).toHaveValue('')
+    expect(screen.getByRole('status')).toHaveTextContent(`Added ${count} tasks`)
+  }
+  const stored = JSON.parse(localStorage.getItem('pomofly_guest_tasks')!)
+  expect(stored).toHaveLength(50)
+  expect(new Set(stored.map((task: { id: string }) => task.id)).size).toBe(50)
+  for (const [name, count] of groups) {
+    expect(stored.filter((task: { projectId: string }) => task.projectId === name)).toHaveLength(count)
+  }
+  expect(stored.every((task: { plannedFor: string; deadline: string; title: string }) => task.plannedFor === '2026-11-22' && task.deadline === '2026-11-27' && task.title === task.title.trim())).toBe(true)
+  view.unmount()
+  render(<TaskList />)
+  expect(screen.getByText('Showing 5 of 50 active tasks · 50 active in total')).toBeVisible()
+})
+
+it('rejects an invalid batch without adding its valid lines and keeps the pasted input', async () => {
+  localStorage.clear()
+  const user = userEvent.setup()
+  render(<TaskList />)
+  await user.click(screen.getByRole('button', { name: 'Paste multiple tasks' }))
+  const input = `Valid task\n${'x'.repeat(501)}`
+  fireEvent.change(screen.getByRole('textbox', { name: 'Task titles (one per line)' }), { target: { value: input } })
+  await user.click(screen.getByRole('button', { name: 'Add 2 tasks' }))
+  expect(screen.getByRole('alert')).toHaveTextContent('Nothing has been added')
+  expect(JSON.parse(localStorage.getItem('pomofly_guest_tasks') || '[]')).toEqual([])
+  expect(screen.getByRole('textbox', { name: 'Task titles (one per line)' })).toHaveValue(input)
+})
+
+it('plans a week, moves work, adds a forgotten task in context, and bulk edits dates independently', async () => {
+  jest.useFakeTimers({ now: new Date(2026, 10, 21, 12) })
+  try {
+    localStorage.clear()
+    localStorage.setItem('pomofly_guest_projects', JSON.stringify([{ id: 'work', name: 'Work', createdAt: new Date() }]))
+    localStorage.setItem('pomofly_guest_tasks', JSON.stringify([
+      { id: 'sun', title: 'Work review', projectId: 'work', plannedFor: '2026-11-22', deadline: '2026-11-28', estimatedPomodoros: 3, createdAt: new Date(), completed: false },
+      { id: 'unscheduled', title: 'Work backlog', projectId: 'work', deadline: '2026-11-22', createdAt: new Date(), completed: false },
+      { id: 'personal', title: 'Personal errand', projectId: '', createdAt: new Date(), completed: false },
+    ]))
+    // jsdom does not render Radix portal pointer styles; real pointer behavior is checked in Chromium.
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime, pointerEventsCheck: 0 })
+    render(<TaskList />)
+    await user.click(screen.getByRole('button', { name: 'This week' }))
+    await user.click(screen.getByRole('combobox', { name: 'Sort tasks by' }))
+    await user.keyboard('{ArrowDown}')
+    await user.click(screen.getByRole('option', { name: 'Due date' }))
+    await user.click(screen.getByRole('button', { name: 'Filter tasks' }))
+    await user.click(screen.getByRole('combobox', { name: 'Filter by project' }))
+    await user.keyboard('{ArrowDown}')
+    await user.click(screen.getByRole('option', { name: 'Work' }))
+    await user.keyboard('{Escape}')
+    expect(within(screen.getByRole('region', { name: 'Sun, Nov 22' })).getByText('3 estimated focus sessions', { exact: false })).toBeVisible()
+    expect(within(screen.getByRole('region', { name: 'Unscheduled' })).getByText('Work backlog')).toBeVisible()
+    expect(screen.queryByText('Personal errand')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Actions for Work review' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Plan task / move to day' }))
+    fireEvent.change(screen.getByLabelText('Planned for', { exact: true }), { target: { value: '2026-11-23' } })
+    await user.click(screen.getByRole('button', { name: 'Save dates' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(screen.queryByText('Work review')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Next week' }))
+    expect(within(screen.getByRole('region', { name: 'Mon, Nov 23' })).getByText('Work review')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Add task to Mon, Nov 23' }))
+    await user.type(screen.getByRole('textbox', { name: 'Task title (required)' }), 'Work forgotten follow-up')
+    await user.click(screen.getByRole('button', { name: 'Add Task' }))
+    expect(screen.getByRole('button', { name: 'This week' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('combobox', { name: 'Sort tasks by' })).toHaveTextContent('Due date')
+    expect(within(screen.getByRole('region', { name: 'Mon, Nov 23' })).getByText('Work forgotten follow-up')).toBeVisible()
+    const added = JSON.parse(localStorage.getItem('pomofly_guest_tasks')!).find((task: { title: string }) => task.title === 'Work forgotten follow-up')
+    expect(added).toMatchObject({ projectId: 'work', plannedFor: '2026-11-23', deadline: null })
+    await user.click(screen.getByRole('checkbox', { name: 'Select task: Work review' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Select task: Work forgotten follow-up' }))
+    await user.click(screen.getByRole('button', { name: 'Set deadline' }))
+    fireEvent.change(screen.getByLabelText('Due by', { exact: true }), { target: { value: '2026-11-30' } })
+    await user.click(screen.getByRole('button', { name: 'Save dates' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    let tasks = JSON.parse(localStorage.getItem('pomofly_guest_tasks')!)
+    expect(tasks.filter((task: { id: string }) => ['sun', added.id].includes(task.id)).map((task: { plannedFor: string; deadline: string }) => [task.plannedFor, task.deadline])).toEqual([['2026-11-23', '2026-11-30'], ['2026-11-23', '2026-11-30']])
+    await user.click(screen.getByRole('checkbox', { name: 'Select task: Work review' }))
+    await user.click(screen.getByRole('button', { name: 'Plan work' }))
+    // Clearing the planned day must not erase the independent deadline.
+    await user.click(screen.getByRole('button', { name: 'Clear dates' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    tasks = JSON.parse(localStorage.getItem('pomofly_guest_tasks')!)
+    expect(tasks.find((task: { id: string }) => task.id === 'sun')).toMatchObject({ plannedFor: null, deadline: '2026-11-30' })
+    expect(within(screen.getByRole('region', { name: 'Unscheduled' })).getByText('Work review')).toBeVisible()
   } finally {
     jest.useRealTimers()
   }

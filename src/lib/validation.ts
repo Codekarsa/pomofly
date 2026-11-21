@@ -22,6 +22,8 @@ export const TaskSchema = z.object({
   // Fields added after launch — default them so legacy documents still validate
   focus: z.boolean().default(false),
   deadline: z.string().nullable().default(null),
+  // Optional for compatibility with existing tasks; never infer a plan from a deadline.
+  plannedFor: z.string().date().nullable().optional(),
   manualTimeSpent: z.number().min(0, 'Manual time spent cannot be negative').default(0),
   trackingStartedAt: z.date().nullable().default(null),
   // NEW: Estimation tracking fields

@@ -144,6 +144,7 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({
             estimatedPomodoros: task.estimatedPomodoros || 1,
             focus: task.focus || false,
             deadline: task.deadline || null,
+            plannedFor: task.plannedFor || null,
             manualTimeSpent: task.manualTimeSpent || 0,
             trackingStartedAt: null, // Reset tracking on import
           };

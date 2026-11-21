@@ -30,6 +30,7 @@ interface BulkActionToolbarProps {
   onChangeProject: (projectId: string) => void;
   onSetFocus: (focus: boolean) => void;
   onClearSelection: () => void;
+  onSchedule?: (field: 'plannedFor' | 'deadline') => void;
   projects: Project[];
 }
 
@@ -40,6 +41,7 @@ const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
   onChangeProject,
   onSetFocus,
   onClearSelection,
+  onSchedule,
   projects,
 }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -63,6 +65,10 @@ const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 min-w-0">
+          {onSchedule && <>
+            <Button variant="outline" size="sm" onClick={() => onSchedule('plannedFor')}>Plan work</Button>
+            <Button variant="outline" size="sm" onClick={() => onSchedule('deadline')}>Set deadline</Button>
+          </>}
           <Button
             variant="outline"
             size="sm"

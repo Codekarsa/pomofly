@@ -11,6 +11,7 @@ import AppLayout from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { formatTaskDate } from '@/lib/taskDates';
 import PomodoroProgressBar from '@/components/PomodoroProgressBar';
 import {
   AlertDialog,
@@ -218,8 +219,8 @@ export default function TaskDetailClient() {
 
           <Card>
             <CardHeader className="pb-4">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
                   {isEditing ? (
                     <Input
                       value={editTitle}
@@ -230,7 +231,7 @@ export default function TaskDetailClient() {
                     />
                   ) : (
                     <CardTitle className={cn(
-                      "text-xl",
+                      "font-display text-3xl break-words [overflow-wrap:anywhere]",
                       task.completed && "line-through text-muted-foreground"
                     )}>
                       {task.title}
@@ -280,7 +281,7 @@ export default function TaskDetailClient() {
                   variant={task.completed ? "default" : "outline"}
                   size="sm"
                   onClick={handleToggleCompletion}
-                  className={cn(task.completed && "bg-green-500 hover:bg-green-600")}
+                  className={cn(task.completed && "bg-primary hover:bg-primary/90")}
                 >
                   <CheckCircle className="w-4 h-4 mr-2" />
                   {task.completed ? 'Completed' : 'Mark Complete'}
@@ -289,15 +290,15 @@ export default function TaskDetailClient() {
                   variant={task.focus ? "default" : "outline"}
                   size="sm"
                   onClick={handleToggleFocus}
-                  className={cn(task.focus && "bg-amber-500 hover:bg-amber-600")}
+                  className={cn(task.focus && "bg-secondary text-foreground hover:bg-accent")}
                 >
                   <Star className="w-4 h-4 mr-2" fill={task.focus ? "currentColor" : "none"} />
-                  {task.focus ? 'Focused' : 'Add to Focus'}
+                  {task.focus ? 'Starred' : 'Star task'}
                 </Button>
               </div>
 
               {/* Task Details Grid */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {/* Deadline */}
                 <div className="p-4 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
@@ -314,9 +315,15 @@ export default function TaskDetailClient() {
                     />
                   ) : (
                     <p className="font-medium">
-                      {task.deadline ? new Date(task.deadline).toLocaleDateString() : 'No deadline'}
+                      {task.deadline ? formatTaskDate(task.deadline) : 'No deadline'}
                     </p>
                   )}
+                </div>
+
+                <div className="p-4 rounded-lg bg-muted/50">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1"><Calendar className="w-4 h-4" />Planned for</div>
+                  <p className="font-medium">{task.plannedFor ? formatTaskDate(task.plannedFor) : 'Unscheduled'}</p>
+                  <Link href="/tasks" className="text-sm underline">Change in task plan</Link>
                 </div>
 
                 {/* Time Spent */}

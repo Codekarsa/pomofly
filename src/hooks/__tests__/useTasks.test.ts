@@ -2,7 +2,7 @@ import { renderHook, act, waitFor } from '@testing-library/react'
 import { useTasks } from '../useTasks'
 import { auth } from '@/lib/firebase'
 import { transformFirebaseTask } from '@/lib/validation'
-import { onSnapshot, addDoc, updateDoc, deleteDoc, increment, query, where } from 'firebase/firestore'
+import { onSnapshot, addDoc, updateDoc, deleteDoc, increment, query, where, writeBatch, doc } from 'firebase/firestore'
 
 // Mock Firebase Firestore
 jest.mock('firebase/firestore', () => ({
@@ -17,6 +17,7 @@ jest.mock('firebase/firestore', () => ({
   doc: jest.fn(() => ({ type: 'doc' })),
   increment: jest.fn(),
   writeBatch: jest.fn(() => ({
+    set: jest.fn(),
     update: jest.fn(),
     commit: jest.fn().mockResolvedValue(undefined),
   })),
@@ -156,6 +157,55 @@ describe('useTasks', () => {
     expect(transformFirebaseTask({ id: 'new-task-id', ...data })).toMatchObject({
       title: 'Read the proposal', projectId: '', completed: false, createdAt: expect.any(Date),
     })
+  })
+
+  it('round-trips batch cloud tasks with independent planned days and deadlines', async () => {
+    const documents: Record<string, unknown>[] = []
+    const updates: Record<string, unknown>[] = []
+    ;(doc as jest.Mock).mockReturnValueOnce({ id: 'alpha' }).mockReturnValueOnce({ id: 'beta' })
+    ;(writeBatch as jest.Mock).mockReturnValueOnce({
+      set: (_ref: unknown, data: Record<string, unknown>) => documents.push(data),
+      commit: async () => undefined,
+    }).mockReturnValueOnce({
+      update: (_ref: unknown, data: Record<string, unknown>) => updates.push(data),
+      commit: async () => undefined,
+    })
+    const { result } = renderHook(() => useTasks())
+    await act(async () => {
+      expect(await result.current.addTasks(['  Prepare brief ', 'Review budget'], 'launch', 2, false, [], { plannedFor: '2026-11-22', deadline: '2026-11-28' })).toEqual(['alpha', 'beta'])
+      await result.current.setTaskDates(['alpha', 'beta'], { plannedFor: '2026-11-24' })
+    })
+    expect(documents.map((data, index) => transformFirebaseTask({ id: ['alpha', 'beta'][index], ...data }))).toEqual([
+      expect.objectContaining({ title: 'Prepare brief', plannedFor: '2026-11-22', deadline: '2026-11-28', estimatedPomodoros: 2 }),
+      expect.objectContaining({ title: 'Review budget', plannedFor: '2026-11-22', deadline: '2026-11-28', estimatedPomodoros: 2 }),
+    ])
+    expect(documents.every(data => !Object.values(data).includes(undefined))).toBe(true)
+    expect(updates).toEqual([{ plannedFor: '2026-11-24' }, { plannedFor: '2026-11-24' }])
+  })
+
+  it('reports a failed guest batch save without losing existing tasks', async () => {
+    const signedInUser = auth.currentUser
+    Object.assign(auth, { currentUser: null })
+    localStorage.clear()
+    const { result, unmount } = renderHook(() => useTasks())
+    const log = jest.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      await act(async () => { await result.current.addTask('Keep existing work') })
+      const save = jest.spyOn(Storage.prototype, 'setItem').mockImplementationOnce(() => { throw new Error('Storage full') })
+      try {
+        await act(async () => {
+          await expect(result.current.addTasks(['First new task', 'Second new task'])).rejects.toThrow('Storage full')
+        })
+        expect(JSON.parse(localStorage.getItem('pomofly_guest_tasks')!).map((task: { title: string }) => task.title)).toEqual(['Keep existing work'])
+      } finally {
+        save.mockRestore()
+      }
+    } finally {
+      unmount()
+      Object.assign(auth, { currentUser: signedInUser })
+      log.mockRestore()
+      localStorage.clear()
+    }
   })
 
   it('should update a task', async () => {

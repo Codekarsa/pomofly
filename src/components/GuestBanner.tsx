@@ -8,19 +8,19 @@ interface GuestBannerProps {
 
 const GuestBanner: React.FC<GuestBannerProps> = ({ onDismiss }) => {
   return (
-    <div className="shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-2">
+    <div className="shrink-0 border-b bg-secondary/40 px-4 py-2">
       <div className="flex items-center justify-between max-w-7xl mx-auto">
-        <div className="flex items-center gap-2 text-sm text-amber-800">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Cloud className="w-4 h-4 shrink-0" />
           <span>
-            <strong>Guest mode:</strong> Your data is saved locally.{' '}
+            Guest mode: Your data is saved on this browser.{' '}
             <span className="hidden sm:inline">Use Sign In to sync across devices.</span>
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <button
             onClick={onDismiss}
-            className="text-amber-600 hover:text-amber-800 p-1"
+            className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
             aria-label="Dismiss"
           >
             <X className="w-4 h-4" />

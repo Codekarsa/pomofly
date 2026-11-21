@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useTasks, Task } from '../hooks/useTasks';
 import { useProjects } from '../hooks/useProjects';
@@ -8,6 +8,10 @@ import { useEstimation, type EstimationResult } from '@/hooks/useEstimation';
 import { Button } from '@/components/ui/button';
 import { MobileButton } from '@/components/ui/mobile-button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { taskDateKey, shiftTaskDate, formatTaskDate } from '@/lib/taskDates';
+import TaskPlan from './TaskPlan';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { MoreHorizontal, Plus, Pencil, Trash2, Star, Calendar, ChevronDown, ChevronRight, Search, ArrowUpAZ, ArrowDownAZ, Filter, CheckCircle, Eye, FolderOpen } from 'lucide-react';
@@ -76,7 +80,7 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
   return (
     <div className="mt-4">
       <button
-        className="flex items-center text-sm text-gray-600 hover:text-gray-900 focus:outline-none mb-2"
+        className="flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring mb-2"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >
@@ -86,13 +90,13 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
       {open && (
         <ul className="space-y-2">
           {tasks.map((task) => (
-            <li key={task.id} className="flex items-center justify-between p-2 bg-muted rounded-md transition-colors">
-              <div className="flex items-center space-x-2">
+            <li key={task.id} className="flex items-start justify-between gap-2 p-2 bg-muted rounded-md transition-colors">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                 <MobileButton
                   variant="ghost"
                   size="icon"
                   onClick={() => onToggleTaskCompletion(task.id, task.completed)}
-                  className="text-green-500 hover:text-gray-400"
+                  className="text-primary hover:text-muted-foreground"
                   aria-label="Mark as incomplete"
                 >
                   <CheckCircle className="w-4 h-4" fill="currentColor" />
@@ -101,13 +105,13 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
                   variant="ghost"
                   size="icon"
                   onClick={() => onToggleTaskFocus(task.id, task.focus || false)}
-                  className={`${task.focus ? 'text-yellow-500' : 'text-gray-400'}`}
+                  className={`${task.focus ? 'text-amber-600' : 'text-muted-foreground'}`}
                   aria-label={task.focus ? 'Unstar task' : 'Star task'}
                   aria-pressed={!!task.focus}
                 >
                   <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
                 </MobileButton>
-                <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
+                <span className={`order-first min-w-0 basis-full break-words text-sm [overflow-wrap:anywhere] ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
                 {task.projectId && <ProjectBadge projectId={task.projectId} />}
                 <TaskLabels labelIds={task.labelIds} />
                 <span className="text-xs text-muted-foreground">
@@ -115,12 +119,12 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
                 </span>
                 {task.deadline && (
                   <span className={`text-xs px-2 py-1 rounded ${
-                    new Date(task.deadline) < new Date() 
+                    task.deadline < taskDateKey(new Date())
                       ? 'bg-red-100 text-red-800' 
-                      : 'bg-blue-100 text-blue-800'
+                      : 'bg-muted text-muted-foreground'
                   }`}>
-                    {new Date(task.deadline).toLocaleDateString()}
-                    {new Date(task.deadline) < new Date() && ' (Overdue)'}
+                    Due {formatTaskDate(task.deadline)}
+                    {task.deadline < taskDateKey(new Date()) && ' (Overdue)'}
                   </span>
                 )}
               </div>
@@ -184,6 +188,19 @@ const sortOptions = [
 
 const TaskList = React.memo(() => {
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [batchEntry, setBatchEntry] = useState(false);
+  const [newTaskPlannedFor, setNewTaskPlannedFor] = useState('');
+  const [newTaskDeadline, setNewTaskDeadline] = useState('');
+  const titleInput = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const [created, setCreated] = useState<{ count: number; id: string } | null>(null);
+  const [taskView, setTaskView] = useState<'all' | 'today' | 'tomorrow' | 'week'>('all');
+  const today = taskDateKey(new Date());
+  const [weekStart, setWeekStart] = useState(() => shiftTaskDate(today, -((new Date().getDay() + 6) % 7)));
+  const planDays = taskView === 'week' ? Array.from({ length: 7 }, (_, index) => shiftTaskDate(weekStart, index)) : [taskView === 'tomorrow' ? shiftTaskDate(today, 1) : today];
+  const [dateEditor, setDateEditor] = useState<{ ids: string[]; field: 'plannedFor' | 'deadline'; value: string } | null>(null);
+  const [savingDates, setSavingDates] = useState(false);
+  const [dateError, setDateError] = useState<string | null>(null);
   const [estimatedPomodoros, setEstimatedPomodoros] = useState<number | undefined>(undefined);
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [newTaskFocus, setNewTaskFocus] = useState(false);
@@ -218,6 +235,8 @@ const TaskList = React.memo(() => {
     loading: tasksLoading,
     error: tasksError,
     addTask,
+    addTasks,
+    setTaskDates,
     updateTask,
     toggleTaskCompletion,
     deleteTask,
@@ -286,15 +305,14 @@ const TaskList = React.memo(() => {
   // Project Badge Component
   const ProjectBadge = ({ projectId }: { projectId: string }) => {
     const projectName = getProjectName(projectId);
-    const displayName = projectName.length > 12 ? projectName.substring(0, 12) + '...' : projectName;
 
     return (
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-secondary text-secondary-foreground transition-colors duration-150 hover:bg-secondary/80">
-              <FolderOpen className="w-3 h-3" />
-              {displayName}
+            <span className="inline-flex max-w-full items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-secondary text-secondary-foreground transition-colors duration-150 hover:bg-secondary/80">
+              <FolderOpen className="w-3 h-3 shrink-0" />
+              <span className="min-w-0 break-words [overflow-wrap:anywhere]">{projectName}</span>
             </span>
           </TooltipTrigger>
           <TooltipContent>
@@ -323,18 +341,47 @@ const TaskList = React.memo(() => {
     event('task_list_view', { total_tasks: tasks.length });
   }, [event, tasks.length]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('view') === 'week') setTaskView('week');
+    if (params.get('project')) setProjectFilter(params.get('project')!);
+  }, []);
+
+  const openTaskForm = useCallback((day = '') => {
+    setNewTaskPlannedFor(day);
+    if (projectFilter !== 'all') setSelectedProjectId(projectFilter === 'inbox' ? '' : projectFilter);
+    setNewTaskLabelIds(labelFilter === 'all' ? [] : [labelFilter]);
+    setNewTaskFocus(statusFilter === 'focused');
+    setShowAddTaskForm(true);
+    setCreated(null);
+    requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ block: 'start' });
+      titleInput.current?.focus();
+    });
+  }, [projectFilter, labelFilter, statusFilter]);
+
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setAddTaskError(null);
-    if (!newTaskTitle.trim()) {
+    const titles = batchEntry ? newTaskTitle.split(/\r?\n/).map(title => title.trim()).filter(Boolean) : [newTaskTitle.trim()];
+    if (!titles.length || !titles[0]) {
       setAddTaskError('Enter a task title.');
       e.currentTarget.scrollIntoView({ block: 'start' });
       return;
     }
+    if (titles.length > 500 || titles.some(title => title.length > 500)) {
+      setAddTaskError('Use at most 500 tasks per batch and 500 characters per title. Nothing has been added.');
+      return;
+    }
     if (isAddingTask) return;
+    const keepOpen = batchEntry || (e.nativeEvent as SubmitEvent).submitter?.getAttribute('data-keep-open') === 'true';
     setIsAddingTask(true);
     try {
-      await addTask(newTaskTitle.trim(), selectedProjectId, estimatedPomodoros, newTaskFocus, newTaskLabelIds);
+      const dates = { plannedFor: newTaskPlannedFor || null, deadline: newTaskDeadline || null };
+      const ids = batchEntry
+        ? await addTasks(titles, selectedProjectId, estimatedPomodoros, newTaskFocus, newTaskLabelIds, dates)
+        : [await addTask(titles[0], selectedProjectId, estimatedPomodoros, newTaskFocus, newTaskLabelIds, dates)];
+      setCreated({ count: ids.length, id: ids[0] });
 
       // Track estimation source analytics
       const estimationSource = estimation ? 'ai-suggested' : 'manual';
@@ -348,28 +395,30 @@ const TaskList = React.memo(() => {
         ai_confidence: estimation?.confidence
       });
 
-      // Reset form and reveal the new task even if filters were active.
+      // Keep planning/filter context; the confirmation links to a task even if filters hide it.
       setNewTaskTitle('');
-      setEstimatedPomodoros(undefined);
-      setNewTaskFocus(false);
-      setNewTaskLabelIds([]);
+      if (!keepOpen) {
+        setNewTaskDeadline('');
+        setNewTaskPlannedFor('');
+        setEstimatedPomodoros(undefined);
+        setNewTaskFocus(false);
+        setNewTaskLabelIds([]);
+      }
       setEstimation(null);
-      setSearch('');
-      setProjectFilter('all');
-      setLabelFilter('all');
-      setStatusFilter('all');
-      setSortBy('createdAt');
-      setSortOrder('desc');
-      setCurrentPage(0);
-      setShowAddTaskForm(false);
+      if (taskView === 'all' && sortBy === 'createdAt') {
+        setSortOrder('desc');
+        setCurrentPage(0);
+      }
+      setShowAddTaskForm(keepOpen);
+      if (keepOpen) requestAnimationFrame(() => titleInput.current?.focus());
     } catch (error) {
       console.error("Failed to add task:", error);
-      setAddTaskError('Could not add the task. Please try again.');
+      setAddTaskError('Could not save the tasks. Your input has been kept. Please try again.');
       event('task_add_error', { error_message: (error as Error).message });
     } finally {
       setIsAddingTask(false);
     }
-  }, [addTask, event, estimatedPomodoros, newTaskTitle, selectedProjectId, newTaskFocus, newTaskLabelIds, estimation, isAddingTask]);
+  }, [addTask, addTasks, batchEntry, newTaskPlannedFor, newTaskDeadline, taskView, sortBy, event, estimatedPomodoros, newTaskTitle, selectedProjectId, newTaskFocus, newTaskLabelIds, estimation, isAddingTask]);
 
   const handleUpdateTask = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -405,7 +454,7 @@ const TaskList = React.memo(() => {
     }
 
     // Only estimate if title is long enough and user hasn't entered an estimate yet
-    if (newTaskTitle.length >= 5) {
+    if (!batchEntry && newTaskTitle.length >= 5) {
       const timer = setTimeout(async () => {
         try {
           const result = await getEstimate(
@@ -438,7 +487,7 @@ const TaskList = React.memo(() => {
         clearTimeout(estimationDebounceTimer);
       }
     };
-  }, [newTaskTitle, selectedProjectId, getEstimate, estimatedPomodoros]);
+  }, [newTaskTitle, selectedProjectId, getEstimate, estimatedPomodoros, batchEntry]);
 
   // Filtering logic
   const filteredTasks = useMemo(() => {
@@ -485,6 +534,7 @@ const TaskList = React.memo(() => {
 
   // Only paginate active (incomplete) tasks after filtering/sorting
   const activeTasks = useMemo(() => sortedTasks.filter(task => !task.completed), [sortedTasks]);
+  const selectableTasks = taskView === 'all' ? activeTasks : activeTasks.filter(task => !task.plannedFor || task.plannedFor <= planDays[planDays.length - 1]);
   const completedTasks = useMemo(() => sortedTasks.filter(task => task.completed), [sortedTasks]);
   const paginatedActiveTasks = useMemo(() =>
     activeTasks.slice(0, (currentPage + 1) * itemsPerPage),
@@ -549,12 +599,17 @@ const TaskList = React.memo(() => {
   }, []);
 
   const handleSelectAll = useCallback(() => {
-    if (selectedTasks.size === activeTasks.length && activeTasks.length > 0) {
+    if (selectedTasks.size === selectableTasks.length && selectableTasks.length > 0) {
       setSelectedTasks(new Set());
     } else {
-      setSelectedTasks(new Set(activeTasks.map(t => t.id)));
+      setSelectedTasks(new Set(selectableTasks.map(t => t.id)));
     }
-  }, [activeTasks, selectedTasks.size]);
+  }, [selectableTasks, selectedTasks.size]);
+
+  useEffect(() => {
+    setSelectedTasks(new Set());
+    setCurrentPage(0);
+  }, [projectFilter, labelFilter, statusFilter, search, taskView, weekStart]);
 
   const handleClearSelection = useCallback(() => {
     setSelectedTasks(new Set());
@@ -630,7 +685,7 @@ const TaskList = React.memo(() => {
   }, [stopTimeTracking, getElapsedTime, event]);
 
   const handleStartAllTracking = useCallback(async () => {
-    const taskIds = activeTasks.filter(t => t.trackingStartedAt == null).map(t => t.id);
+    const taskIds = selectableTasks.filter(t => t.trackingStartedAt == null).map(t => t.id);
     if (taskIds.length === 0) return;
     try {
       await startAllTimeTracking(taskIds);
@@ -638,7 +693,7 @@ const TaskList = React.memo(() => {
     } catch (error) {
       console.error('Failed to start all time tracking:', error);
     }
-  }, [activeTasks, startAllTimeTracking, event]);
+  }, [selectableTasks, startAllTimeTracking, event]);
 
   const handleStopAllTracking = useCallback(async () => {
     const tasksToStop = activelyTrackedTasks.map(task => ({
@@ -654,41 +709,52 @@ const TaskList = React.memo(() => {
     }
   }, [activelyTrackedTasks, getElapsedTime, stopAllTimeTracking, event]);
 
+  const batchTaskCount = newTaskTitle.split(/\r?\n/).filter(title => title.trim()).length;
   if (tasksLoading) return <div>Loading tasks...</div>;
   if (tasksError) return <div>Error loading tasks: {tasksError.message}</div>;
 
   return (
-    <Card className="w-full">
-      <CardHeader>
+    <Card className="w-full border-0 bg-transparent">
+      <CardHeader className="flex-row items-center justify-between gap-2 space-y-0 px-0 pt-0">
         <CardTitle>{tasks.length === 0 ? 'What would you like to work on?' : 'Your Tasks'}</CardTitle>
+        {!showAddTaskForm && tasks.length > 0 && <Button onClick={() => openTaskForm(taskView === 'all' ? '' : planDays[0])}>Add Task</Button>}
       </CardHeader>
-      <CardContent>
-        <div className="flex flex-wrap justify-end gap-2 mb-4">
-          {!showAddTaskForm && tasks.length > 0 && (
-            <Button onClick={() => setShowAddTaskForm(true)} className="mr-2">
-              Add Task
-            </Button>
-          )}
-        </div>
+      <CardContent className="px-0">
 
         {(showAddTaskForm || tasks.length === 0) && (
-          <form onSubmit={handleSubmit} className="space-y-4 mb-6">
+          <form ref={formRef} onSubmit={handleSubmit} className="space-y-4 mb-6 scroll-mt-4" aria-label="Add tasks">
             {addTaskError && <p role="alert" className="text-sm text-destructive">{addTaskError}</p>}
+            <div className="flex flex-wrap gap-2" aria-label="Task entry mode">
+              <Button type="button" size="sm" disabled={isAddingTask || newTaskTitle.includes('\n')} title={newTaskTitle.includes('\n') ? 'Keep multiple tasks in paste mode, or clear the extra lines first.' : undefined} variant={!batchEntry ? 'default' : 'outline'} aria-pressed={!batchEntry} onClick={() => setBatchEntry(false)}>Single task</Button>
+              <Button type="button" size="sm" disabled={isAddingTask} variant={batchEntry ? 'default' : 'outline'} aria-pressed={batchEntry} onClick={() => setBatchEntry(true)}>Paste multiple tasks</Button>
+            </div>
             <div className="space-y-1">
-              <label htmlFor="new-task-title" className="text-sm font-medium">Task title (required)</label>
-              <Input
+              <label htmlFor="new-task-title" className="text-sm font-medium">{batchEntry ? 'Task titles (one per line)' : 'Task title (required)'}</label>
+              {batchEntry ? <Textarea
                 id="new-task-title"
+                ref={element => { titleInput.current = element; }}
+                rows={6}
+                value={newTaskTitle}
+                onChange={e => setNewTaskTitle(e.target.value)}
+                placeholder={'Draft the proposal\nReview the budget\nSend the update'}
+                disabled={isAddingTask}
+              /> : <Input
+                id="new-task-title"
+                ref={element => { titleInput.current = element; }}
                 type="text"
                 maxLength={500}
                 value={newTaskTitle}
                 onChange={(e) => setNewTaskTitle(e.target.value)}
                 placeholder="New task title"
                 className="w-full"
-              />
+                disabled={isAddingTask}
+              />}
             </div>
-            <p className="text-sm text-muted-foreground">Just a title is enough. You can organize it later.</p>
-            <details className="rounded-md border p-3">
-              <summary className="cursor-pointer text-sm font-medium">Optional details: project, estimate, star &amp; labels</summary>
+            <p className="text-sm text-muted-foreground">{batchEntry ? `${batchTaskCount} task${batchTaskCount === 1 ? '' : 's'} · Blank lines are ignored. Project, dates and optional details apply to every line. Up to 500 tasks.` : 'Just a title is enough. You can organize it later.'}</p>
+            {newTaskPlannedFor && <p className="text-sm font-medium">Planned for {formatTaskDate(newTaskPlannedFor)} · {getProjectName(selectedProjectId)}</p>}
+            <details className="rounded-md border p-3" open={batchEntry || undefined}>
+              <summary className="cursor-pointer text-sm font-medium">Optional details: project, dates, estimate, star &amp; labels</summary>
+            <fieldset disabled={isAddingTask} className="space-y-3 mt-3">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="min-w-0 space-y-1">
                 <label htmlFor="new-task-estimate" className="text-sm font-medium">Estimated focus sessions (optional)</label>
@@ -728,6 +794,18 @@ const TaskList = React.memo(() => {
                 <p className="text-xs text-muted-foreground">Leave in Inbox, or type a project name to find or create one.</p>
               </div>
             </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1 min-w-0">
+                <label htmlFor="new-task-planned" className="text-sm font-medium">Planned for (optional)</label>
+                <Input id="new-task-planned" type="date" value={newTaskPlannedFor} onChange={e => setNewTaskPlannedFor(e.target.value)} />
+                <p className="text-xs text-muted-foreground">When you intend to work. Leave blank for Unscheduled.</p>
+              </div>
+              <div className="space-y-1 min-w-0">
+                <label htmlFor="new-task-deadline" className="text-sm font-medium">Due by (optional)</label>
+                <Input id="new-task-deadline" type="date" value={newTaskDeadline} onChange={e => setNewTaskDeadline(e.target.value)} />
+                <p className="text-xs text-muted-foreground">The deadline, separate from your work plan.</p>
+              </div>
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 type="button"
@@ -750,26 +828,37 @@ const TaskList = React.memo(() => {
                 />
               </div>
             </div>
+            </fieldset>
             </details>
-            <div className="flex items-center space-x-2">
-              <Button type="submit" className="w-1/2" disabled={isAddingTask}>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="submit" disabled={isAddingTask}>
                 <Plus className="w-4 h-4 mr-2" />
-                {isAddingTask ? 'Adding…' : 'Add Task'}
+                {isAddingTask ? 'Adding…' : batchEntry ? `Add ${batchTaskCount} task${batchTaskCount === 1 ? '' : 's'}` : 'Add Task'}
               </Button>
-              {tasks.length > 0 && <Button type="button" onClick={() => setShowAddTaskForm(false)} variant="outline" className="w-1/2">
-                Cancel
+              {!batchEntry && <Button type="submit" data-keep-open="true" variant="outline" disabled={isAddingTask}>Add another</Button>}
+              {tasks.length > 0 && <Button type="button" disabled={isAddingTask} onClick={() => setShowAddTaskForm(false)} variant="ghost">
+                {batchEntry ? 'Done' : 'Cancel'}
               </Button>}
             </div>
           </form>
         )}
+        {created && <p role="status" className="mb-4 rounded-md bg-secondary p-3 text-sm text-foreground">Added {created.count} task{created.count === 1 ? '' : 's'}. Your plan and filters have been kept. {created.count === 1 && <Link className="underline" href={`/tasks/${created.id}`}>Open task</Link>}</p>}
 
         {tasks.length > 0 && <>
-        <hr />
-        <p className="text-sm text-muted-foreground my-3">Focus opens your task in the timer, ready to start. Stars save priorities; they do not start a session.</p>
+        {taskView === 'all' && <p className="mb-4 text-xs text-muted-foreground">Choose Focus to open a task in your timer. Star the work you want to come back to.</p>}
         <div className="flex flex-wrap gap-2 mb-4" aria-label="Task views">
-          <Button variant={statusFilter === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setStatusFilter('all')} aria-pressed={statusFilter === 'all'}>All tasks</Button>
-          <Button variant={statusFilter === 'focused' ? 'default' : 'outline'} size="sm" onClick={() => setStatusFilter('focused')} aria-pressed={statusFilter === 'focused'}><Star className="w-4 h-4 mr-2" />Starred</Button>
+          <Button variant={taskView === 'all' && statusFilter === 'all' ? 'default' : 'outline'} size="sm" onClick={() => { setStatusFilter('all'); setTaskView('all'); }} aria-pressed={taskView === 'all' && statusFilter === 'all'}>All tasks</Button>
+          {(['today', 'tomorrow', 'week'] as const).map(view => <Button key={view} variant={taskView === view ? 'default' : 'outline'} size="sm" aria-pressed={taskView === view} onClick={() => { setTaskView(view); setStatusFilter('all'); }}>{view === 'week' ? 'This week' : view === 'today' ? 'Today' : 'Tomorrow'}</Button>)}
+          <Button variant={statusFilter === 'focused' && taskView === 'all' ? 'default' : 'outline'} size="sm" onClick={() => { setStatusFilter('focused'); setTaskView('all'); }} aria-pressed={statusFilter === 'focused' && taskView === 'all'}><Star className="w-4 h-4 mr-2" />Starred</Button>
         </div>
+        {taskView !== 'all' && <div className="mb-4 space-y-2">
+          <p className="text-sm text-muted-foreground">Plan when to work, independently of deadlines. Workload is shown in estimated focus sessions; breaks are not included.</p>
+          {taskView === 'week' && <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="outline" aria-label="Previous week" onClick={() => setWeekStart(shiftTaskDate(weekStart, -7))}>← Previous</Button>
+            <span className="text-sm font-medium">{formatTaskDate(weekStart)} – {formatTaskDate(shiftTaskDate(weekStart, 6))}</span>
+            <Button size="sm" variant="outline" aria-label="Next week" onClick={() => setWeekStart(shiftTaskDate(weekStart, 7))}>Next →</Button>
+          </div>}
+        </div>}
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 mb-4">
           <div className="relative w-full sm:max-w-xs">
             <Input
@@ -783,7 +872,7 @@ const TaskList = React.memo(() => {
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           </div>
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-auto flex-1 min-w-[110px]">
+            <SelectTrigger className="w-auto flex-1 min-w-[110px]" aria-label="Sort tasks by">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
@@ -808,8 +897,7 @@ const TaskList = React.memo(() => {
                 <Filter className="w-4 h-4" />
                 {(projectFilter !== 'all' || labelFilter !== 'all' || statusFilter !== 'all') && (
                   <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                   </span>
                 )}
               </Button>
@@ -818,7 +906,7 @@ const TaskList = React.memo(() => {
               <div>
                 <label className="block text-xs text-muted-foreground mb-1">Project</label>
                 <Select value={projectFilter} onValueChange={setProjectFilter}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full" aria-label="Filter by project">
                     <SelectValue placeholder="Project" />
                   </SelectTrigger>
                   <SelectContent>
@@ -865,7 +953,7 @@ const TaskList = React.memo(() => {
             </PopoverContent>
           </Popover>
         </div>
-        <details className="mb-4 rounded-md border p-3">
+        {taskView === 'all' && <details className="mb-4 rounded-md border p-3">
           <summary className="cursor-pointer text-sm text-muted-foreground">Manual tracking (no countdown)</summary>
           <p className="text-xs text-muted-foreground my-2">Records elapsed time only, without focus-session credit or breaks. Individual controls are in each task&apos;s actions menu.</p>
           <TimeTrackingControls
@@ -875,11 +963,12 @@ const TaskList = React.memo(() => {
             onStopAll={handleStopAllTracking}
             disabled={activeTasks.length === 0}
           />
-        </details>
-        {activeTasks.length > 0 && (
+        </details>}
+        <p className="mb-3 text-sm text-muted-foreground">{taskView === 'all' ? `Showing ${paginatedActiveTasks.length} of ${activeTasks.length} active tasks` : `${selectableTasks.length} active tasks in this plan, including earlier and unscheduled work`} · {tasks.filter(task => !task.completed).length} active in total</p>
+        {selectableTasks.length > 0 && (
           <div className="flex items-center space-x-2 mb-3 pb-2 border-b">
             <Checkbox
-              checked={selectedTasks.size === activeTasks.length && activeTasks.length > 0}
+              checked={selectedTasks.size === selectableTasks.length && selectableTasks.length > 0}
               onCheckedChange={handleSelectAll}
               aria-label="Select all tasks"
             />
@@ -890,14 +979,30 @@ const TaskList = React.memo(() => {
             </span>
           </div>
         )}
+        {selectedTasks.size > 0 && (
+          <div className="mb-4"><BulkActionToolbar
+            selectedCount={selectedTasks.size}
+            onMarkDone={handleBulkMarkDone}
+            onDelete={handleBulkDelete}
+            onChangeProject={handleBulkChangeProject}
+            onSetFocus={handleBulkSetFocus}
+            onClearSelection={handleClearSelection}
+            onSchedule={(field) => { setDateError(null); setDateEditor({ ids: Array.from(selectedTasks), field, value: '' }); }}
+            projects={memoizedProjects}
+          /></div>
+        )}
         {filteredTasks.length === 0 && (
           <p role="status" className="py-6 text-center text-sm text-muted-foreground">
             No tasks match your search or filters. Try another search or adjust the filters.
           </p>
         )}
-        <ul className="space-y-2">
-          {paginatedActiveTasks.map((task) => (
-            <li key={task.id} className={`flex items-start sm:items-center justify-between gap-2 p-2 rounded-md transition-colors ${selectedTasks.has(task.id) ? 'bg-blue-50' : 'hover:bg-accent'}`}>
+        <TaskPlan
+          tasks={taskView === 'all' ? paginatedActiveTasks : activeTasks}
+          days={taskView === 'all' ? undefined : planDays}
+          onAdd={openTaskForm}
+          onShowAll={() => setTaskView('all')}
+          renderTask={(task) => (
+            <li key={task.id} className={`flex items-start justify-between gap-2 border-b py-4 transition-colors ${selectedTasks.has(task.id) ? 'bg-secondary' : ''}`}>
               {editingTask && editingTask.id === task.id ? (
                 <form onSubmit={handleUpdateTask} className="flex flex-col space-y-2 w-full min-w-0">
                   <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
@@ -954,44 +1059,25 @@ const TaskList = React.memo(() => {
                       onCheckedChange={() => handleToggleSelection(task.id)}
                       aria-label={`Select task: ${task.title}`}
                     />
-                    <MobileButton
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleToggleTaskCompletion(task.id, task.completed)}
-                      className={`${task.completed ? 'text-green-500' : 'text-gray-400 hover:text-green-500'}`}
-                      aria-label={task.completed ? "Mark as incomplete" : "Mark as complete"}
-                    >
-                      <CheckCircle className="w-4 h-4" fill={task.completed ? 'currentColor' : 'none'} />
-                    </MobileButton>
-                    <MobileButton
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleToggleTaskFocus(task.id, task.focus || false)}
-                      className={`${task.focus ? 'text-yellow-500' : 'text-gray-400'}`}
-                      aria-label={task.focus ? 'Unstar task' : 'Star task'}
-                      aria-pressed={!!task.focus}
-                    >
-                      <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
-                    </MobileButton>
-                    <span className={`min-w-0 break-words max-w-full text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
+                    <span className={`min-w-0 flex-1 break-words text-base font-medium [overflow-wrap:anywhere] ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
+                    <div className="flex basis-full flex-wrap items-center gap-2 pl-6">
                     <ProjectBadge projectId={task.projectId} />
                     <TaskLabels labelIds={task.labelIds} />
-                    <span className="text-xs text-muted-foreground">
+                    {(task.totalPomodoroSessions || task.estimatedPomodoros) ? <span className="text-xs text-muted-foreground">
                       {task.totalPomodoroSessions || 0} focus sessions completed{task.estimatedPomodoros ? ` · ${task.estimatedPomodoros} estimated` : ''}
-                    </span>
+                    </span> : null}
                     {task.deadline && (
                       <span className={`text-xs px-2 py-1 rounded ${
-                        new Date(task.deadline) < new Date()
+                        task.deadline < taskDateKey(new Date())
                           ? 'bg-red-100 text-red-800'
-                          : 'bg-blue-100 text-blue-800'
+                          : 'bg-muted text-muted-foreground'
                       }`}>
-                        {new Date(task.deadline).toLocaleDateString()}
-                        {new Date(task.deadline) < new Date() && ' (Overdue)'}
+                        Due {formatTaskDate(task.deadline)}
+                        {task.deadline < taskDateKey(new Date()) && ' (Overdue)'}
                       </span>
                     )}
-                    <Button asChild size="sm">
-                      <Link href={`/?task=${encodeURIComponent(task.id)}`} aria-label={`Focus on ${task.title}`}>Focus</Link>
-                    </Button>
+                    {task.plannedFor && <span className="text-xs rounded bg-secondary px-2 py-1 text-foreground">Planned {formatTaskDate(task.plannedFor)}</span>}
+                    {task.trackingStartedAt == null && (task.manualTimeSpent ?? 0) > 0 && <span className="text-xs font-mono text-muted-foreground">Tracked {formatTime(task.manualTimeSpent)}</span>}
                     {task.trackingStartedAt != null && <TaskTimeTracker
                       formattedTime={formatTime(getElapsedTime(task))}
                       elapsedTime={getElapsedTime(task)}
@@ -1000,6 +1086,20 @@ const TaskList = React.memo(() => {
                       onStop={() => handleStopTracking(task)}
                       disabled={task.completed}
                     />}
+                    </div>
+                    <div className="flex basis-full flex-wrap items-center gap-1 pl-6">
+                      <Button asChild size="sm" variant="outline">
+                        <Link href={`/?task=${encodeURIComponent(task.id)}`} aria-label={`Focus on ${task.title}`}>Focus</Link>
+                      </Button>
+                      <MobileButton variant="ghost" size="icon" onClick={() => handleToggleTaskCompletion(task.id, task.completed)}
+                        className="text-muted-foreground hover:text-primary" aria-label={task.completed ? 'Mark as incomplete' : 'Mark as complete'}>
+                        <CheckCircle className="w-4 h-4" fill={task.completed ? 'currentColor' : 'none'} />
+                      </MobileButton>
+                      <MobileButton variant="ghost" size="icon" onClick={() => handleToggleTaskFocus(task.id, task.focus || false)}
+                        className={task.focus ? 'text-primary' : 'text-muted-foreground'} aria-label={task.focus ? 'Unstar task' : 'Star task'} aria-pressed={!!task.focus}>
+                        <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
+                      </MobileButton>
+                    </div>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -1008,6 +1108,7 @@ const TaskList = React.memo(() => {
                       </MobileButton>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => { setDateError(null); setDateEditor({ ids: [task.id], field: 'plannedFor', value: task.plannedFor || '' }); }}>Plan task / move to day</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => task.trackingStartedAt != null ? handleStopTracking(task) : handleStartTracking(task.id)}>
                         {task.trackingStartedAt != null ? 'Stop manual tracking' : 'Start manual tracking (no countdown)'}
                       </DropdownMenuItem>
@@ -1048,9 +1149,9 @@ const TaskList = React.memo(() => {
                 </>
               )}
             </li>
-          ))}
-        </ul>
-        {paginatedActiveTasks.length < activeTasks.length && (
+          )}
+        />
+        {taskView === 'all' && paginatedActiveTasks.length < activeTasks.length && (
           <div className="flex justify-center mt-4">
             <Button onClick={loadMoreTasks} variant="outline">
               Load More
@@ -1079,18 +1180,40 @@ const TaskList = React.memo(() => {
             TaskLabels={TaskLabels}
           />
         )}
-        {selectedTasks.size > 0 && (
-          <BulkActionToolbar
-            selectedCount={selectedTasks.size}
-            onMarkDone={handleBulkMarkDone}
-            onDelete={handleBulkDelete}
-            onChangeProject={handleBulkChangeProject}
-            onSetFocus={handleBulkSetFocus}
-            onClearSelection={handleClearSelection}
-            projects={memoizedProjects}
-          />
-        )}
       </CardContent>
+
+      <Dialog open={dateEditor !== null} onOpenChange={open => { if (!open && !savingDates) setDateEditor(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{dateEditor?.field === 'plannedFor' ? 'Plan work' : 'Set deadline'} for {dateEditor?.ids.length} task{dateEditor?.ids.length === 1 ? '' : 's'}</DialogTitle>
+            <DialogDescription>{dateEditor?.field === 'plannedFor' ? 'Choose when to work. Deadlines will not change. Clear the date to move tasks to Unscheduled.' : 'Choose when tasks are due. Planned work days will not change. Clear the date to remove the deadline.'}</DialogDescription>
+          </DialogHeader>
+          <form className="space-y-4" onSubmit={async e => {
+            e.preventDefault();
+            if (!dateEditor || savingDates) return;
+            setSavingDates(true);
+            setDateError(null);
+            try {
+              await setTaskDates(dateEditor.ids, { [dateEditor.field]: dateEditor.value || null });
+              event('tasks_scheduled', { count: dateEditor.ids.length, field: dateEditor.field });
+              setDateEditor(null);
+              setSelectedTasks(new Set());
+            } catch {
+              setDateError('Could not save dates. Nothing has been changed. Please try again.');
+            } finally {
+              setSavingDates(false);
+            }
+          }}>
+            <label className="block text-sm font-medium" htmlFor="task-plan-date">{dateEditor?.field === 'plannedFor' ? 'Planned for' : 'Due by'}</label>
+            <Input id="task-plan-date" type="date" disabled={savingDates} value={dateEditor?.value || ''} onChange={e => setDateEditor(current => current && { ...current, value: e.target.value })} />
+            {dateError && <p role="alert" className="text-sm text-destructive">{dateError}</p>}
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" disabled={savingDates} onClick={() => setDateEditor(null)}>Cancel</Button>
+              <Button type="submit" disabled={savingDates}>{savingDates ? 'Saving…' : dateEditor?.value ? 'Save dates' : 'Clear dates'}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
