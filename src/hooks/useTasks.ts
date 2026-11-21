@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, increment, writeBatch } from "firebase/firestore";
+import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, deleteField, doc, increment, writeBatch } from "firebase/firestore";
 import { db, auth, addEstimationRecord } from '../lib/firebase';
 import {
   getGuestTasks,
@@ -90,7 +90,7 @@ export function useTasks(projectId?: string) {
     }
   }, [isGuest, projectId]);
 
-  const addTask = useCallback(async (title: string, taskProjectId: string, estimatedPomodoros?: number, focus?: boolean, labelIds?: string[]) => {
+  const addTask = useCallback(async (title: string, taskProjectId = '', estimatedPomodoros?: number, focus?: boolean, labelIds?: string[]) => {
     const user = auth.currentUser;
 
     try {
@@ -99,11 +99,10 @@ export function useTasks(projectId?: string) {
         projectId: taskProjectId,
         userId: user?.uid || 'guest',
         completed: false,
-        estimatedPomodoros,
         focus: focus ?? false,
         deadline: null,
-        estimationSource: estimatedPomodoros ? 'manual' : undefined,
         // Firestore rejects undefined values, so only include the key when provided
+        ...(estimatedPomodoros !== undefined ? { estimatedPomodoros, estimationSource: 'manual' } : {}),
         ...(labelIds ? { labelIds } : {}),
       });
 
@@ -113,7 +112,7 @@ export function useTasks(projectId?: string) {
         return newTask.id;
       }
 
-      const docRef = await addDoc(collection(db, "tasks"), newTaskData);
+      const docRef = await addDoc(collection(db, "tasks"), { ...newTaskData, createdAt: new Date() });
       return docRef.id;
     } catch (err) {
       console.error("Error adding task:", err);
@@ -127,9 +126,10 @@ export function useTasks(projectId?: string) {
     try {
       // Validate the updates
       const validatedUpdates = validateTaskUpdate({ id: taskId, ...updates });
-      // Remove the id from updates since we don't want to update the document ID
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { id: _, ...updateData } = validatedUpdates;
+      // Schema defaults belong to creation, not to fields omitted from an edit.
+      const updateData = Object.fromEntries(Object.entries(validatedUpdates).filter(([key]) =>
+        key !== 'id' && Object.prototype.hasOwnProperty.call(updates, key)
+      ));
 
       if (!user) {
         // Guest mode
@@ -138,7 +138,11 @@ export function useTasks(projectId?: string) {
       }
 
       const taskRef = doc(db, "tasks", taskId);
-      await updateDoc(taskRef, updateData);
+      // Clearing an optional field must remove it, not send undefined to Firestore.
+      const firestoreUpdates = Object.fromEntries(Object.entries(updateData).map(([key, value]) =>
+        [key, value === undefined ? deleteField() : value]
+      ));
+      await updateDoc(taskRef, firestoreUpdates);
     } catch (error) {
       console.error("Error updating task:", error);
       throw error;

@@ -5,6 +5,7 @@ import PomodoroTimer from '../PomodoroTimer'
 import { defaultSettings } from '@/hooks/usePomodoro'
 
 let mockGuest = false
+jest.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams(window.location.search) }))
 
 // Mock the hooks
 jest.mock('@/app/contexts/AuthContext', () => ({
@@ -142,8 +143,8 @@ describe('PomodoroTimer', () => {
   it('should show task selector when user is authenticated', () => {
     render(<PomodoroTimer settings={defaultSettings} />)
 
-    expect(screen.getByText('Working on:')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /add task/i })).toBeInTheDocument()
+    expect(screen.getByText('Tasks for this timer')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /choose or create task/i })).toBeInTheDocument()
   })
 
   it('should finish focus sessions without counting breaks as focus', async () => {
@@ -232,7 +233,7 @@ describe('PomodoroTimer', () => {
     // Sessions are only counted when tasks are selected; the component reads this on mount
     window.localStorage.setItem('selectedTaskIds', JSON.stringify(['task-1']))
     render(<PomodoroTimer settings={defaultSettings} />)
-    expect(screen.getByText('Working on:')).toBeInTheDocument()
+    expect(screen.getByText('Tasks for this timer')).toBeInTheDocument()
     expect(screen.getByText('Test Task 1')).toBeInTheDocument()
 
     const startButton = screen.getByRole('button', { name: /start/i })

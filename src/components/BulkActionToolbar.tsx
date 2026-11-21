@@ -81,6 +81,7 @@ const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onChangeProject('')}>Inbox (no project)</DropdownMenuItem>
               {projects.map((project) => (
                 <DropdownMenuItem
                   key={project.id}
@@ -96,17 +97,17 @@ const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
                 <Star className="w-4 h-4 mr-1" />
-                Focus
+                Stars
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onSetFocus(true)}>
                 <Star className="w-4 h-4 mr-2 text-yellow-500" fill="currentColor" />
-                Add to Focus
+                Star tasks
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onSetFocus(false)}>
                 <Star className="w-4 h-4 mr-2 text-gray-400" />
-                Remove from Focus
+                Unstar tasks
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

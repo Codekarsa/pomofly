@@ -21,6 +21,7 @@ interface SelectedTasksListProps {
   projects: Project[];
   selectedTaskIds: string[];
   onAddTask: (taskId: string) => void;
+  onCreateTask: (title: string) => Promise<void>;
   onRemoveTask: (taskId: string) => void;
   getElapsedTime: (task: Task) => number;
   formatTime: (seconds: number) => string;
@@ -31,12 +32,15 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
   projects,
   selectedTaskIds,
   onAddTask,
+  onCreateTask,
   onRemoveTask,
   getElapsedTime,
   formatTime,
 }) => {
   const [search, setSearch] = useState('');
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   // Get selected tasks
   const selectedTasks = useMemo(() => {
@@ -78,18 +82,34 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
     setIsPopoverOpen(false);
   };
 
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!search.trim() || isCreating) return;
+    setIsCreating(true);
+    setCreateError(null);
+    try {
+      await onCreateTask(search.trim());
+      setSearch('');
+      setIsPopoverOpen(false);
+    } catch {
+      setCreateError('Could not create the task. Please try again.');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   return (
     <div className="border rounded-lg bg-card">
       {/* Header */}
       <div className="px-4 py-3 border-b bg-muted/50">
-        <span className="font-medium text-sm">Working on:</span>
+        <span className="font-medium text-sm">Tasks for this timer</span>
       </div>
 
       {/* Selected Tasks List */}
       <div className="p-2">
         {selectedTasks.length === 0 ? (
           <div className="px-4 py-6 text-center text-muted-foreground text-sm">
-            No tasks selected. Add a task to track your work.
+            Choose or create a task, then press Start. You can also focus without a task.
           </div>
         ) : (
           <div className="space-y-2">
@@ -101,11 +121,11 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
               return (
                 <div
                   key={task.id}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20"
+                  className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20"
                 >
-                  <div className="flex-1 min-w-0">
+                  <div className="basis-full sm:basis-auto sm:flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-medium truncate">
+                      <span className="text-sm font-medium break-words min-w-0">
                         {task.title}
                       </span>
                       {task.focus && (
@@ -142,7 +162,7 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
                     size="icon"
                     aria-label={`Remove ${task.title} from timer`}
                     onClick={() => onRemoveTask(task.id)}
-                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    className="ml-auto h-7 w-7 text-muted-foreground hover:text-destructive"
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -151,6 +171,8 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
             })}
           </div>
         )}
+
+        {selectedTasks.length > 0 && <p className="px-3 pt-2 text-xs text-muted-foreground">These tasks receive time while the focus countdown runs.</p>}
 
         {/* Add Task Button */}
         <div className="mt-3">
@@ -161,17 +183,21 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
                 className="w-full justify-center text-muted-foreground hover:text-foreground"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add Task
+                Choose or create task
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="center">
+              <form onSubmit={handleCreateTask}>
               {/* Search Input */}
               <div className="p-3 border-b">
+                <p className="text-sm font-medium mb-2">Choose a task or type a new one</p>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     type="text"
-                    placeholder="Search tasks..."
+                    placeholder="Task title"
+                    aria-label="Search or name a new task"
+                    maxLength={500}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="!pl-9 h-9"
@@ -184,7 +210,7 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
               <div className="max-h-[240px] overflow-y-auto">
                 {filteredTasks.length === 0 ? (
                   <div className="px-4 py-6 text-center text-muted-foreground text-sm">
-                    {search ? 'No tasks found' : 'No more tasks available'}
+                    {search ? 'No matching tasks. You can create one below.' : 'No tasks to choose. Type a title above to create one.'}
                   </div>
                 ) : (
                   <div className="p-1">
@@ -192,6 +218,7 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
                       const projectName = getProjectName(task.projectId);
                       return (
                         <button
+                          type="button"
                           key={task.id}
                           onClick={() => handleAddTask(task.id)}
                           className="w-full flex items-center gap-3 p-3 rounded-md hover:bg-accent text-left transition-colors"
@@ -220,6 +247,14 @@ const SelectedTasksList: React.FC<SelectedTasksListProps> = ({
                   </div>
                 )}
               </div>
+              <div className="p-3 border-t space-y-2">
+                {createError && <p role="alert" className="text-sm text-destructive">{createError}</p>}
+                <Button type="submit" className="w-full" disabled={!search.trim() || isCreating}>
+                  {isCreating ? 'Creating…' : 'Create and select task'}
+                </Button>
+                <p className="text-xs text-muted-foreground">Creates a task in Inbox and adds it to this timer.</p>
+              </div>
+              </form>
             </PopoverContent>
           </Popover>
         </div>

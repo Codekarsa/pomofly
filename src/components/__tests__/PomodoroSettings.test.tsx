@@ -6,6 +6,7 @@ import SettingsModal from '../SettingsModal'
 import PomodoroTimer from '../PomodoroTimer'
 
 jest.mock('@/app/contexts/AuthContext', () => ({ useAuth: () => ({ user: null }) }))
+jest.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams(window.location.search) }))
 jest.mock('@/hooks/useGoogleAnalytics', () => ({ useGoogleAnalytics: () => ({ event: jest.fn() }) }))
 jest.mock('@/hooks/useTasks', () => ({
   useTasks: () => ({ tasks: [], loading: false, incrementPomodoroSession: jest.fn(), startAllTimeTracking: jest.fn(), stopAllTimeTracking: jest.fn() })

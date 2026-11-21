@@ -9,7 +9,8 @@ import { z } from 'zod';
 export const TaskSchema = z.object({
   id: z.string().min(1, 'Task ID is required'),
   title: z.string().min(1, 'Task title is required').max(500, 'Task title too long'),
-  projectId: z.string().min(1, 'Project ID is required'),
+  // An empty project ID represents an unorganized task in the Inbox.
+  projectId: z.string(),
   userId: z.string().min(1, 'User ID is required'),
   completed: z.boolean(),
   totalPomodoroSessions: z.number().int().min(0, 'Total sessions cannot be negative'),

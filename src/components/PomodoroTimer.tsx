@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { usePomodoro } from '@/hooks/usePomodoro';
 import { useTasks } from '@/hooks/useTasks';
@@ -26,8 +27,18 @@ interface PomodoroTimerProps {
 const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) => {
   const { user } = useAuth();
   const { event } = useGoogleAnalytics();
+  const searchParams = useSearchParams();
+  const [focusRequest, setFocusRequest] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    const taskId = searchParams.get('task');
+    if (!taskId) return null;
+    const session = TimerPersistence.loadSession();
+    const needsRecovery = !!session && (session.isActive || session.timerStartedAt !== null || session.pausedTimeRemaining !== null);
+    return { taskId, needsRecovery };
+  });
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
+      if (focusRequest && !focusRequest.needsRecovery) return [focusRequest.taskId];
       const saved = localStorage.getItem('selectedTaskIds');
       return saved ? JSON.parse(saved) : [];
     }
@@ -36,6 +47,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   const {
     tasks,
     loading,
+    addTask,
     incrementPomodoroSession,
     startAllTimeTracking,
     stopAllTimeTracking
@@ -47,6 +59,14 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
   const wasActiveRef = useRef(false);
   const phaseRef = useRef('pomodoro');
+
+  useEffect(() => {
+    if (focusRequest) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('task');
+      window.history.replaceState(window.history.state, '', url);
+    }
+  }, [focusRequest]);
 
   useEffect(() => {
     const saved = localStorage.getItem('pomofly_completed_sessions');
@@ -171,6 +191,13 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
   } = usePomodoro(settings, handlePomodoroComplete);
 
   useEffect(() => {
+    if (!loading && focusRequest && !focusRequest.needsRecovery && tasks.some(task => task.id === focusRequest.taskId && !task.completed)) {
+      switchPhase('pomodoro');
+      setFocusRequest(null);
+    }
+  }, [loading, focusRequest, tasks, switchPhase]);
+
+  useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
 
@@ -252,6 +279,11 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
       }
     }
   }, [selectedTaskIds, event, isActive, phase, startAllTimeTracking]);
+
+  const handleCreateTask = useCallback(async (title: string) => {
+    const taskId = await addTask(title);
+    handleAddTask(taskId);
+  }, [addTask, handleAddTask]);
 
   const handleRemoveTask = useCallback((taskId: string) => {
     const newIds = selectedTaskIds.filter(id => id !== taskId);
@@ -391,11 +423,26 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = React.memo(({ settings }) =>
           </p>
         )}
 
+        {focusRequest && !showRecoveryModal && (
+          <div role="status" className="mb-4 rounded-md bg-muted p-3 text-sm space-y-2">
+            {!tasks.some(task => task.id === focusRequest.taskId && !task.completed) ? (
+              <p>This task is no longer available. Choose or create another task below.</p>
+            ) : focusRequest.needsRecovery ? (
+              <>
+                <p>Your previous timer has been kept. Add &ldquo;{tasks.find(task => task.id === focusRequest.taskId)?.title}&rdquo; to it, or keep your current tasks.</p>
+                <Button size="sm" variant="outline" onClick={() => { handleAddTask(focusRequest.taskId); setFocusRequest(null); }}>Add to this timer</Button>
+                <Button size="sm" variant="ghost" onClick={() => setFocusRequest(null)}>Keep current tasks</Button>
+              </>
+            ) : null}
+          </div>
+        )}
+
         <SelectedTasksList
           tasks={tasks}
           projects={projects}
           selectedTaskIds={selectedTaskIds}
           onAddTask={handleAddTask}
+          onCreateTask={handleCreateTask}
           onRemoveTask={handleRemoveTask}
           getElapsedTime={getElapsedTime}
           formatTime={formatTime}

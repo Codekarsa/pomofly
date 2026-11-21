@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import AppLayout from '@/components/AppLayout';
 import PomodoroTimer from '@/components/PomodoroTimer';
 import { usePomodoroSettings } from '@/app/contexts/PomodoroSettingsContext';
@@ -22,7 +22,9 @@ export default function HomePage() {
             <p className="text-muted-foreground text-sm sm:text-base">Work for {settings.pomodoro} minutes, then take a {settings.shortBreak}-minute break. Repeat, with a longer break every {settings.longBreakInterval} focus sessions.</p>
           </div>
           <div className="px-2 sm:px-0">
-            {loaded && <PomodoroTimer settings={settings} />}
+            <Suspense fallback={<p className="text-center text-muted-foreground">Loading timer…</p>}>
+              {loaded && <PomodoroTimer settings={settings} />}
+            </Suspense>
           </div>
         </div>
       </div>

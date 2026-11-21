@@ -1,6 +1,7 @@
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useTasks } from '../useTasks'
 import { auth } from '@/lib/firebase'
+import { transformFirebaseTask } from '@/lib/validation'
 import { onSnapshot, addDoc, updateDoc, deleteDoc, increment, query, where } from 'firebase/firestore'
 
 // Mock Firebase Firestore
@@ -12,6 +13,7 @@ jest.mock('firebase/firestore', () => ({
   addDoc: jest.fn(),
   updateDoc: jest.fn(),
   deleteDoc: jest.fn(),
+  deleteField: jest.fn(() => 'delete-field'),
   doc: jest.fn(() => ({ type: 'doc' })),
   increment: jest.fn(),
   writeBatch: jest.fn(() => ({
@@ -143,6 +145,19 @@ describe('useTasks', () => {
     )
   })
 
+  it('creates a title-only cloud task that can be read back from the Inbox', async () => {
+    const { result } = renderHook(() => useTasks())
+    await act(async () => {
+      expect(await result.current.addTask('Read the proposal')).toBe('new-task-id')
+    })
+    const data = mockAddDoc.mock.calls[0][1]
+    // This is the Firestore document boundary: undefined fields are rejected by the SDK.
+    expect(Object.values(data)).not.toContain(undefined)
+    expect(transformFirebaseTask({ id: 'new-task-id', ...data })).toMatchObject({
+      title: 'Read the proposal', projectId: '', completed: false, createdAt: expect.any(Date),
+    })
+  })
+
   it('should update a task', async () => {
     const mockSnapshot = {
       forEach: jest.fn(),
@@ -168,6 +183,12 @@ describe('useTasks', () => {
         estimatedPomodoros: 5,
       })
     )
+    await act(async () => {
+      await result.current.updateTask('task-1', { projectId: '', estimatedPomodoros: undefined })
+    })
+    expect(mockUpdateDoc).toHaveBeenLastCalledWith(expect.anything(), {
+      projectId: '', estimatedPomodoros: 'delete-field',
+    })
   })
 
   it('should delete a task', async () => {

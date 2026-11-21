@@ -102,7 +102,8 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
                   size="icon"
                   onClick={() => onToggleTaskFocus(task.id, task.focus || false)}
                   className={`${task.focus ? 'text-yellow-500' : 'text-gray-400'}`}
-                  aria-label={task.focus ? 'Remove from focus' : 'Add to focus'}
+                  aria-label={task.focus ? 'Unstar task' : 'Star task'}
+                  aria-pressed={!!task.focus}
                 >
                   <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
                 </MobileButton>
@@ -170,7 +171,7 @@ const statusOptions = [
   { value: 'all', label: 'All' },
   { value: 'active', label: 'Active' },
   { value: 'completed', label: 'Completed' },
-  { value: 'focused', label: "Today's Focus" },
+  { value: 'focused', label: 'Starred' },
 ];
 
 const sortOptions = [
@@ -178,7 +179,7 @@ const sortOptions = [
   { value: 'deadline', label: 'Due date' },
   { value: 'title', label: 'Title (A-Z)' },
   { value: 'project', label: 'Project' },
-  { value: 'focus', label: 'Focus' },
+  { value: 'focus', label: 'Starred' },
 ];
 
 const TaskList = React.memo(() => {
@@ -193,6 +194,7 @@ const TaskList = React.memo(() => {
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 5;
   const [showAddTaskForm, setShowAddTaskForm] = useState(false);
+  const [isAddingTask, setIsAddingTask] = useState(false);
   const [addTaskError, setAddTaskError] = useState<string | null>(null);
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [labelFilter, setLabelFilter] = useState<string>('all');
@@ -276,6 +278,7 @@ const TaskList = React.memo(() => {
 
   // Helper function to get project name by ID
   const getProjectName = useCallback((projectId: string) => {
+    if (!projectId) return 'Inbox';
     const project = memoizedProjects.find(p => p.id === projectId);
     return project?.name || 'Unknown Project';
   }, [memoizedProjects]);
@@ -328,40 +331,45 @@ const TaskList = React.memo(() => {
       e.currentTarget.scrollIntoView({ block: 'start' });
       return;
     }
-    if (!selectedProjectId) {
-      setAddTaskError('Choose or create a project before adding your task.');
-      e.currentTarget.scrollIntoView({ block: 'start' });
-      return;
+    if (isAddingTask) return;
+    setIsAddingTask(true);
+    try {
+      await addTask(newTaskTitle.trim(), selectedProjectId, estimatedPomodoros, newTaskFocus, newTaskLabelIds);
+
+      // Track estimation source analytics
+      const estimationSource = estimation ? 'ai-suggested' : 'manual';
+      event('task_added', {
+        project_id: selectedProjectId,
+        estimated_pomodoros: estimatedPomodoros,
+        focus: newTaskFocus,
+        label_count: newTaskLabelIds.length,
+        estimation_source: estimationSource,
+        ai_suggested_estimate: estimation?.suggestedPomodoros,
+        ai_confidence: estimation?.confidence
+      });
+
+      // Reset form and reveal the new task even if filters were active.
+      setNewTaskTitle('');
+      setEstimatedPomodoros(undefined);
+      setNewTaskFocus(false);
+      setNewTaskLabelIds([]);
+      setEstimation(null);
+      setSearch('');
+      setProjectFilter('all');
+      setLabelFilter('all');
+      setStatusFilter('all');
+      setSortBy('createdAt');
+      setSortOrder('desc');
+      setCurrentPage(0);
+      setShowAddTaskForm(false);
+    } catch (error) {
+      console.error("Failed to add task:", error);
+      setAddTaskError('Could not add the task. Please try again.');
+      event('task_add_error', { error_message: (error as Error).message });
+    } finally {
+      setIsAddingTask(false);
     }
-    if (newTaskTitle.trim() && selectedProjectId) {
-      try {
-        await addTask(newTaskTitle, selectedProjectId, estimatedPomodoros, newTaskFocus, newTaskLabelIds);
-        
-        // Track estimation source analytics
-        const estimationSource = estimation ? 'ai-suggested' : 'manual';
-        event('task_added', {
-          project_id: selectedProjectId,
-          estimated_pomodoros: estimatedPomodoros,
-          focus: newTaskFocus,
-          label_count: newTaskLabelIds.length,
-          estimation_source: estimationSource,
-          ai_suggested_estimate: estimation?.suggestedPomodoros,
-          ai_confidence: estimation?.confidence
-        });
-        
-        // Reset form
-        setNewTaskTitle('');
-        setEstimatedPomodoros(undefined);
-        setNewTaskFocus(false);
-        setNewTaskLabelIds([]);
-        setEstimation(null); // Clear estimation
-      } catch (error) {
-        console.error("Failed to add task:", error);
-        setAddTaskError('Could not add the task. Please try again.');
-        event('task_add_error', { error_message: (error as Error).message });
-      }
-    }
-  }, [addTask, event, estimatedPomodoros, newTaskTitle, selectedProjectId, newTaskFocus, newTaskLabelIds, estimation]);
+  }, [addTask, event, estimatedPomodoros, newTaskTitle, selectedProjectId, newTaskFocus, newTaskLabelIds, estimation, isAddingTask]);
 
   const handleUpdateTask = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -436,7 +444,7 @@ const TaskList = React.memo(() => {
   const filteredTasks = useMemo(() => {
     let tasks = memoizedTasks;
     if (projectFilter !== 'all') {
-      tasks = tasks.filter(task => task.projectId === projectFilter);
+      tasks = tasks.filter(task => projectFilter === 'inbox' ? !task.projectId : task.projectId === projectFilter);
     }
     if (labelFilter !== 'all') {
       tasks = tasks.filter(task => task.labelIds?.includes(labelFilter));
@@ -671,12 +679,16 @@ const TaskList = React.memo(() => {
               <Input
                 id="new-task-title"
                 type="text"
+                maxLength={500}
                 value={newTaskTitle}
                 onChange={(e) => setNewTaskTitle(e.target.value)}
                 placeholder="New task title"
                 className="w-full"
               />
             </div>
+            <p className="text-sm text-muted-foreground">Just a title is enough. You can organize it later.</p>
+            <details className="rounded-md border p-3">
+              <summary className="cursor-pointer text-sm font-medium">Optional details: project, estimate, star &amp; labels</summary>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="min-w-0 space-y-1">
                 <label htmlFor="new-task-estimate" className="text-sm font-medium">Estimated focus sessions (optional)</label>
@@ -704,16 +716,16 @@ const TaskList = React.memo(() => {
                 )}
               </div>
               <div className="min-w-0 space-y-1">
-                <label htmlFor="new-task-project" className="text-sm font-medium">Project (required)</label>
+                <label htmlFor="new-task-project" className="text-sm font-medium">Project (optional)</label>
                 <Combobox
                   id="new-task-project"
-                  options={memoizedProjects.map(project => ({ value: project.id, label: project.name }))}
+                  options={[{ value: '', label: 'Inbox (no project)' }, ...memoizedProjects.map(project => ({ value: project.id, label: project.name }))]}
                   value={selectedProjectId}
                   onChange={(value) => setSelectedProjectId(value)}
-                  placeholder="Select a project"
+                  placeholder="Inbox (no project)"
                   onCreateNew={handleCreateProject}
                 />
-                <p className="text-xs text-muted-foreground">Type a project name to find or create one.</p>
+                <p className="text-xs text-muted-foreground">Leave in Inbox, or type a project name to find or create one.</p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -723,12 +735,13 @@ const TaskList = React.memo(() => {
                 size="sm"
                 onClick={() => setNewTaskFocus(!newTaskFocus)}
                 className={cn("p-1", newTaskFocus ? "text-yellow-500" : "text-gray-400")}
-                aria-label={newTaskFocus ? "Remove from Today's Focus" : "Add to Today's Focus"}
+                aria-label={newTaskFocus ? 'Unstar task' : 'Star task'}
+                aria-pressed={newTaskFocus}
               >
                 <Star className="w-4 h-4" fill={newTaskFocus ? "currentColor" : "none"} />
               </Button>
               <span className="text-sm text-muted-foreground">
-                {newTaskFocus ? "Added to Today's Focus" : "Add to Today's Focus"}
+                Star for later — this does not start the timer.
               </span>
               <div className="border-l pl-2 ml-1">
                 <LabelPicker
@@ -737,10 +750,11 @@ const TaskList = React.memo(() => {
                 />
               </div>
             </div>
+            </details>
             <div className="flex items-center space-x-2">
-              <Button type="submit" className="w-1/2">
+              <Button type="submit" className="w-1/2" disabled={isAddingTask}>
                 <Plus className="w-4 h-4 mr-2" />
-                Add Task
+                {isAddingTask ? 'Adding…' : 'Add Task'}
               </Button>
               {tasks.length > 0 && <Button type="button" onClick={() => setShowAddTaskForm(false)} variant="outline" className="w-1/2">
                 Cancel
@@ -751,7 +765,11 @@ const TaskList = React.memo(() => {
 
         {tasks.length > 0 && <>
         <hr />
-        <p className="text-xs text-muted-foreground my-3">Track time records elapsed work without a countdown. For timed focus sessions and breaks, use the <Link href="/" className="underline">Timer</Link>.</p>
+        <p className="text-sm text-muted-foreground my-3">Focus opens your task in the timer, ready to start. Stars save priorities; they do not start a session.</p>
+        <div className="flex flex-wrap gap-2 mb-4" aria-label="Task views">
+          <Button variant={statusFilter === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setStatusFilter('all')} aria-pressed={statusFilter === 'all'}>All tasks</Button>
+          <Button variant={statusFilter === 'focused' ? 'default' : 'outline'} size="sm" onClick={() => setStatusFilter('focused')} aria-pressed={statusFilter === 'focused'}><Star className="w-4 h-4 mr-2" />Starred</Button>
+        </div>
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 mb-4">
           <div className="relative w-full sm:max-w-xs">
             <Input
@@ -805,6 +823,7 @@ const TaskList = React.memo(() => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Projects</SelectItem>
+                    <SelectItem value="inbox">Inbox (no project)</SelectItem>
                     {memoizedProjects.map(project => (
                       <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
                     ))}
@@ -845,6 +864,10 @@ const TaskList = React.memo(() => {
               </div>
             </PopoverContent>
           </Popover>
+        </div>
+        <details className="mb-4 rounded-md border p-3">
+          <summary className="cursor-pointer text-sm text-muted-foreground">Manual tracking (no countdown)</summary>
+          <p className="text-xs text-muted-foreground my-2">Records elapsed time only, without focus-session credit or breaks. Individual controls are in each task&apos;s actions menu.</p>
           <TimeTrackingControls
             hasActiveTracking={hasActiveTracking}
             activeCount={activelyTrackedTasks.length}
@@ -852,7 +875,7 @@ const TaskList = React.memo(() => {
             onStopAll={handleStopAllTracking}
             disabled={activeTasks.length === 0}
           />
-        </div>
+        </details>
         {activeTasks.length > 0 && (
           <div className="flex items-center space-x-2 mb-3 pb-2 border-b">
             <Checkbox
@@ -895,10 +918,10 @@ const TaskList = React.memo(() => {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Combobox
-                      options={memoizedProjects.map(project => ({ value: project.id, label: project.name }))}
+                      options={[{ value: '', label: 'Inbox (no project)' }, ...memoizedProjects.map(project => ({ value: project.id, label: project.name }))]}
                       value={editingTask.projectId || ''}
                       onChange={(value) => setEditingTask({ ...editingTask, projectId: value })}
-                      placeholder="Select a project"
+                      placeholder="Inbox (no project)"
                       onCreateNew={handleCreateProjectForEdit}
                     />
                     <LabelPicker
@@ -945,12 +968,13 @@ const TaskList = React.memo(() => {
                       size="icon"
                       onClick={() => handleToggleTaskFocus(task.id, task.focus || false)}
                       className={`${task.focus ? 'text-yellow-500' : 'text-gray-400'}`}
-                      aria-label={task.focus ? 'Remove from focus' : 'Add to focus'}
+                      aria-label={task.focus ? 'Unstar task' : 'Star task'}
+                      aria-pressed={!!task.focus}
                     >
                       <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
                     </MobileButton>
                     <span className={`min-w-0 break-words max-w-full text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
-                    {task.projectId && <ProjectBadge projectId={task.projectId} />}
+                    <ProjectBadge projectId={task.projectId} />
                     <TaskLabels labelIds={task.labelIds} />
                     <span className="text-xs text-muted-foreground">
                       {task.totalPomodoroSessions || 0} focus sessions completed{task.estimatedPomodoros ? ` · ${task.estimatedPomodoros} estimated` : ''}
@@ -965,14 +989,17 @@ const TaskList = React.memo(() => {
                         {new Date(task.deadline) < new Date() && ' (Overdue)'}
                       </span>
                     )}
-                    <TaskTimeTracker
+                    <Button asChild size="sm">
+                      <Link href={`/?task=${encodeURIComponent(task.id)}`} aria-label={`Focus on ${task.title}`}>Focus</Link>
+                    </Button>
+                    {task.trackingStartedAt != null && <TaskTimeTracker
                       formattedTime={formatTime(getElapsedTime(task))}
                       elapsedTime={getElapsedTime(task)}
                       isTracking={task.trackingStartedAt != null}
                       onStart={() => handleStartTracking(task.id)}
                       onStop={() => handleStopTracking(task)}
                       disabled={task.completed}
-                    />
+                    />}
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -981,6 +1008,9 @@ const TaskList = React.memo(() => {
                       </MobileButton>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => task.trackingStartedAt != null ? handleStopTracking(task) : handleStartTracking(task.id)}>
+                        {task.trackingStartedAt != null ? 'Stop manual tracking' : 'Start manual tracking (no countdown)'}
+                      </DropdownMenuItem>
                       <DropdownMenuItem asChild>
                         <Link href={`/tasks/${task.id}`} className="flex items-center">
                           <Eye className="w-4 h-4 mr-2" />
