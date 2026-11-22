@@ -731,7 +731,7 @@ const TaskList = React.memo(() => {
   if (tasksError) return <div>Error loading tasks: {tasksError.message}</div>;
 
   return (
-    <Card className="w-full border-0 bg-transparent">
+    <Card className="w-full border-0 bg-transparent" data-wide-plan={canDragTasks || undefined}>
       <CardHeader className="flex-row items-center justify-between gap-2 space-y-0 px-0 pt-0">
         <CardTitle>{tasks.length === 0 ? 'What would you like to work on?' : 'Your Tasks'}</CardTitle>
         {!showAddTaskForm && tasks.length > 0 && <Button onClick={() => openTaskForm(taskView === 'all' ? '' : planDays[0])}>Add Task</Button>}
