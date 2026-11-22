@@ -48,7 +48,7 @@ export const metadata: Metadata = {
     ],
   },
   other: {
-    'msapplication-TileColor': '#3b82f6',
+    'msapplication-TileColor': '#315e4b',
     'msapplication-config': '/browserconfig.xml',
     'mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-capable': 'yes',
@@ -59,8 +59,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#3b82f6' },
-    { media: '(prefers-color-scheme: dark)', color: '#1e40af' },
+    { media: '(prefers-color-scheme: light)', color: '#315e4b' },
+    { media: '(prefers-color-scheme: dark)', color: '#234336' },
   ],
   width: 'device-width',
   initialScale: 1,

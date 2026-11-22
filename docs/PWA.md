@@ -38,7 +38,7 @@ Pomofly is implemented as a Progressive Web App (PWA) to provide a native app-li
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#3b82f6",
+  "theme_color": "#315e4b",
   "icons": [...]
 }
 ```
@@ -59,7 +59,7 @@ Complete icon set for all platforms:
 ### Meta Tags
 Comprehensive PWA meta tags for optimal installation:
 ```html
-<meta name="theme-color" content="#3b82f6">
+<meta name="theme-color" content="#315e4b">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Pomofly">
