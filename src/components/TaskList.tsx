@@ -14,7 +14,7 @@ import { taskDateKey, shiftTaskDate, shiftTaskMonth, startOfTaskWeek, formatTask
 import TaskPlan, { TASK_DRAG_TYPE } from './TaskPlan';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MoreHorizontal, Plus, Pencil, Trash2, Star, Calendar, ChevronDown, ChevronRight, ChevronLeft, Search, ArrowUpAZ, ArrowDownAZ, Filter, CheckCircle, Eye, FolderOpen } from 'lucide-react';
+import { Check, MoreHorizontal, Plus, Pencil, Trash2, Star, Calendar, ChevronDown, ChevronRight, ChevronLeft, Search, ArrowUpAZ, ArrowDownAZ, Filter, CheckCircle, Eye, FolderOpen } from 'lucide-react';
 import TaskTimeTracker from './TaskTimeTracker';
 import TimeTrackingControls from './TimeTrackingControls';
 import BulkActionToolbar from './BulkActionToolbar';
@@ -24,12 +24,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { Combobox } from './ui/combobox';
 import { cn } from '@/lib/utils';
 import LabelPicker, { LabelBadge } from './LabelPicker';
@@ -60,7 +54,7 @@ interface CompletedTasksSectionProps {
   onEditDeadline: (task: { id: string; deadline: string }) => void;
   onDeleteTask: (id: string) => void;
   event: AnalyticsEvent;
-  ProjectBadge: React.FC<{ projectId: string }>;
+  getProjectName: (projectId: string) => string;
   TaskLabels: React.FC<{ labelIds?: string[] }>;
 }
 
@@ -72,7 +66,7 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
   onEditDeadline,
   onDeleteTask,
   event,
-  ProjectBadge,
+  getProjectName,
   TaskLabels,
 }) => {
   const [open, setOpen] = useState(false);
@@ -88,49 +82,43 @@ const CompletedTasksSection: React.FC<CompletedTasksSectionProps> = ({
         {tasks.length} completed task{tasks.length > 1 ? 's' : ''}
       </button>
       {open && (
-        <ul className="space-y-2">
+        <ul>
           {tasks.map((task) => (
-            <li key={task.id} className="flex items-start justify-between gap-2 p-2 bg-muted rounded-md transition-colors">
-              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                <MobileButton
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onToggleTaskCompletion(task.id, task.completed)}
-                  className="text-primary hover:text-muted-foreground"
-                  aria-label="Mark as incomplete"
-                >
-                  <CheckCircle className="w-4 h-4" fill="currentColor" />
-                </MobileButton>
-                <MobileButton
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onToggleTaskFocus(task.id, task.focus || false)}
-                  className={`${task.focus ? 'text-amber-600' : 'text-muted-foreground'}`}
-                  aria-label={task.focus ? 'Unstar task' : 'Star task'}
-                  aria-pressed={!!task.focus}
-                >
-                  <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
-                </MobileButton>
-                <span className={`order-first min-w-0 basis-full break-words text-sm [overflow-wrap:anywhere] ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
-                {task.projectId && <ProjectBadge projectId={task.projectId} />}
-                <TaskLabels labelIds={task.labelIds} />
-                <span className="text-xs text-muted-foreground">
-                  {task.totalPomodoroSessions || 0} focus sessions completed{task.estimatedPomodoros ? ` · ${task.estimatedPomodoros} estimated` : ''}
-                </span>
-                {task.deadline && (
-                  <span className={`text-xs px-2 py-1 rounded ${
-                    task.deadline < taskDateKey(new Date())
-                      ? 'bg-red-100 text-red-800' 
-                      : 'bg-muted text-muted-foreground'
-                  }`}>
-                    Due {formatTaskDate(task.deadline)}
-                    {task.deadline < taskDateKey(new Date()) && ' (Overdue)'}
-                  </span>
-                )}
+            <li key={task.id} className="flex items-start gap-3 border-b py-2.5">
+              <MobileButton
+                variant="ghost"
+                size="icon"
+                onClick={() => onToggleTaskCompletion(task.id, task.completed)}
+                className="-mx-3 -my-2.5 h-10 w-10 shrink-0 hover:opacity-70 sm:-mx-2 sm:-my-1.5 sm:h-8 sm:w-8"
+                aria-label="Mark as incomplete"
+              >
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground"><Check className="h-3 w-3" strokeWidth={3} /></span>
+              </MobileButton>
+              <div className="min-w-0 flex-1">
+                <span className="block break-words leading-snug text-muted-foreground line-through [overflow-wrap:anywhere]">{task.title}</span>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground empty:hidden">
+                  {task.projectId && <span className="inline-flex min-w-0 items-center gap-1 break-words"><FolderOpen className="h-3 w-3 shrink-0" />{getProjectName(task.projectId)}</span>}
+                  <TaskLabels labelIds={task.labelIds} />
+                  {(task.totalPomodoroSessions || task.estimatedPomodoros) ? <span>
+                    <span aria-hidden="true">🍅</span> {task.totalPomodoroSessions || 0}{task.estimatedPomodoros ? `/${task.estimatedPomodoros}` : ''}
+                    <span className="sr-only"> focus sessions completed{task.estimatedPomodoros ? ` of ${task.estimatedPomodoros} estimated` : ''}</span>
+                  </span> : null}
+                  {task.deadline && <span className="rounded bg-muted px-1.5">Due {formatTaskDate(task.deadline)}</span>}
+                </div>
               </div>
+              <MobileButton
+                variant="ghost"
+                size="icon"
+                onClick={() => onToggleTaskFocus(task.id, task.focus || false)}
+                className={cn('-my-1.5 h-10 w-10 shrink-0 sm:h-8 sm:w-8', task.focus ? 'text-primary' : 'text-muted-foreground')}
+                aria-label={task.focus ? 'Unstar task' : 'Star task'}
+                aria-pressed={!!task.focus}
+              >
+                <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
+              </MobileButton>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <MobileButton variant="ghost" size="icon" aria-label={`Actions for ${task.title}`}>
+                  <MobileButton variant="ghost" size="icon" className="-my-1.5 h-10 w-10 shrink-0 sm:h-8 sm:w-8" aria-label={`Actions for ${task.title}`}>
                     <MoreHorizontal className="w-4 h-4" />
                   </MobileButton>
                 </DropdownMenuTrigger>
@@ -304,27 +292,6 @@ const TaskList = React.memo(() => {
     const project = memoizedProjects.find(p => p.id === projectId);
     return project?.name || 'Unknown Project';
   }, [memoizedProjects]);
-
-  // Project Badge Component
-  const ProjectBadge = ({ projectId }: { projectId: string }) => {
-    const projectName = getProjectName(projectId);
-
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="inline-flex max-w-full items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-secondary text-secondary-foreground transition-colors duration-150 hover:bg-secondary/80">
-              <FolderOpen className="w-3 h-3 shrink-0" />
-              <span className="min-w-0 break-words [overflow-wrap:anywhere]">{projectName}</span>
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{projectName}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  };
 
   // Task Labels Component
   const TaskLabels = ({ labelIds }: { labelIds?: string[] }) => {
@@ -1243,7 +1210,7 @@ const TaskList = React.memo(() => {
             onEditDeadline={setEditingDeadline}
             onDeleteTask={handleDeleteTask}
             event={event}
-            ProjectBadge={ProjectBadge}
+            getProjectName={getProjectName}
             TaskLabels={TaskLabels}
           />
         )}
