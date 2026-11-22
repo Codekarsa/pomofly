@@ -112,7 +112,7 @@ Android uses "maskable" icons that can be cropped into different shapes:
 
 ## Current Status
 
-⚠️ **Placeholder icons in place** - Replace with actual Pomofly branded icons
+✅ Icons generated from the Pomofly Sprout logo (`icon.svg`)
 ✅ Proper file structure and naming
 ✅ Manifest.json configuration
 ✅ Generation script ready
