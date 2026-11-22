@@ -506,8 +506,8 @@ const TaskList = React.memo(() => {
   // Only paginate active (incomplete) tasks after filtering/sorting
   const activeTasks = useMemo(() => sortedTasks.filter(task => !task.completed), [sortedTasks]);
   const selectableTasks = taskView === 'all' ? activeTasks
-    : taskView === 'calendar' ? activeTasks.filter(task => !task.plannedFor || task.plannedFor === calendarDay)
-    : activeTasks.filter(task => !task.plannedFor || task.plannedFor <= planDays[planDays.length - 1]);
+    : taskView === 'calendar' ? activeTasks.filter(task => task.plannedFor === calendarDay)
+    : activeTasks.filter(task => task.plannedFor && task.plannedFor <= planDays[planDays.length - 1]);
   const completedTasks = useMemo(() => sortedTasks.filter(task => task.completed), [sortedTasks]);
   const paginatedActiveTasks = useMemo(() =>
     activeTasks.slice(0, (currentPage + 1) * itemsPerPage),
@@ -949,7 +949,7 @@ const TaskList = React.memo(() => {
             disabled={activeTasks.length === 0}
           />
         </details>}
-        <p className="mb-3 text-sm text-muted-foreground">{taskView === 'all' ? `Showing ${paginatedActiveTasks.length} of ${activeTasks.length} active tasks` : taskView === 'calendar' ? `${selectableTasks.length} active tasks on the selected day or unscheduled` : `${selectableTasks.length} active tasks in this plan, including earlier and unscheduled work`} · {tasks.filter(task => !task.completed).length} active in total</p>
+        <p className="mb-3 text-sm text-muted-foreground">{taskView === 'all' ? `Showing ${paginatedActiveTasks.length} of ${activeTasks.length} active tasks` : taskView === 'calendar' ? `${selectableTasks.length} active tasks on the selected day` : `${selectableTasks.length} active tasks in this plan`} · {tasks.filter(task => !task.completed).length} active in total</p>
         {selectableTasks.length > 0 && (
           <div className="flex items-center space-x-2 mb-3 pb-2 border-b">
             <Checkbox
@@ -988,6 +988,7 @@ const TaskList = React.memo(() => {
           onAdd={openTaskForm}
           onShowAll={() => setTaskView('all')}
           onMove={canDragTasks ? handleMoveTask : undefined}
+          onPlan={handleMoveTask}
           calendarMonth={calendarMonth}
           onCalendarMonthChange={setCalendarMonth}
           onSelectDay={setCalendarDay}

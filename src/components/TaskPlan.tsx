@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Plus, ChevronLeft, ChevronRight, ChevronDown, Star } from 'lucide-react';
 import { Task } from '@/hooks/useTasks';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,7 @@ interface TaskPlanProps {
   onAdd: (day: string) => void;
   onShowAll: () => void;
   onMove?: (taskId: string, day: string) => void;
+  onPlan?: (taskId: string, day: string) => void;
   calendarMonth?: string;
   onCalendarMonthChange?: (month: string) => void;
   onSelectDay?: (day: string) => void;
@@ -24,9 +25,16 @@ interface TaskPlanProps {
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 const sessions = (tasks: Task[]) => tasks.reduce((total, task) => total + (task.estimatedPomodoros || 0), 0);
 
-export default function TaskPlan({ tasks, days, layout = 'list', renderTask, onAdd, onShowAll, onMove, calendarMonth, onCalendarMonthChange, onSelectDay }: TaskPlanProps) {
+export default function TaskPlan({ tasks, days, layout = 'list', renderTask, onAdd, onShowAll, onMove, onPlan, calendarMonth, onCalendarMonthChange, onSelectDay }: TaskPlanProps) {
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [notPlannedOpen, setNotPlannedOpen] = useState(true);
+  const [justPlanned, setJustPlanned] = useState<{ id: string; title: string; day: string } | null>(null);
+  useEffect(() => {
+    if (!justPlanned) return;
+    const timer = setTimeout(() => setJustPlanned(null), 6000);
+    return () => clearTimeout(timer);
+  }, [justPlanned]);
   if (!days) return <ul className="space-y-2">{tasks.map(task => renderTask(task))}</ul>;
   const today = taskDateKey(new Date());
   const tasksOn = (day: string) => tasks.filter(task => (task.plannedFor || '') === day);
@@ -35,7 +43,7 @@ export default function TaskPlan({ tasks, days, layout = 'list', renderTask, onA
   const showAllButton = (key: string, list: Task[]) => list.length > 5 && !expandedDays.has(key) &&
     <Button variant="ghost" size="sm" className="mt-2" onClick={() => setExpandedDays(previous => new Set(previous).add(key))}>Show all {list.length} tasks</Button>;
 
-  // '' is the Unscheduled drop target.
+  // '' is the Not planned yet drop target.
   const dropProps = (day: string) => onMove ? {
     onDragOver: (e: React.DragEvent) => {
       if (!Array.from(e.dataTransfer.types).includes(TASK_DRAG_TYPE)) return;
@@ -73,13 +81,52 @@ export default function TaskPlan({ tasks, days, layout = 'list', renderTask, onA
           </div>
           {addDay !== undefined && <Button size="sm" variant="outline" onClick={() => onAdd(addDay)} aria-label={`Add task to ${label}`}>+ Add task</Button>}
         </div>
-        {visible.length ? <ul>{visible.map(task => renderTask(task))}</ul> : <p className="text-xs text-muted-foreground py-2">{key ? 'Room for work, and life.' : `Tasks without a planned day appear here.${onMove ? ' Drag tasks here to unschedule them.' : ''}`}</p>}
+        {visible.length ? <ul>{visible.map(task => renderTask(task))}</ul> : <p className="text-xs text-muted-foreground py-2">Room for work, and life.</p>}
         {showAllButton(key, list)}
       </section>
     );
   };
 
-  const unscheduled = tasksOn('');
+  const dayName = (day: string) => day === today ? 'today' : day === shiftTaskDate(today, 1) ? 'tomorrow' : formatTaskDate(day);
+  // Due work first (soonest first), then starred, then the order the list is sorted in.
+  const notPlannedRank = (task: Task) => task.deadline ? 0 : task.focus ? 1 : 2;
+  const notPlanned = tasksOn('').sort((a, b) => notPlannedRank(a) - notPlannedRank(b) || (a.deadline && b.deadline ? a.deadline.localeCompare(b.deadline) : 0));
+  const notPlannedSection = (targetDay: string) => {
+    const visible = expandedDays.has('') ? notPlanned : notPlanned.slice(0, 4);
+    const plan = (task: Task, day: string) => {
+      onPlan?.(task.id, day);
+      setJustPlanned(day ? { id: task.id, title: task.title, day } : null);
+    };
+    return (
+      <section aria-label="Not planned yet" className={cn('border-t py-5 transition-shadow', dropTarget === '' && 'rounded-md', dropHighlight(''))} {...dropProps('')}>
+        <button type="button" className="flex items-center gap-1.5 text-sm font-semibold" aria-expanded={notPlannedOpen} onClick={() => setNotPlannedOpen(open => !open)}>
+          <ChevronDown className={cn('h-4 w-4 transition-transform', !notPlannedOpen && '-rotate-90')} />
+          Not planned yet <span className="font-normal text-muted-foreground">{notPlanned.length}</span>
+        </button>
+        {justPlanned && <p role="status" className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+          Added “{justPlanned.title}” to {dayName(justPlanned.day)}.
+          <Button size="sm" variant="ghost" className="h-7 px-2 underline" onClick={() => { const task = tasks.find(t => t.id === justPlanned.id); if (task) plan(task, ''); }}>Undo</Button>
+        </p>}
+        {notPlannedOpen && (notPlanned.length ? <ul className="mt-2">
+          {visible.map(task => (
+            <li
+              key={task.id}
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b py-2 last:border-b-0"
+              {...(onMove ? { draggable: true, onDragStart: (e: React.DragEvent) => { e.dataTransfer.setData(TASK_DRAG_TYPE, task.id); e.dataTransfer.effectAllowed = 'move'; } } : {})}
+            >
+              <span className="flex min-w-0 flex-1 basis-48 flex-wrap items-center gap-2 text-sm [overflow-wrap:anywhere]">
+                {task.title}
+                {task.deadline && <span className={cn('rounded px-2 py-0.5 text-xs', task.deadline < today ? 'bg-red-100 text-red-800' : 'bg-muted text-muted-foreground')}>Due {formatTaskDate(task.deadline)}{task.deadline < today && ' (Overdue)'}</span>}
+                {task.focus && <span className="flex items-center gap-1 text-xs text-muted-foreground"><Star className="h-3 w-3" fill="currentColor" />Starred</span>}
+              </span>
+              <Button size="sm" variant="outline" onClick={() => plan(task, targetDay)} aria-label={`Add ${task.title} to ${dayName(targetDay)}`}>+ Add to {dayName(targetDay)}</Button>
+            </li>
+          ))}
+        </ul> : <p className="py-2 text-xs text-muted-foreground">Everything has a day.{onMove ? ' Drag a task here to take it off its day.' : ''}</p>)}
+        {notPlannedOpen && showAllButton('', notPlanned)}
+      </section>
+    );
+  };
 
   if (layout === 'calendar' && calendarMonth && onCalendarMonthChange && onSelectDay) {
     const selectedDay = days[0];
@@ -145,7 +192,7 @@ export default function TaskPlan({ tasks, days, layout = 'list', renderTask, onA
           })}
         </div>
         {listSection(selectedDay, dayLabel(selectedDay), tasksOn(selectedDay), selectedDay)}
-        {listSection('', 'Unscheduled', unscheduled, '')}
+        {notPlannedSection(selectedDay)}
       </div>
     );
   }
@@ -159,7 +206,7 @@ export default function TaskPlan({ tasks, days, layout = 'list', renderTask, onA
     return (
       <div className="space-y-4" aria-label="Task plan">
         <p className="text-sm text-muted-foreground">
-          {plural(weekTasks.length, 'task')} planned · {sessions(weekTasks)} estimated focus sessions · {unscheduled.length} unscheduled
+          {plural(weekTasks.length, 'task')} planned · {sessions(weekTasks)} estimated focus sessions · {notPlanned.length} not planned yet
           {onMove && <span className="hidden md:inline"> · Drag tasks between days to reschedule.</span>}
         </p>
         <div className="grid gap-2 md:grid-cols-7">
@@ -194,7 +241,7 @@ export default function TaskPlan({ tasks, days, layout = 'list', renderTask, onA
           })}
         </div>
         {earlier.length > 0 && listSection('earlier', 'Earlier · ready to reschedule', earlier)}
-        {listSection('', 'Unscheduled', unscheduled, '')}
+        {notPlannedSection(days.includes(today) ? today : days[0])}
         {laterNotice}
       </div>
     );
@@ -202,9 +249,10 @@ export default function TaskPlan({ tasks, days, layout = 'list', renderTask, onA
 
   return (
     <div className="space-y-3" aria-label="Task plan">
-      {earlier.length > 0 && listSection('earlier', 'Earlier · ready to reschedule', earlier)}
-      {days.map(day => listSection(day, dayLabel(day), tasksOn(day), day))}
-      {listSection('', 'Unscheduled', unscheduled, '')}
+      {/* In Today, unfinished work from earlier days stays with today instead of in its own section. */}
+      {days[0] !== today && earlier.length > 0 && listSection('earlier', 'Earlier · ready to reschedule', earlier)}
+      {days.map(day => listSection(day, dayLabel(day), day === today ? [...tasksOn(day), ...earlier] : tasksOn(day), day))}
+      {notPlannedSection(days[0])}
       {laterNotice}
     </div>
   );

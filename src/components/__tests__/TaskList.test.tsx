@@ -281,7 +281,7 @@ it('plans a week, moves work, adds a forgotten task in context, and bulk edits d
     await user.click(screen.getByRole('option', { name: 'Work' }))
     await user.keyboard('{Escape}')
     expect(screen.getByRole('region', { name: 'Sun, Nov 22' })).toHaveTextContent('1 task · 🍅 3 estimated focus sessions')
-    expect(within(screen.getByRole('region', { name: 'Unscheduled' })).getByText('Work backlog')).toBeVisible()
+    expect(within(screen.getByRole('region', { name: 'Not planned yet' })).getByText('Work backlog')).toBeVisible()
     expect(screen.queryByText('Personal errand')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Actions for Work review' }))
     await user.click(screen.getByRole('menuitem', { name: 'Plan task / move to day' }))
@@ -314,7 +314,7 @@ it('plans a week, moves work, adds a forgotten task in context, and bulk edits d
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     tasks = JSON.parse(localStorage.getItem('pomofly_guest_tasks')!)
     expect(tasks.find((task: { id: string }) => task.id === 'sun')).toMatchObject({ plannedFor: null, deadline: '2026-11-30' })
-    expect(within(screen.getByRole('region', { name: 'Unscheduled' })).getByText('Work review')).toBeVisible()
+    expect(within(screen.getByRole('region', { name: 'Not planned yet' })).getByText('Work review')).toBeVisible()
   } finally {
     jest.useRealTimers()
   }
@@ -344,8 +344,8 @@ it('reschedules by dragging in the week board and shows planned work on the mont
     }
     drag('Call the bank', screen.getByRole('region', { name: 'Fri, Nov 27' }))
     await waitFor(() => expect(within(screen.getByRole('region', { name: 'Fri, Nov 27' })).getByText('Call the bank')).toBeVisible())
-    drag('Write report', screen.getByRole('region', { name: 'Unscheduled' }))
-    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Unscheduled' })).getByText('Write report')).toBeVisible())
+    drag('Write report', screen.getByRole('region', { name: 'Not planned yet' }))
+    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Not planned yet' })).getByText('Write report')).toBeVisible())
     let tasks = JSON.parse(localStorage.getItem('pomofly_guest_tasks')!)
     // Moving the planned day keeps the independent deadline.
     expect(tasks.find((task: { id: string }) => task.id === 'loose')).toMatchObject({ plannedFor: '2026-11-27', deadline: '2026-12-03' })
@@ -369,6 +369,46 @@ it('reschedules by dragging in the week board and shows planned work on the mont
     expect(tasks.find((task: { id: string }) => task.id === 'wed').plannedFor).toBe('2026-12-31')
     await user.click(screen.getByRole('button', { name: 'Add task to Wed, Dec 2' }))
     expect(screen.getByText('Planned for Wed, Dec 2', { exact: false })).toBeVisible()
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
+it('keeps leftovers with today and plans not-yet-planned work in one tap, with undo', async () => {
+  jest.useFakeTimers({ now: new Date(2026, 10, 23, 12) })
+  try {
+    localStorage.clear()
+    localStorage.setItem('pomofly_guest_tasks', JSON.stringify([
+      { id: 'left', title: 'Fix Safari sound', projectId: '', plannedFor: '2026-11-20', createdAt: new Date(), completed: false },
+      { id: 'plain', title: 'Clean up labels', projectId: '', createdAt: new Date(), completed: false },
+      { id: 'star', title: 'Refactor hook', projectId: '', focus: true, createdAt: new Date(), completed: false },
+      { id: 'later', title: 'Write retro', projectId: '', deadline: '2026-11-27', createdAt: new Date(), completed: false },
+      { id: 'soon', title: 'Renew domain', projectId: '', deadline: '2026-11-25', createdAt: new Date(), completed: false },
+    ]))
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime, pointerEventsCheck: 0 })
+    render(<TaskList />)
+    await user.click(screen.getByRole('button', { name: 'Today' }))
+    const today = () => screen.getByRole('region', { name: 'Today · Mon, Nov 23' })
+    const notPlanned = () => screen.getByRole('region', { name: 'Not planned yet' })
+    expect(within(today()).getByText('Fix Safari sound')).toBeVisible()
+    expect(screen.queryByRole('region', { name: /Earlier/ })).not.toBeInTheDocument()
+    // Soonest deadline first, then the other deadline, then starred, then the rest.
+    expect(within(notPlanned()).getAllByRole('listitem').map(item => item.textContent)).toEqual([
+      expect.stringContaining('Renew domain'), expect.stringContaining('Write retro'), expect.stringContaining('Refactor hook'), expect.stringContaining('Clean up labels'),
+    ])
+    const plannedFor = (id: string) => JSON.parse(localStorage.getItem('pomofly_guest_tasks')!).find((task: { id: string }) => task.id === id).plannedFor
+    await user.click(screen.getByRole('button', { name: 'Add Write retro to today' }))
+    await waitFor(() => expect(within(today()).getByText('Write retro')).toBeVisible())
+    expect(within(notPlanned()).queryByText('Write retro')).not.toBeInTheDocument()
+    expect(plannedFor('later')).toBe('2026-11-23')
+    expect(screen.getByRole('status')).toHaveTextContent('Added “Write retro” to today.')
+    await user.click(screen.getByRole('button', { name: 'Undo' }))
+    await waitFor(() => expect(within(notPlanned()).getByText('Write retro')).toBeVisible())
+    expect(plannedFor('later')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Tomorrow' }))
+    await user.click(screen.getByRole('button', { name: 'Add Clean up labels to tomorrow' }))
+    await waitFor(() => expect(plannedFor('plain')).toBe('2026-11-24'))
   } finally {
     jest.useRealTimers()
   }
