@@ -1,8 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // CSP headers implementation (remove output: export for server deployment)
-  // Commented out output: export to enable headers() function
-  // output: 'export',
+  output: 'export',
+  // Pages use JSX/TSX; server-only route.ts handlers are not part of static Hosting.
+  // Their source is retained, but running them requires a separate backend.
+  pageExtensions: ['tsx', 'jsx'],
   
   // Enable experimental features for better performance
   experimental: {
@@ -20,36 +21,7 @@ const nextConfig = {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
   },
   
-  // CSP headers for security
-  async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          {
-            key: 'Content-Security-Policy',
-            value: generateCSP()
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY'
-          },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff'
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'origin-when-cross-origin'
-          },
-          {
-            key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()'
-          }
-        ]
-      }
-    ];
-  },
+  // Static response headers are configured in firebase.json, not a Next server.
   
   // Enable more aggressive code splitting
   webpack: (config, { isServer }) => {
@@ -89,35 +61,5 @@ const nextConfig = {
     return config;
   },
 };
-
-// Enhanced CSP configuration for server-side deployment with XSS protection
-function generateCSP() {
-    const csp = [
-        "default-src 'self'",
-        // More restrictive script policy - remove unsafe-eval for better security
-        "script-src 'self' 'unsafe-inline'", // Note: Next.js requires unsafe-inline
-        "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
-        "font-src 'self' fonts.gstatic.com data:",
-        // More restrictive image sources
-        "img-src 'self' data: blob: https://lh3.googleusercontent.com", // Google profile images
-        "media-src 'self' data: blob:",
-        "object-src 'none'",
-        "embed-src 'none'", // Prevent embed tags
-        "base-uri 'self'",
-        "form-action 'self'",
-        "frame-ancestors 'none'",
-        "frame-src 'none'", // Prevent iframes
-        // Firebase domains + Claude API (Anthropic)
-        "connect-src 'self' *.googleapis.com *.firebase.com *.firebaseapp.com *.cloudfunctions.net wss://*.firebaseio.com https://api.anthropic.com",
-        // Service Worker
-        "worker-src 'self'",
-        // Prevent execution of plugins
-        "plugin-types 'none'",
-        // CSP violation reporting
-        "report-uri /api/csp-report"
-    ];
-    
-    return csp.join('; ');
-}
 
 export default nextConfig;

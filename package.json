@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "deploy": "npm run build && firebase deploy",
+    "start": "npx --yes firebase-tools@13 emulators:start --only hosting",
+    "deploy": "npm run build && npx --yes firebase-tools@13 deploy --only hosting",
     "lint": "next lint",
     "test": "jest",
     "test:watch": "jest --watch",

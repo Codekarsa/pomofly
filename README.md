@@ -59,17 +59,43 @@ PomoFly is a productivity application that combines the Pomodoro Technique with 
 
 ## Deployment
 
-This project is set up for deployment on Firebase Hosting. To deploy:
+Pomofly deploys as a static Next.js export on Firebase Hosting. It does not need
+Cloud Functions or the Blaze plan for Hosting. Firebase Auth and Firestore are
+accessed directly from the browser, subject to their own quotas and security rules.
+
+Set the `NEXT_PUBLIC_FIREBASE_*` build variables for the destination Firebase project
+(see `.env.example`), then:
 
 1. Build the project:
    ```
    npm run build
    ```
 
-2. Deploy to Firebase:
+2. Deploy the generated `out` folder to Hosting only:
    ```
-   npm run deploy
+   npx firebase-tools@13 deploy --only hosting
    ```
+
+`npm run deploy` combines these steps. Neither command deploys Firestore rules or
+indexes. The CI workflow has a separate Firestore deployment step.
+
+Firebase serves `/tasks/<id>` using the exported `/tasks/_` page; the browser reads
+the real task ID and loads the user's data. The rewrite in `firebase.json` is
+required for direct links and refreshes. Security headers are also served by
+Firebase, rather than a Next.js server.
+
+Only JSX/TSX pages are included in this static app (`pageExtensions` in
+`next.config.mjs`). The `src/app/api/**/route.ts` server handlers are retained as
+source but are **not deployed or available**, including Claude AI breakdown and
+server-side CSP/monitoring ingestion. AI breakdown is not connected to the current
+UI; client-side monitoring remains available. Do not expose an Anthropic secret in
+browser configuration. Enabling these server APIs later requires a separately
+deployed backend, not a static Hosting rewrite.
+
+To preview the built site with the same headers and rewrites, run `npm start`.
+This starts only the Firebase Hosting emulator; it does not emulate Auth or
+Firestore. Use guest mode for local-only test data. `next start` cannot serve a
+static export.
 
 ## Contributing
 
