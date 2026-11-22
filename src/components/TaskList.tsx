@@ -1029,18 +1029,18 @@ const TaskList = React.memo(() => {
             const taskMenu = (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <MobileButton variant="ghost" size="icon" className="shrink-0" aria-label={`Actions for ${task.title}`}>
+                      <MobileButton variant="ghost" size="icon" className="h-10 w-10 shrink-0 sm:h-8 sm:w-8" aria-label={`Actions for ${task.title}`}>
                         <MoreHorizontal className="w-4 h-4" />
                       </MobileButton>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {compact && <DropdownMenuItem asChild>
+                      <DropdownMenuItem asChild className={compact ? undefined : 'sm:hidden'}>
                         <Link href={`/?task=${encodeURIComponent(task.id)}`}>Focus</Link>
-                      </DropdownMenuItem>}
-                      {compact && <DropdownMenuItem onClick={() => handleToggleTaskFocus(task.id, task.focus || false)}>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className={compact ? undefined : 'sm:hidden'} onClick={() => handleToggleTaskFocus(task.id, task.focus || false)}>
                         <Star className="w-4 h-4 mr-2" />
                         {task.focus ? 'Unstar' : 'Star'}
-                      </DropdownMenuItem>}
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setDateError(null); setDateEditor({ ids: [task.id], field: 'plannedFor', value: task.plannedFor || '' }); }}>Plan task / move to day</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => task.trackingStartedAt != null ? handleStopTracking(task) : handleStartTracking(task.id)}>
                         {task.trackingStartedAt != null ? 'Stop manual tracking' : 'Start manual tracking (no countdown)'}
@@ -1114,7 +1114,7 @@ const TaskList = React.memo(() => {
               </li>
             );
             return (
-            <li key={task.id} {...dragProps} className={`flex items-start justify-between gap-2 border-b py-4 transition-colors ${selectedTasks.has(task.id) ? 'bg-secondary' : ''}`}>
+            <li key={task.id} {...dragProps} className={cn('flex items-start gap-3 border-b py-2.5 transition-colors', selectedTasks.has(task.id) && 'bg-secondary', canDragTasks && !editing && 'cursor-grab active:cursor-grabbing')}>
               {editingTask && editingTask.id === task.id ? (
                 <form onSubmit={handleUpdateTask} className="flex flex-col space-y-2 w-full min-w-0">
                   <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
@@ -1165,55 +1165,53 @@ const TaskList = React.memo(() => {
                 </form>
               ) : (
                 <>
-                  <div className="flex flex-1 min-w-0 flex-wrap items-center gap-2">
-                    <Checkbox
-                      checked={selectedTasks.has(task.id)}
-                      onCheckedChange={() => handleToggleSelection(task.id)}
-                      aria-label={`Select task: ${task.title}`}
-                    />
-                    <span className={`min-w-0 flex-1 break-words text-base font-medium [overflow-wrap:anywhere] ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
-                    <div className="flex basis-full flex-wrap items-center gap-2 pl-6">
-                    <ProjectBadge projectId={task.projectId} />
-                    <TaskLabels labelIds={task.labelIds} />
-                    {(task.totalPomodoroSessions || task.estimatedPomodoros) ? <span className="text-xs text-muted-foreground">
-                      {task.totalPomodoroSessions || 0} focus sessions completed{task.estimatedPomodoros ? ` · ${task.estimatedPomodoros} estimated` : ''}
-                    </span> : null}
-                    {task.deadline && (
-                      <span className={`text-xs px-2 py-1 rounded ${
-                        task.deadline < taskDateKey(new Date())
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-muted text-muted-foreground'
-                      }`}>
-                        Due {formatTaskDate(task.deadline)}
-                        {task.deadline < taskDateKey(new Date()) && ' (Overdue)'}
-                      </span>
-                    )}
-                    {task.plannedFor && <span className="text-xs rounded bg-secondary px-2 py-1 text-foreground">Planned {formatTaskDate(task.plannedFor)}</span>}
-                    {task.trackingStartedAt == null && (task.manualTimeSpent ?? 0) > 0 && <span className="text-xs font-mono text-muted-foreground">Tracked {formatTime(task.manualTimeSpent)}</span>}
-                    {task.trackingStartedAt != null && <TaskTimeTracker
-                      formattedTime={formatTime(getElapsedTime(task))}
-                      elapsedTime={getElapsedTime(task)}
-                      isTracking={task.trackingStartedAt != null}
-                      onStart={() => handleStartTracking(task.id)}
-                      onStop={() => handleStopTracking(task)}
-                      disabled={task.completed}
-                    />}
-                    </div>
-                    <div className="flex basis-full flex-wrap items-center gap-1 pl-6">
-                      <Button asChild size="sm" variant="outline">
-                        <Link href={`/?task=${encodeURIComponent(task.id)}`} aria-label={`Focus on ${task.title}`}>Focus</Link>
-                      </Button>
-                      <MobileButton variant="ghost" size="icon" onClick={() => handleToggleTaskCompletion(task.id, task.completed)}
-                        className="text-muted-foreground hover:text-primary" aria-label={task.completed ? 'Mark as incomplete' : 'Mark as complete'}>
-                        <CheckCircle className="w-4 h-4" fill={task.completed ? 'currentColor' : 'none'} />
-                      </MobileButton>
-                      <MobileButton variant="ghost" size="icon" onClick={() => handleToggleTaskFocus(task.id, task.focus || false)}
-                        className={task.focus ? 'text-primary' : 'text-muted-foreground'} aria-label={task.focus ? 'Unstar task' : 'Star task'} aria-pressed={!!task.focus}>
-                        <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
-                      </MobileButton>
+                  <Checkbox
+                    className="mt-0.5"
+                    checked={selectedTasks.has(task.id)}
+                    onCheckedChange={() => handleToggleSelection(task.id)}
+                    aria-label={`Select task: ${task.title}`}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <span className={`block break-words font-medium leading-snug [overflow-wrap:anywhere] ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground empty:hidden">
+                      {task.projectId && <span className="inline-flex min-w-0 items-center gap-1 break-words"><FolderOpen className="h-3 w-3 shrink-0" />{getProjectName(task.projectId)}</span>}
+                      <TaskLabels labelIds={task.labelIds} />
+                      {(task.totalPomodoroSessions || task.estimatedPomodoros) ? <span>
+                        <span aria-hidden="true">🍅</span> {task.totalPomodoroSessions || 0}{task.estimatedPomodoros ? `/${task.estimatedPomodoros}` : ''}
+                        <span className="sr-only"> focus sessions completed{task.estimatedPomodoros ? ` of ${task.estimatedPomodoros} estimated` : ''}</span>
+                      </span> : null}
+                      {task.deadline && (
+                        <span className={cn('rounded px-1.5', task.deadline < today ? 'bg-red-100 text-red-800' : 'bg-muted')}>
+                          Due {formatTaskDate(task.deadline)}{task.deadline < today && ' (Overdue)'}
+                        </span>
+                      )}
+                      {task.plannedFor && <span className="inline-flex items-center gap-1"><Calendar className="h-3 w-3" />Planned {formatTaskDate(task.plannedFor)}</span>}
+                      {task.trackingStartedAt == null && (task.manualTimeSpent ?? 0) > 0 && <span className="font-mono">Tracked {formatTime(task.manualTimeSpent)}</span>}
+                      {task.trackingStartedAt != null && <TaskTimeTracker
+                        formattedTime={formatTime(getElapsedTime(task))}
+                        elapsedTime={getElapsedTime(task)}
+                        isTracking={task.trackingStartedAt != null}
+                        onStart={() => handleStartTracking(task.id)}
+                        onStop={() => handleStopTracking(task)}
+                        disabled={task.completed}
+                      />}
                     </div>
                   </div>
-                  {taskMenu}
+                  {/* On phones Focus and Star live in the actions menu to keep rows to one column of buttons. */}
+                  <div className="-my-1 flex shrink-0 items-center">
+                    <Button asChild size="sm" variant="ghost" className="hidden h-8 sm:inline-flex">
+                      <Link href={`/?task=${encodeURIComponent(task.id)}`} aria-label={`Focus on ${task.title}`}>Focus</Link>
+                    </Button>
+                    <MobileButton variant="ghost" size="icon" onClick={() => handleToggleTaskCompletion(task.id, task.completed)}
+                      className="h-10 w-10 text-muted-foreground hover:text-primary sm:h-8 sm:w-8" aria-label={task.completed ? 'Mark as incomplete' : 'Mark as complete'}>
+                      <CheckCircle className="w-4 h-4" fill={task.completed ? 'currentColor' : 'none'} />
+                    </MobileButton>
+                    <MobileButton variant="ghost" size="icon" onClick={() => handleToggleTaskFocus(task.id, task.focus || false)}
+                      className={cn('hidden h-8 w-8 sm:inline-flex', task.focus ? 'text-primary' : 'text-muted-foreground')} aria-label={task.focus ? 'Unstar task' : 'Star task'} aria-pressed={!!task.focus}>
+                      <Star className="w-4 h-4" fill={task.focus ? 'currentColor' : 'none'} />
+                    </MobileButton>
+                    {taskMenu}
+                  </div>
                 </>
               )}
             </li>

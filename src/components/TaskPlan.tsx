@@ -61,7 +61,7 @@ export default function TaskPlan({ tasks, days, layout = 'list', renderTask, onA
     const visible = visibleTasks(key, list);
     const droppable = key !== 'earlier';
     return (
-      <section key={key} aria-label={label} className={cn('scroll-mt-3 rounded-md border-t py-5 transition-shadow', droppable && dropHighlight(key))} {...(droppable ? dropProps(key) : {})}>
+      <section key={key} aria-label={label} className={cn('scroll-mt-3 rounded-md border-t py-3 transition-shadow', droppable && dropHighlight(key))} {...(droppable ? dropProps(key) : {})}>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
           <div>
             <h3 className="font-semibold text-sm">{label}</h3>
