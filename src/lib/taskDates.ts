@@ -11,3 +11,14 @@ export function shiftTaskDate(date: string, days: number): string {
 export function formatTaskDate(date: string): string {
   return new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 }
+
+// Plans start weeks on Monday.
+export function startOfTaskWeek(date: string): string {
+  const [year, month, day] = date.split('-').map(Number);
+  return shiftTaskDate(date, -((new Date(year, month - 1, day, 12).getDay() + 6) % 7));
+}
+
+export function shiftTaskMonth(date: string, months: number): string {
+  const [year, month] = date.split('-').map(Number);
+  return taskDateKey(new Date(year, month - 1 + months, 1, 12));
+}

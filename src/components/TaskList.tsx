@@ -10,11 +10,11 @@ import { MobileButton } from '@/components/ui/mobile-button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { taskDateKey, shiftTaskDate, formatTaskDate } from '@/lib/taskDates';
-import TaskPlan from './TaskPlan';
+import { taskDateKey, shiftTaskDate, shiftTaskMonth, startOfTaskWeek, formatTaskDate } from '@/lib/taskDates';
+import TaskPlan, { TASK_DRAG_TYPE } from './TaskPlan';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MoreHorizontal, Plus, Pencil, Trash2, Star, Calendar, ChevronDown, ChevronRight, Search, ArrowUpAZ, ArrowDownAZ, Filter, CheckCircle, Eye, FolderOpen } from 'lucide-react';
+import { MoreHorizontal, Plus, Pencil, Trash2, Star, Calendar, ChevronDown, ChevronRight, ChevronLeft, Search, ArrowUpAZ, ArrowDownAZ, Filter, CheckCircle, Eye, FolderOpen } from 'lucide-react';
 import TaskTimeTracker from './TaskTimeTracker';
 import TimeTrackingControls from './TimeTrackingControls';
 import BulkActionToolbar from './BulkActionToolbar';
@@ -194,10 +194,13 @@ const TaskList = React.memo(() => {
   const titleInput = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
   const [created, setCreated] = useState<{ count: number; id: string } | null>(null);
-  const [taskView, setTaskView] = useState<'all' | 'today' | 'tomorrow' | 'week'>('all');
+  const [taskView, setTaskView] = useState<'all' | 'today' | 'tomorrow' | 'week' | 'calendar'>('all');
   const today = taskDateKey(new Date());
-  const [weekStart, setWeekStart] = useState(() => shiftTaskDate(today, -((new Date().getDay() + 6) % 7)));
-  const planDays = taskView === 'week' ? Array.from({ length: 7 }, (_, index) => shiftTaskDate(weekStart, index)) : [taskView === 'tomorrow' ? shiftTaskDate(today, 1) : today];
+  const [weekStart, setWeekStart] = useState(() => startOfTaskWeek(today));
+  const [calendarMonth, setCalendarMonth] = useState(() => shiftTaskMonth(today, 0));
+  const [calendarDay, setCalendarDay] = useState(today);
+  const planDays = taskView === 'week' ? Array.from({ length: 7 }, (_, index) => shiftTaskDate(weekStart, index)) : [taskView === 'calendar' ? calendarDay : taskView === 'tomorrow' ? shiftTaskDate(today, 1) : today];
+  const canDragTasks = taskView === 'week' || taskView === 'calendar';
   const [dateEditor, setDateEditor] = useState<{ ids: string[]; field: 'plannedFor' | 'deadline'; value: string } | null>(null);
   const [savingDates, setSavingDates] = useState(false);
   const [dateError, setDateError] = useState<string | null>(null);
@@ -343,7 +346,8 @@ const TaskList = React.memo(() => {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('view') === 'week') setTaskView('week');
+    const view = params.get('view');
+    if (view === 'week' || view === 'calendar') setTaskView(view);
     if (params.get('project')) setProjectFilter(params.get('project')!);
   }, []);
 
@@ -534,7 +538,9 @@ const TaskList = React.memo(() => {
 
   // Only paginate active (incomplete) tasks after filtering/sorting
   const activeTasks = useMemo(() => sortedTasks.filter(task => !task.completed), [sortedTasks]);
-  const selectableTasks = taskView === 'all' ? activeTasks : activeTasks.filter(task => !task.plannedFor || task.plannedFor <= planDays[planDays.length - 1]);
+  const selectableTasks = taskView === 'all' ? activeTasks
+    : taskView === 'calendar' ? activeTasks.filter(task => !task.plannedFor || task.plannedFor === calendarDay)
+    : activeTasks.filter(task => !task.plannedFor || task.plannedFor <= planDays[planDays.length - 1]);
   const completedTasks = useMemo(() => sortedTasks.filter(task => task.completed), [sortedTasks]);
   const paginatedActiveTasks = useMemo(() =>
     activeTasks.slice(0, (currentPage + 1) * itemsPerPage),
@@ -609,7 +615,7 @@ const TaskList = React.memo(() => {
   useEffect(() => {
     setSelectedTasks(new Set());
     setCurrentPage(0);
-  }, [projectFilter, labelFilter, statusFilter, search, taskView, weekStart]);
+  }, [projectFilter, labelFilter, statusFilter, search, taskView, weekStart, calendarDay]);
 
   const handleClearSelection = useCallback(() => {
     setSelectedTasks(new Set());
@@ -656,6 +662,17 @@ const TaskList = React.memo(() => {
     setSelectedTasks(new Set());
     event('bulk_set_focus', { count: tasksToUpdate.length, focus });
   }, [selectedTasks, tasks, toggleTaskFocus, event]);
+
+  const handleMoveTask = useCallback(async (taskId: string, day: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task || (task.plannedFor || '') === day) return;
+    try {
+      await setTaskDates([taskId], { plannedFor: day || null });
+      event('task_moved_in_plan', { task_id: taskId, view: taskView, scheduled: !!day });
+    } catch (error) {
+      console.error('Failed to move task:', error);
+    }
+  }, [tasks, setTaskDates, event, taskView]);
 
   const loadMoreTasks = useCallback(() => {
     if ((currentPage + 1) * itemsPerPage < activeTasks.length) {
@@ -848,15 +865,16 @@ const TaskList = React.memo(() => {
         {taskView === 'all' && <p className="mb-4 text-xs text-muted-foreground">Choose Focus to open a task in your timer. Star the work you want to come back to.</p>}
         <div className="flex flex-wrap gap-2 mb-4" aria-label="Task views">
           <Button variant={taskView === 'all' && statusFilter === 'all' ? 'default' : 'outline'} size="sm" onClick={() => { setStatusFilter('all'); setTaskView('all'); }} aria-pressed={taskView === 'all' && statusFilter === 'all'}>All tasks</Button>
-          {(['today', 'tomorrow', 'week'] as const).map(view => <Button key={view} variant={taskView === view ? 'default' : 'outline'} size="sm" aria-pressed={taskView === view} onClick={() => { setTaskView(view); setStatusFilter('all'); }}>{view === 'week' ? 'This week' : view === 'today' ? 'Today' : 'Tomorrow'}</Button>)}
+          {(['today', 'tomorrow', 'week', 'calendar'] as const).map(view => <Button key={view} variant={taskView === view ? 'default' : 'outline'} size="sm" aria-pressed={taskView === view} onClick={() => { setTaskView(view); setStatusFilter('all'); }}>{view === 'calendar' ? <><Calendar className="w-4 h-4 mr-2" />Calendar</> : { today: 'Today', tomorrow: 'Tomorrow', week: 'Week' }[view]}</Button>)}
           <Button variant={statusFilter === 'focused' && taskView === 'all' ? 'default' : 'outline'} size="sm" onClick={() => { setStatusFilter('focused'); setTaskView('all'); }} aria-pressed={statusFilter === 'focused' && taskView === 'all'}><Star className="w-4 h-4 mr-2" />Starred</Button>
         </div>
         {taskView !== 'all' && <div className="mb-4 space-y-2">
           <p className="text-sm text-muted-foreground">Plan when to work, independently of deadlines. Workload is shown in estimated focus sessions; breaks are not included.</p>
           {taskView === 'week' && <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" variant="outline" aria-label="Previous week" onClick={() => setWeekStart(shiftTaskDate(weekStart, -7))}>← Previous</Button>
+            <Button size="icon" variant="outline" aria-label="Previous week" onClick={() => setWeekStart(shiftTaskDate(weekStart, -7))}><ChevronLeft className="w-4 h-4" /></Button>
+            <Button size="sm" variant="outline" aria-label="Go to this week" disabled={weekStart === startOfTaskWeek(today)} onClick={() => setWeekStart(startOfTaskWeek(today))}>Today</Button>
+            <Button size="icon" variant="outline" aria-label="Next week" onClick={() => setWeekStart(shiftTaskDate(weekStart, 7))}><ChevronRight className="w-4 h-4" /></Button>
             <span className="text-sm font-medium">{formatTaskDate(weekStart)} – {formatTaskDate(shiftTaskDate(weekStart, 6))}</span>
-            <Button size="sm" variant="outline" aria-label="Next week" onClick={() => setWeekStart(shiftTaskDate(weekStart, 7))}>Next →</Button>
           </div>}
         </div>}
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 mb-4">
@@ -964,7 +982,7 @@ const TaskList = React.memo(() => {
             disabled={activeTasks.length === 0}
           />
         </details>}
-        <p className="mb-3 text-sm text-muted-foreground">{taskView === 'all' ? `Showing ${paginatedActiveTasks.length} of ${activeTasks.length} active tasks` : `${selectableTasks.length} active tasks in this plan, including earlier and unscheduled work`} · {tasks.filter(task => !task.completed).length} active in total</p>
+        <p className="mb-3 text-sm text-muted-foreground">{taskView === 'all' ? `Showing ${paginatedActiveTasks.length} of ${activeTasks.length} active tasks` : taskView === 'calendar' ? `${selectableTasks.length} active tasks on the selected day or unscheduled` : `${selectableTasks.length} active tasks in this plan, including earlier and unscheduled work`} · {tasks.filter(task => !task.completed).length} active in total</p>
         {selectableTasks.length > 0 && (
           <div className="flex items-center space-x-2 mb-3 pb-2 border-b">
             <Checkbox
@@ -999,10 +1017,104 @@ const TaskList = React.memo(() => {
         <TaskPlan
           tasks={taskView === 'all' ? paginatedActiveTasks : activeTasks}
           days={taskView === 'all' ? undefined : planDays}
+          layout={taskView === 'week' || taskView === 'calendar' ? taskView : 'list'}
           onAdd={openTaskForm}
           onShowAll={() => setTaskView('all')}
-          renderTask={(task) => (
-            <li key={task.id} className={`flex items-start justify-between gap-2 border-b py-4 transition-colors ${selectedTasks.has(task.id) ? 'bg-secondary' : ''}`}>
+          onMove={canDragTasks ? handleMoveTask : undefined}
+          calendarMonth={calendarMonth}
+          onCalendarMonthChange={setCalendarMonth}
+          onSelectDay={setCalendarDay}
+          renderTask={(task, compact) => {
+            const editing = editingTask?.id === task.id || editingDeadline?.id === task.id;
+            const taskMenu = (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <MobileButton variant="ghost" size="icon" className="shrink-0" aria-label={`Actions for ${task.title}`}>
+                        <MoreHorizontal className="w-4 h-4" />
+                      </MobileButton>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {compact && <DropdownMenuItem asChild>
+                        <Link href={`/?task=${encodeURIComponent(task.id)}`}>Focus</Link>
+                      </DropdownMenuItem>}
+                      {compact && <DropdownMenuItem onClick={() => handleToggleTaskFocus(task.id, task.focus || false)}>
+                        <Star className="w-4 h-4 mr-2" />
+                        {task.focus ? 'Unstar' : 'Star'}
+                      </DropdownMenuItem>}
+                      <DropdownMenuItem onClick={() => { setDateError(null); setDateEditor({ ids: [task.id], field: 'plannedFor', value: task.plannedFor || '' }); }}>Plan task / move to day</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => task.trackingStartedAt != null ? handleStopTracking(task) : handleStartTracking(task.id)}>
+                        {task.trackingStartedAt != null ? 'Stop manual tracking' : 'Start manual tracking (no countdown)'}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href={`/tasks/${task.id}`} className="flex items-center">
+                          <Eye className="w-4 h-4 mr-2" />
+                          View Detail
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        setEditingTask({
+                          id: task.id,
+                          title: task.title,
+                          estimatedPomodoros: task.estimatedPomodoros,
+                          projectId: task.projectId,
+                          labelIds: task.labelIds
+                        });
+                        event('task_edit_started', { task_id: task.id });
+                      }}>
+                        <Pencil className="w-4 h-4 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        setEditingDeadline({
+                          id: task.id,
+                          deadline: task.deadline || ''
+                        });
+                      }}>
+                        <Calendar className="w-4 h-4 mr-2" />
+                        Set Deadline
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDeleteTask(task.id)}>
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+            );
+            const dragProps = canDragTasks && !editing ? {
+              draggable: true,
+              onDragStart: (e: React.DragEvent) => { e.dataTransfer.setData(TASK_DRAG_TYPE, task.id); e.dataTransfer.effectAllowed = 'move'; },
+            } : {};
+            const overdue = !!task.deadline && task.deadline < today;
+            if (compact && !editing) return (
+              <li key={task.id} {...dragProps} className={cn('group rounded-md border bg-background p-2 text-sm shadow-sm transition-colors hover:border-primary/50', canDragTasks && 'cursor-grab active:cursor-grabbing', selectedTasks.has(task.id) && 'bg-secondary', task.focus && 'border-l-4 border-l-primary')}>
+                <div className="flex items-start gap-1.5">
+                  <Checkbox
+                    className="mt-0.5"
+                    checked={selectedTasks.has(task.id)}
+                    onCheckedChange={() => handleToggleSelection(task.id)}
+                    aria-label={`Select task: ${task.title}`}
+                  />
+                  <span className="min-w-0 flex-1 break-words font-medium leading-snug">{task.title}</span>
+                </div>
+                <div className="mt-1 flex flex-col gap-1 max-md:flex-row max-md:items-end">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 pb-1.5 pl-5 text-xs text-muted-foreground">
+                  {task.projectId && <span className="inline-flex min-w-0 items-center gap-1 break-words"><FolderOpen className="h-3 w-3 shrink-0" />{getProjectName(task.projectId)}</span>}
+                  {task.estimatedPomodoros ? <span><span aria-hidden="true">🍅</span> {task.totalPomodoroSessions || 0}/{task.estimatedPomodoros}<span className="sr-only"> focus sessions completed of estimated</span></span> : null}
+                  {task.deadline && <span className={cn('rounded px-1', overdue ? 'bg-red-100 text-red-800' : 'bg-muted')}>Due {formatTaskDate(task.deadline)}</span>}
+                  {task.trackingStartedAt != null && <span className="font-mono text-primary">{formatTime(getElapsedTime(task))}</span>}
+                </div>
+                <div className="-mb-1 -mr-1 flex shrink-0 items-center self-end">
+                  <MobileButton variant="ghost" size="icon" onClick={() => handleToggleTaskCompletion(task.id, task.completed)}
+                    className="h-8 w-8 text-muted-foreground hover:text-primary" aria-label={`Mark ${task.title} as complete`}>
+                    <CheckCircle className="w-4 h-4" />
+                  </MobileButton>
+                  {taskMenu}
+                </div>
+                </div>
+              </li>
+            );
+            return (
+            <li key={task.id} {...dragProps} className={`flex items-start justify-between gap-2 border-b py-4 transition-colors ${selectedTasks.has(task.id) ? 'bg-secondary' : ''}`}>
               {editingTask && editingTask.id === task.id ? (
                 <form onSubmit={handleUpdateTask} className="flex flex-col space-y-2 w-full min-w-0">
                   <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
@@ -1101,55 +1213,12 @@ const TaskList = React.memo(() => {
                       </MobileButton>
                     </div>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <MobileButton variant="ghost" size="icon" className="shrink-0" aria-label={`Actions for ${task.title}`}>
-                        <MoreHorizontal className="w-4 h-4" />
-                      </MobileButton>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => { setDateError(null); setDateEditor({ ids: [task.id], field: 'plannedFor', value: task.plannedFor || '' }); }}>Plan task / move to day</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => task.trackingStartedAt != null ? handleStopTracking(task) : handleStartTracking(task.id)}>
-                        {task.trackingStartedAt != null ? 'Stop manual tracking' : 'Start manual tracking (no countdown)'}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href={`/tasks/${task.id}`} className="flex items-center">
-                          <Eye className="w-4 h-4 mr-2" />
-                          View Detail
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => {
-                        setEditingTask({
-                          id: task.id,
-                          title: task.title,
-                          estimatedPomodoros: task.estimatedPomodoros,
-                          projectId: task.projectId,
-                          labelIds: task.labelIds
-                        });
-                        event('task_edit_started', { task_id: task.id });
-                      }}>
-                        <Pencil className="w-4 h-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => {
-                        setEditingDeadline({
-                          id: task.id,
-                          deadline: task.deadline || ''
-                        });
-                      }}>
-                        <Calendar className="w-4 h-4 mr-2" />
-                        Set Deadline
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDeleteTask(task.id)}>
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  {taskMenu}
                 </>
               )}
             </li>
-          )}
+            );
+          }}
         />
         {taskView === 'all' && paginatedActiveTasks.length < activeTasks.length && (
           <div className="flex justify-center mt-4">

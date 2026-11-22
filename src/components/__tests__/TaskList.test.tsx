@@ -271,7 +271,7 @@ it('plans a week, moves work, adds a forgotten task in context, and bulk edits d
     // jsdom does not render Radix portal pointer styles; real pointer behavior is checked in Chromium.
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime, pointerEventsCheck: 0 })
     render(<TaskList />)
-    await user.click(screen.getByRole('button', { name: 'This week' }))
+    await user.click(screen.getByRole('button', { name: 'Week' }))
     await user.click(screen.getByRole('combobox', { name: 'Sort tasks by' }))
     await user.keyboard('{ArrowDown}')
     await user.click(screen.getByRole('option', { name: 'Due date' }))
@@ -280,7 +280,7 @@ it('plans a week, moves work, adds a forgotten task in context, and bulk edits d
     await user.keyboard('{ArrowDown}')
     await user.click(screen.getByRole('option', { name: 'Work' }))
     await user.keyboard('{Escape}')
-    expect(within(screen.getByRole('region', { name: 'Sun, Nov 22' })).getByText('3 estimated focus sessions', { exact: false })).toBeVisible()
+    expect(screen.getByRole('region', { name: 'Sun, Nov 22' })).toHaveTextContent('1 task · 🍅 3 estimated focus sessions')
     expect(within(screen.getByRole('region', { name: 'Unscheduled' })).getByText('Work backlog')).toBeVisible()
     expect(screen.queryByText('Personal errand')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Actions for Work review' }))
@@ -294,7 +294,7 @@ it('plans a week, moves work, adds a forgotten task in context, and bulk edits d
     await user.click(screen.getByRole('button', { name: 'Add task to Mon, Nov 23' }))
     await user.type(screen.getByRole('textbox', { name: 'Task title (required)' }), 'Work forgotten follow-up')
     await user.click(screen.getByRole('button', { name: 'Add Task' }))
-    expect(screen.getByRole('button', { name: 'This week' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Week' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('combobox', { name: 'Sort tasks by' })).toHaveTextContent('Due date')
     expect(within(screen.getByRole('region', { name: 'Mon, Nov 23' })).getByText('Work forgotten follow-up')).toBeVisible()
     const added = JSON.parse(localStorage.getItem('pomofly_guest_tasks')!).find((task: { title: string }) => task.title === 'Work forgotten follow-up')
@@ -315,6 +315,60 @@ it('plans a week, moves work, adds a forgotten task in context, and bulk edits d
     tasks = JSON.parse(localStorage.getItem('pomofly_guest_tasks')!)
     expect(tasks.find((task: { id: string }) => task.id === 'sun')).toMatchObject({ plannedFor: null, deadline: '2026-11-30' })
     expect(within(screen.getByRole('region', { name: 'Unscheduled' })).getByText('Work review')).toBeVisible()
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
+it('reschedules by dragging in the week board and shows planned work on the month calendar', async () => {
+  jest.useFakeTimers({ now: new Date(2026, 10, 25, 12) })
+  try {
+    localStorage.clear()
+    localStorage.setItem('pomofly_guest_tasks', JSON.stringify([
+      { id: 'wed', title: 'Write report', projectId: '', plannedFor: '2026-11-25', estimatedPomodoros: 2, createdAt: new Date(), completed: false },
+      { id: 'loose', title: 'Call the bank', projectId: '', deadline: '2026-12-03', createdAt: new Date(), completed: false },
+      { id: 'dec', title: 'Plan holidays', projectId: '', plannedFor: '2026-12-02', createdAt: new Date(), completed: false },
+    ]))
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime, pointerEventsCheck: 0 })
+    render(<TaskList />)
+    await user.click(screen.getByRole('button', { name: 'Week' }))
+    // Weeks start on Monday, so Wednesday Nov 25 belongs to Nov 23 – Nov 29.
+    expect(screen.getByText(/Mon, Nov 23 – Sun, Nov 29/)).toBeVisible()
+    expect(within(screen.getByRole('region', { name: 'Today · Wed, Nov 25' })).getByText('Write report')).toBeVisible()
+    const drag = (taskTitle: string, target: HTMLElement) => {
+      const store: Record<string, string> = {}
+      const dataTransfer = { types: [] as string[], setData: (type: string, value: string) => { store[type] = value; dataTransfer.types.push(type) }, getData: (type: string) => store[type] || '', dropEffect: '', effectAllowed: '' }
+      fireEvent.dragStart(screen.getByText(taskTitle).closest('li')!, { dataTransfer })
+      fireEvent.dragOver(target, { dataTransfer })
+      fireEvent.drop(target, { dataTransfer })
+    }
+    drag('Call the bank', screen.getByRole('region', { name: 'Fri, Nov 27' }))
+    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Fri, Nov 27' })).getByText('Call the bank')).toBeVisible())
+    drag('Write report', screen.getByRole('region', { name: 'Unscheduled' }))
+    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Unscheduled' })).getByText('Write report')).toBeVisible())
+    let tasks = JSON.parse(localStorage.getItem('pomofly_guest_tasks')!)
+    // Moving the planned day keeps the independent deadline.
+    expect(tasks.find((task: { id: string }) => task.id === 'loose')).toMatchObject({ plannedFor: '2026-11-27', deadline: '2026-12-03' })
+    expect(tasks.find((task: { id: string }) => task.id === 'wed').plannedFor).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Calendar' }))
+    expect(screen.getByRole('heading', { name: 'November 2026' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Fri, Nov 27: 1 task planned' })).toBeVisible()
+    // December days that fill the last week are shown and counted too.
+    expect(screen.getByRole('button', { name: 'Wed, Dec 2: 1 task planned' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Thu, Dec 3: 0 tasks planned, 1 due' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Fri, Nov 27: 1 task planned' }))
+    expect(within(screen.getByRole('region', { name: 'Fri, Nov 27' })).getByText('Call the bank')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Next month' }))
+    expect(screen.getByRole('heading', { name: 'December 2026' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Wed, Dec 2: 1 task planned' }))
+    expect(within(screen.getByRole('region', { name: 'Wed, Dec 2' })).getByText('Plan holidays')).toBeVisible()
+    drag('Write report', screen.getByRole('button', { name: 'Thu, Dec 31: 0 tasks planned' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Thu, Dec 31: 1 task planned' })).toBeVisible())
+    tasks = JSON.parse(localStorage.getItem('pomofly_guest_tasks')!)
+    expect(tasks.find((task: { id: string }) => task.id === 'wed').plannedFor).toBe('2026-12-31')
+    await user.click(screen.getByRole('button', { name: 'Add task to Wed, Dec 2' }))
+    expect(screen.getByText('Planned for Wed, Dec 2', { exact: false })).toBeVisible()
   } finally {
     jest.useRealTimers()
   }
